@@ -3,7 +3,7 @@ title: "Project Context and Decision Log"
 domain: meta
 status: active
 created: 2025-07-11
-updated: 2025-07-11
+updated: 2026-09-16
 source: conversation
 depends_on: []
 tags: [context, decisions, roadmap]
@@ -28,11 +28,16 @@ anyone currently stitching together `tinyglobby` + `fs-extra` + `pathe` +
 
 ## Current State
 
-**Phase:** Pre-implementation. Architecture designed, competitive landscape
-verified, Phase 1 plan defined. No code written yet.
+**Phase:** Pre-implementation. Knowledge base updated 2026-09-16 to
+incorporate the Sept 2026 gap analysis (runtime lines, `node:fs.glob`,
+Bun 1.4, NAPI-RS iterator/AsyncTask, `unrs-resolver`, reference-code
+fixes, benchmark re-baseline). No code written yet.
 
-**Next action:** Generate `batch2.sh`–`batch6.sh` knowledge files, then begin
-Phase 1 implementation (Rust walker + TS Path class + benchmark harness).
+**Next action:** Begin Phase 1 per [phase-plan.md](./implementation/phase-plan.md)
+— **Step 0 pre-flight first**: owner sign-off on license + public name,
+NAPI-RS `async_iterator`/`AsyncTask` spike, CI matrix refresh
+(Node 24/26, Bun 1.3/1.4), then scaffolding + Rust walker + TS Path class
++ benchmark harness (vs `node:fs.glob`, fdir, tinyglobby, Bun 1.3/1.4).
 
 ---
 
@@ -83,17 +88,29 @@ own CI matrix is the support contract.
 
 ---
 
-## Verified Market Data (July 2025)
+## Verified Market Data
 
-| Library | Weekly Downloads | Stars | Notes |
+> **Round 1 figures below are from July 2025 — stale; re-pull before any
+> external publication.** Round 2 re-verification (Sept 2026): Node 24
+> LTS / Node 26 Current / Node 20 EOL; **`node:fs.glob` stable in Node
+> core** (enters our benchmark set); **Bun 1.4 rewrote Bun in Rust**
+> (CI + benchmarks on 1.3 **and** 1.4); chokidar 5.0.0; Deno 2 NAPI
+> support; **`unrs-resolver`** (our v1.0 Resolver is now an adapter over
+> it); Effect Platform v4 as adjacent typed-FS layer; NAPI-RS experimental
+> iterators + `AsyncTask` guidance. Full detail:
+> [competitive/verified-data.md](./competitive/verified-data.md).
+
+| Library | Weekly Downloads (Jul 2025) | Stars | Notes |
 |---------|-----------------|-------|-------|
-| `tinyglobby` | **186M** | 523 | New ecosystem default. Uses `fdir` + `picomatch`. |
+| `tinyglobby` | **186M** | 523 | Ecosystem default. Uses `fdir` + `picomatch`. |
 | `fast-glob` | 73M | 2,695 | Author recommends tinyglobby as replacement. |
 | `fdir` | 37M | 1,674 | Fastest JS crawler. ~1M files in <1s. |
 | `pathe` | — | ~2.5k | Pure path strings. No I/O. Used by Vite/Nuxt. |
 | `fs-extra` | — | ~9.5k | Legacy workhorse. No TS generics, no native speed. |
 | `fs-jetpack` | — | ~1k | Closest philosophical match. **Unmaintained 3+ years.** |
-| `Bun.Glob` | — | — | Native `scan()` traversal + `match()`. No composition. |
+| `Bun.Glob` | — | — | Native `scan()` traversal + `match()` (Rust since Bun 1.4). No composition. |
+| `node:fs.glob` (core) | — | — | **Stable C++-native glob in Node core (v22.17/v24+). Paths only — our benchmark baseline.** |
+| `unrs-resolver` | — | — | Published Rust resolver (ESM/CJS + tsconfig + PnP). We integrate, don't rebuild. |
 
 **Key gap confirmed:** No published library combines path objects + native
 traversal + pluggable serialization + TypeScript generics. Turbo and oxc have
@@ -107,13 +124,23 @@ internal Rust filesystem engines but don't publish them as libraries.
 |-------|-------|-----------------|
 | **v0.1** | `Path`, `walk`, `read/write`, `json` serializer, `exclude` | Prove architecture. Benchmark vs fdir/Bun. |
 | **v0.2** | `temp`, `hash`, `snapshot/diff`, `blake3`/`xxhash` | Build system adoption. |
-| **v0.3** | `sandbox`, `withLock`, `copyTo` (parallel), `transform` | Server & infra adoption. |
-| **v0.4** | `transaction`, `detect`, native TOML/YAML serializers | Power users, monorepos. |
-| **v1.0** | `resolve`, `watch`, streaming transforms, full CI matrix | Ecosystem replacement. |
+| **v0.3** | `sandbox` (openat-based), `withLock`, `copyTo`/`moveTo`, `transform`, symlink controls | Server & infra adoption. |
+| **v0.4** | `transaction`, `detect`, `watch` (notify), CAS, native TOML/YAML serializers | Power users, monorepos. |
+| **v1.0** | `resolve` (unrs-resolver adapter), streaming transforms, full CI matrix | Ecosystem replacement. |
 
 ---
 
 ## Open Questions
+
+> Status (Sept 2026 re-verification): **Q1 — answered, spike pending:**
+> NAPI-RS now ships experimental `#[napi(iterator)]` /
+> `#[napi(async_iterator)]` (native `AsyncGenerator`, pull-based,
+> `return()` = cancellation). Phase 1 Step 0 spikes it; chunked paging
+> remains the fallback. **Q2 — effectively answered:** the current NAPI-RS
+> decision table prescribes `AsyncTask<T>` (libuv thread pool) for
+> blocking/CPU work, sidestepping the Tokio-runtime question. **Q3 —**
+> resolved by the Q1 outcome (batching becomes a prefetch window only if
+> the iterator API is adopted). **Q4 — decision stands** (JSON in JS).
 
 1. **NAPI-RS v3 streaming:** Has `AsyncGenerator` binding stabilized, or is
    explicit chunked paging still the cleanest pattern?

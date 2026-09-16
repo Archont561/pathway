@@ -3,7 +3,7 @@ title: "Knowledge Base Index"
 domain: meta
 status: active
 created: 2025-07-11
-updated: 2025-07-11
+updated: 2026-09-16
 source: conversation
 depends_on: []
 tags: [index, navigation]

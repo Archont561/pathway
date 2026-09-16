@@ -3,7 +3,7 @@ title: "Competitive Landscape: Tiers 1–5, Full Library Map, Gap Matrix"
 domain: competitive
 status: decided
 created: 2025-07-11
-updated: 2025-07-11
+updated: 2026-09-16
 source: conversation
 depends_on:
   - meta/CONTEXT
@@ -26,6 +26,13 @@ type-safe API.
 This document maps the entire landscape across five tiers, identifies the
 exact gap we occupy, and provides the feature matrix that justifies the
 project's existence.
+
+> **Sept 2026 re-verification** (see [verified-data.md](./verified-data.md)
+> Round 2): three material additions — **`node:fs.glob`** (stable,
+> C++-native, in Node core), **Bun 1.4** (runtime rewritten in Rust,
+> 2× faster `Bun.Glob.scan`), and **`unrs-resolver`** (published Rust
+> resolver that subsumes our v1.0 build plan). Download figures from
+> Round 1 are stale; re-pull before external publication.
 
 ---
 
@@ -179,10 +186,66 @@ We provide both as composable features.
 
 ---
 
+### Effect Platform (`@effect/platform`) — *added Sept 2026*
+
+| Attribute | Value |
+|-----------|-------|
+| **Language** | TypeScript (abstract services + platform layers) |
+| **Status** | v4 in RC through early 2026; active |
+| **Runs on** | Node, Bun, Deno, browser |
+
+**What it does:**
+- Typed **FileSystem + Path services** with DI-composed layers
+  (`@effect/platform-node`, `-bun`, `-deno`, `-browser`)
+- File I/O with streams, directory reading, watch (via `@parcel/watcher`),
+  structured `Effect` error mapping
+
+**What it lacks:**
+- No native-speed traversal engine; no fused walk (stat+hash in one pass)
+- No content hashing, snapshots, sandboxing, transactions, locking
+- Heavier conceptual commitment (Effect runtime + DI)
+
+**Relationship to us:** Adjacent, not direct. It occupies the "typed
+filesystem for TypeScript" narrative space and is how Effect-based tools
+(an explicitly named target audience) do filesystem work today. Our
+fused-walk moat is unaffected, but "no typed FS abstraction exists" is no
+longer true — and an Effect adapter for our engine is a cheap future win.
+
+---
+
 ## Tier 2: Traversal / Glob Engines
 
 Libraries focused exclusively on finding files. This is the most competitive
 tier and the one where our fused-walk architecture must prove its value.
+
+### `node:fs.glob` (Node core) — *added Sept 2026*
+
+| Attribute | Value |
+|-----------|-------|
+| **Language** | C++ (Node.js core, built-in) |
+| **Stability** | **Stable** since v22.17.0 / v24.0.0 |
+| **Runs on** | Node 22.17+ / 24+ (including the current LTS and Current lines) |
+
+**What it does:**
+- `fs.glob(pattern, { cwd, exclude, withFileTypes, followSymlinks })` —
+  `exclude` as function **or** array of glob patterns; `followSymlinks`
+  since v26.1.0; URL `cwd` since v22.17.0/v24.0.0
+- Async-iterator **and** sync variants
+- **C++-native traversal in the runtime core** — the fastest "glob only"
+  baseline available on Node
+
+**What it lacks:**
+- Returns paths or `Dirent`s only — **no stat+hash fusion, no metadata**
+- No regex filtering, no Path objects, no serialization
+- No atomicity, sandboxing, locking, temp dirs, snapshots
+
+**Relationship to us:** The baseline the fused walk must beat *on Node*.
+Because it is C++-native, the honest benchmark is "our fused pipeline vs.
+`node:fs.glob` + `fs.stat` + `crypto` post-processing." The fusion delta
+survives (it still returns paths only), and the pitch must say exactly
+that. Added to the benchmark harness in [phase-plan.md](../implementation/phase-plan.md).
+
+---
 
 ### `tinyglobby`
 
@@ -397,12 +460,39 @@ Parcel and VS Code. We'd compete here in v1.0+ with `Path.watch()`.
 **Relevance:** Proves NAPI-RS for compute-heavy utilities. But **none are
 filesystem libraries**. The gap is wide open.
 
+### `unrs-resolver` — *added Sept 2026*
+
+| Attribute | Value |
+|-----------|-------|
+| **Binding** | NAPI-RS (Rust) |
+| **License** | MIT |
+| **Status** | Actively maintained; used by Rspack-class tooling |
+
+**What it does:**
+- Rust port of webpack's `enhanced-resolve` + `tsconfig-paths-webpack-plugin`
+  + `tsconfck`: ESM/CJS resolution per spec, package.json `exports`
+  conditionals, tsconfig `paths`/`extends`/references, Yarn PnP
+- Concurrent LRU caching, tracing, 74 platform targets, WASM + JS fallbacks
+- Published to npm with full TypeScript types
+
+**Relevance:** **Directly subsumes our v1.0 Resolver build plan.**
+[pluggable-patterns.md §E](../features/pluggable-patterns.md) now defines
+the deliverable as an adapter over `unrs-resolver` (Rust crate in the
+engine, or npm package), not a from-scratch resolver. The `Resolver`
+interface stays open for other implementations.
+
 ---
 
 ## Tier 4: Bun's Native Capabilities
 
 Bun ships with native filesystem primitives that overlap with parts of our
 API. Understanding these is critical for positioning.
+
+> **Update (Sept 2026):** Bun 1.3 (Jan 2026) and **Bun 1.4 (Aug 20, 2026 —
+> runtime rewritten in Rust**). `Bun.Glob.scan()` is ~2× faster than the
+> 2025-era implementation, and `Bun.GlobScanOptions` is now: `absolute`,
+> `cwd`, `dot` (default **false**), `followSymlinks`, `onlyFiles` (default
+> true), `throwErrorOnBrokenSymlink`, plus `scanSync`.
 
 | Feature | Bun Built-in | Our Value-Add |
 |---------|-------------|---------------|
@@ -451,27 +541,27 @@ foundation.
 This is the definitive comparison. **No existing library fills more than
 a fraction of the cells.**
 
-| Capability | `pathe` | `fs-extra` | `fs-jetpack` | `fast-glob` | `fdir` | `tinyglobby` | `Bun` | **@myorg/path** |
-|-----------|---------|-----------|-------------|------------|--------|-------------|-------|----------------|
-| Path objects | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Typed generics | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Read/Write | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Pluggable serializers | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Glob walk | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Regex walk | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Directory pruning | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ⚠️ | ✅ (native) |
-| Native Rust speed | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ⚡ | ⚡ |
-| Fused walk (stat+hash) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Content hashing | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (single) | ✅ (tree) |
-| Atomic writes | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Temp dirs (RAII) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| File locking | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Snapshots/diff | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Sandbox/containment | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Transactions | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Parallel bulk ops | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Async iterators | ❌ | ❌ | ❌ | ✅ (stream) | ✅ | ✅ | ✅ | ✅ |
-| Watch | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (v1.0) |
+| Capability | `pathe` | `fs-extra` | `fs-jetpack` | `fast-glob` | `fdir` | `tinyglobby` | `node:fs.glob` | `Bun` | **@myorg/path** |
+|-----------|---------|-----------|-------------|------------|--------|-------------|----------------|-------|----------------|
+| Path objects | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Typed generics | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Read/Write | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Pluggable serializers | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Glob walk | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ (core) | ✅ | ✅ |
+| Regex walk | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Directory pruning | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ⚠️ (exclude) | ⚠️ | ✅ (native) |
+| Native speed | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ⚡ (C++) | ⚡ (Rust, 1.4) | ⚡ (Rust) |
+| Fused walk (stat+hash) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Content hashing | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (single) | ✅ (tree) |
+| Atomic writes | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Temp dirs (RAII) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| File locking | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Snapshots/diff | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Sandbox/containment | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Transactions | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Parallel bulk ops | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Async iterators | ❌ | ❌ | ❌ | ✅ (stream) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Watch | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (v0.4) |
 
 ---
 
@@ -480,22 +570,36 @@ a fraction of the cells.**
 1. **The market gap is real and large.** No library occupies more than 4–5
    cells in the gap matrix. We target 18+.
 
-2. **The traversal space is consolidating.** `tinyglobby` (186M downloads)
-   is becoming infrastructure. We don't compete on raw glob matching — we
-   compete on the **fused pipeline** that comes after the glob.
+2. **The traversal space is consolidating — and now includes Node core.**
+   `tinyglobby` (186M downloads, 2025 figure) is becoming infrastructure,
+   and **`node:fs.glob` is stable and C++-native** (v22.17/v24.0.0). We
+   don't compete on raw glob matching — we compete on the **fused
+   pipeline** (stat+hash+filter) that comes after the glob. The honest
+   benchmark baseline on Node is `node:fs.glob` + `fs.stat` + `crypto`.
 
-3. **NAPI-RS filesystem gap is wide open.** Every NAPI-RS project found
-   involves compute (hashing, parsing, compiling), not filesystem
-   orchestration. Turbo and oxc have internal Rust FS engines but don't
-   publish them.
+3. **NAPI-RS filesystem gap is wide open (re-verified Sept 2026).** Every
+   NAPI-RS project found involves compute (hashing, parsing, compiling),
+   not filesystem orchestration. Turbo and oxc have internal Rust FS
+   engines but don't publish them.
 
 4. **`fs-jetpack` is dead.** The closest philosophical match (fluent path
    objects + read/write/find) hasn't been updated in 3+ years. The idea
    is validated; the implementation is abandoned.
 
-5. **Bun is an ally.** Bun's native primitives are fast but uncomposed.
-   We provide the orchestration layer that makes Bun's speed usable for
-   complex workflows.
+5. **Bun is an ally — re-validated for the Rust-rewrite era.** Bun 1.4
+   (Aug 2026) rewrote the runtime in Rust and sped up `Bun.Glob.scan` 2×,
+   but it still returns strings only. We provide the orchestration layer;
+   benchmarks must run on Bun 1.3 **and** 1.4.
+
+6. **`unrs-resolver` subsumes our v1.0 Resolver plan.** A maintained MIT
+   Rust resolver (ESM/CJS + tsconfig + PnP + LRU cache, 74 targets) is
+   already on npm — we integrate it instead of building one
+   (Sept 2026).
+
+7. **Effect Platform is the new adjacent in the typed-FS narrative.**
+   `@effect/platform` v4 (RC) gives Effect-based tools typed FileSystem/
+   Path services with streams and watch — not a fused-native threat, but
+   "no typed FS abstraction exists" is no longer a true pitch line.
 
 ---
 
@@ -506,7 +610,9 @@ a fraction of the cells.**
 | Use `pathe`, don't compete | Complementary; handles string ops we don't want in Rust |
 | Replace `fs-extra` | Legacy incumbent; we subsume its API with better types and speed |
 | Succeed `fs-jetpack` | Closest philosophical match; abandoned; we're the modern successor |
-| Beat `tinyglobby` on fused pipeline | Not on raw glob — on walk+stat+hash combined |
+| Beat `node:fs.glob` + JS incumbents on fused pipeline | Not on raw glob — on walk+stat+hash combined (Sept 2026 re-baseline) |
 | Learn from Turbo/oxc | They prove the architecture internally; we productize it |
-| Complement Bun | Use Bun's speed; add the composition layer it lacks |
+| Complement Bun (1.3 + 1.4) | Use Bun's speed; add the composition layer it lacks; re-benchmark after the Rust rewrite |
+| Integrate `unrs-resolver` for Resolvers | Published, maintained, MIT — integration beats rebuilding (Sept 2026) |
+| Record Effect Platform as adjacent | Narrative-space awareness; adapter is a cheap future win |
 | Build on Rust crate ecosystem | `ignore`, `blake3`, `serde` are battle-tested foundations |

@@ -3,7 +3,7 @@ title: "Serializer Pattern: Pluggable Codecs, Serde, Registry, Generics"
 domain: features
 status: decided
 created: 2025-07-11
-updated: 2025-07-11
+updated: 2026-09-16
 source: conversation
 depends_on:
   - architecture/core-layers
@@ -353,7 +353,9 @@ and letting V8 parse it.
 1. For **JSON**: Always use JS `JSON.parse()`. Return raw string from Rust.
 2. For **TOML/YAML/CBOR/MessagePack**: Use native Serde parsing. The JS
    ecosystem lacks fast C++ parsers for these formats, so the N-API object
-   creation overhead is worth it.
+   creation overhead is worth it. (Sept 2026: the `serde-json` feature of
+   `napi` provides the `serde_json::Value` → `JsUnknown` conversion this
+   path relies on — verified against current napi-rs docs.)
 3. For **very large files** (>10MB): Consider returning raw string and
    letting a WASM or JS parser handle it, regardless of format.
 

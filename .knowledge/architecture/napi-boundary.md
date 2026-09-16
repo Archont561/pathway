@@ -3,7 +3,7 @@ title: "Coarse-Grained FFI Boundary: What Stays JS, What Goes to Rust"
 domain: architecture
 status: decided
 created: 2025-07-11
-updated: 2025-07-11
+updated: 2026-09-16
 source: conversation
 depends_on:
   - architecture/core-layers
@@ -125,6 +125,28 @@ consumer. The batch size (256–1024) is tunable and should be benchmarked.
 
 See [fused-walk.md](./fused-walk.md) for the full traversal architecture.
 
+### 2026 Update: Native Async Iterators (Experimental)
+
+NAPI-RS now ships first-class iteration support (experimental, verified
+Sept 2026): `#[napi(async_iterator)]` makes a Rust class implement JS
+`Symbol.asyncIterator` natively, and `#[napi(iterator)]` covers sync
+iteration. The pull-based model is "easier to cancel and bound than pushing
+every item through an unbounded ThreadsafeFunction queue" (napi.rs docs),
+and `return()` — invoked on early `break` — is the cancellation hook.
+
+**Decision:** Phase 1 Step 0 runs a 1–2 day spike on `#[napi(async_iterator)]`
++ `AsyncTask` across Node 24/26 + Bun 1.3/1.4 before freezing the walker
+architecture. If it passes the napi.rs test checklist (forced GC, early
+break, overlapping `next()`, worker shutdown), the fused walk yields batches
+lazily as Rust traverses — eliminating eager full-scan latency, bounding
+memory to a prefetch window, and making `AbortSignal` cancellation native.
+Chunked paging (above) remains the fallback if the spike fails.
+
+Spike design constraints (from the docs): `Yield` must be `Send + 'static`
+owned values (our `FusedEntry` qualifies — no scoped JS values); overlapping
+`next()` calls are **not** serialized for us, so keep the cursor state
+machine.
+
 ---
 
 ## Rejected Alternatives
@@ -168,6 +190,16 @@ Bun-specific package
     Node-API (stable ABI)
 ```
 
+### Bun 1.4 (Rust runtime rewrite, Aug 2026)
+
+**Note, not a rejection:** Bun 1.4 (released Aug 20, 2026) rewrote Bun's
+runtime in Rust and shipped a 2× faster `Bun.Glob.scan()` (plus Windows
+ARM64 builds and Node 26.3 compatibility). The 2025 "Zig-based" assumptions
+in this file are void. N-API behavior is re-verified on **both** Bun 1.3.x
+and 1.4.x in CI (see
+[ci-distribution.md](../implementation/ci-distribution.md)); all
+Bun-comparison benchmarks must run on both lines.
+
 ### Neon (Alternative Rust Binding)
 
 **Decision: Not evaluated, NAPI-RS chosen.**
@@ -184,7 +216,8 @@ binary distribution is mature. No reason to evaluate alternatives.
 |----------|-----------|
 | `pathe` for all string ops | 10–40x faster than FFI round-trip for pure string work |
 | Coarse-grained FFI only | Bulk ops, native codecs, OS primitives — nothing else |
-| Batched yields (512) | Minimize N-API crossings while keeping clean async iterator API |
+| Batched yields (512) / native async iterator (spike) | Minimize N-API crossings; pull-based native iterators (experimental, Sept 2026) enable true streaming + cancellation if the Phase-1 spike passes |
+| Blocking work via `AsyncTask` | Per NAPI-RS decision table: libuv pool for blocking/CPU; avoids occupying a Tokio worker |
 | No WASM | Filesystem needs real OS access; WASM sandbox is wrong model |
 | No `bun:ffi` | Experimental; Node-API is stable and works on Bun |
-| NAPI-RS v3 | Industry standard; proven by SWC, Turbo, oxc |
+| NAPI-RS v3 | Industry standard; proven by SWC, Turbo, oxc; iterator APIs experimental as of Sept 2026 |
