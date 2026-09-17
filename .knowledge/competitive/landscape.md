@@ -1,16 +1,27 @@
 ---
+type: Market Intelligence
 title: "Competitive Landscape: Tiers 1–5, Full Library Map, Gap Matrix"
+description: "Five-tier competitive map — fdir, tinyglobby, fs-extra, pathe, Bun.Glob, fs-jetpack and more — with the gap matrix @myorg/path targets."
+tags: [competitive, landscape, gap-matrix, fdir, tinyglobby, fs-extra, pathe, bun]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
+stale_after: 2026-12-16T00:00:00Z
 domain: competitive
-status: decided
+decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2026-09-16
 source: conversation
 depends_on:
-  - meta/CONTEXT
+  - CONTEXT
   - features/walk-traversal
   - features/serializers
   - features/killer-features
-tags: [competitive, landscape, gap-matrix, fdir, tinyglobby, fs-extra, pathe, bun]
 ---
 
 # Competitive Landscape
@@ -27,7 +38,7 @@ This document maps the entire landscape across five tiers, identifies the
 exact gap we occupy, and provides the feature matrix that justifies the
 project's existence.
 
-> **Sept 2026 re-verification** (see [verified-data.md](./verified-data.md)
+> **Sept 2026 re-verification** (see [verified-data.md](/competitive/verified-data.md)
 > Round 2): three material additions — **`node:fs.glob`** (stable,
 > C++-native, in Node core), **Bun 1.4** (runtime rewritten in Rust,
 > 2× faster `Bun.Glob.scan`), and **`unrs-resolver`** (published Rust
@@ -65,7 +76,7 @@ Libraries that attempt to provide a higher-level filesystem API on top of
 
 **Relationship to us:** Complementary, not competitive. We **use `pathe`
 internally** for all path string manipulation (see
-[napi-boundary.md](../architecture/napi-boundary.md)). `pathe` handles the
+[napi-boundary.md](/architecture/napi-boundary.md)). `pathe` handles the
 string layer; we handle the I/O layer.
 
 ---
@@ -243,7 +254,7 @@ tier and the one where our fused-walk architecture must prove its value.
 Because it is C++-native, the honest benchmark is "our fused pipeline vs.
 `node:fs.glob` + `fs.stat` + `crypto` post-processing." The fusion delta
 survives (it still returns paths only), and the pitch must say exactly
-that. Added to the benchmark harness in [phase-plan.md](../implementation/phase-plan.md).
+that. Added to the benchmark harness in [phase-plan.md](/implementation/phase-plan.md).
 
 ---
 
@@ -276,7 +287,7 @@ that. Added to the benchmark harness in [phase-plan.md](../implementation/phase-
 **Relationship to us:** The primary traversal competitor. Our benchmark
 must beat `tinyglobby` + post-traversal stat/hash pipeline by ≥5x on the
 **full fused pipeline** (not just raw traversal). See
-[fused-walk.md](../architecture/fused-walk.md).
+[fused-walk.md](/architecture/fused-walk.md).
 
 ---
 
@@ -476,7 +487,7 @@ filesystem libraries**. The gap is wide open.
 - Published to npm with full TypeScript types
 
 **Relevance:** **Directly subsumes our v1.0 Resolver build plan.**
-[pluggable-patterns.md §E](../features/pluggable-patterns.md) now defines
+[pluggable-patterns.md §E](/features/pluggable-patterns.md) now defines
 the deliverable as an adapter over `unrs-resolver` (Rust crate in the
 engine, or npm package), not a from-scratch resolver. The `Resolver`
 interface stays open for other implementations.

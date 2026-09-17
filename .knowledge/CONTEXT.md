@@ -1,12 +1,19 @@
 ---
+type: Project Context
 title: "Project Context and Decision Log"
+description: "Identity, current state, foundational decisions D1–D6, market snapshot, roadmap, and bundle conventions for @myorg/path."
+tags: [context, decisions, roadmap]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2026-09-16T00:00:00Z
 domain: meta
-status: active
 created: 2025-07-11
-updated: 2026-09-16
 source: conversation
 depends_on: []
-tags: [context, decisions, roadmap]
 ---
 
 # @myorg/path — Project Context
@@ -33,7 +40,7 @@ incorporate the Sept 2026 gap analysis (runtime lines, `node:fs.glob`,
 Bun 1.4, NAPI-RS iterator/AsyncTask, `unrs-resolver`, reference-code
 fixes, benchmark re-baseline). No code written yet.
 
-**Next action:** Begin Phase 1 per [phase-plan.md](./implementation/phase-plan.md)
+**Next action:** Begin Phase 1 per [phase-plan.md](/implementation/phase-plan.md)
 — **Step 0 pre-flight first**: owner sign-off on license + public name,
 NAPI-RS `async_iterator`/`AsyncTask` spike, CI matrix refresh
 (Node 24/26, Bun 1.3/1.4), then scaffolding + Rust walker + TS Path class
@@ -98,7 +105,7 @@ own CI matrix is the support contract.
 > support; **`unrs-resolver`** (our v1.0 Resolver is now an adapter over
 > it); Effect Platform v4 as adjacent typed-FS layer; NAPI-RS experimental
 > iterators + `AsyncTask` guidance. Full detail:
-> [competitive/verified-data.md](./competitive/verified-data.md).
+> [competitive/verified-data.md](/competitive/verified-data.md).
 
 | Library | Weekly Downloads (Jul 2025) | Stars | Notes |
 |---------|-----------------|-------|-------|
@@ -156,20 +163,43 @@ internal Rust filesystem engines but don't publish them as libraries.
 
 ## File Conventions
 
-All knowledge files use YAML frontmatter:
+This knowledge base is an **Open Knowledge Format (OKF) v0.2** bundle
+(`okf_version: "0.2"` in [index.md](/index.md); spec:
+`GoogleCloudPlatform/open-knowledge-format`). One file = one concept;
+the reserved files are `index.md` (progressive-disclosure index) and
+`log.md` (update log, newest first). Concept links use
+bundle-root-absolute paths (`/architecture/fused-walk.md`).
+
+Concept frontmatter:
 
 ```yaml
 ---
+type: Project Context | Architecture Decision | Feature Spec |
+      Market Intelligence | Implementation Spec |
+      Reference Implementation | Roadmap    # required by OKF
 title: "Human-readable title"
+description: "One-line summary, mirrored in index.md"
+tags: [tag1, tag2]
+status: stable | draft | deprecated        # OKF lifecycle (§5.4)
+generated:                                  # last content change (§5.2)
+  by: pathway_kb/1.0
+  at: YYYY-MM-DDThh:mm:ssZ
+verified:                                   # trust events (§5.2/§5.3)
+  - by: human:archont561                   #   human: ⇒ human-reviewed
+    at: YYYY-MM-DDThh:mm:ssZ
+  - by: process:gap-analysis-2026-09       #   process: ⇒ machine-confirmed
+    at: YYYY-MM-DDThh:mm:ssZ
+stale_after: YYYY-MM-DDThh:mm:ssZ           # only where facts decay
 domain: architecture | features | competitive | implementation | meta
-status: decided | proposed | pending | deprecated
+decision: decided | proposed | deprecated   # legacy KB decision status
 created: YYYY-MM-DD
-updated: YYYY-MM-DD
 source: conversation | web-search | benchmark
 depends_on:
-  - domain/filename       # without .md extension
-tags: [tag1, tag2]
+  - domain/filename       # concept IDs: bundle path without .md
 ---
 ```
 
-Navigate via [INDEX.md](./INDEX.md).
+`domain`, `decision`, `created`, `source`, and `depends_on` are
+producer-defined extension keys; OKF consumers preserve unknown keys.
+
+Navigate via [index.md](/index.md).

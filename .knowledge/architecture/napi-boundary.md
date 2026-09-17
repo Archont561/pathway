@@ -1,14 +1,24 @@
 ---
+type: Architecture Decision
 title: "Coarse-Grained FFI Boundary: What Stays JS, What Goes to Rust"
+description: "Coarse-grained FFI policy: what stays in TypeScript, what crosses to Rust, and why per-call boundary hops are banned."
+tags: [napi-rs, ffi, boundary, performance, wasm, bun]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: architecture
-status: decided
+decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2026-09-16
 source: conversation
 depends_on:
   - architecture/core-layers
   - competitive/verified-data
-tags: [napi-rs, ffi, boundary, performance, wasm, bun]
 ---
 
 # N-API Boundary Design
@@ -123,7 +133,7 @@ Consumer: for await (const file of ...)
 This minimizes N-API crossings while providing a clean per-file API to the
 consumer. The batch size (256–1024) is tunable and should be benchmarked.
 
-See [fused-walk.md](./fused-walk.md) for the full traversal architecture.
+See [fused-walk.md](/architecture/fused-walk.md) for the full traversal architecture.
 
 ### 2026 Update: Native Async Iterators (Experimental)
 
@@ -197,7 +207,7 @@ runtime in Rust and shipped a 2× faster `Bun.Glob.scan()` (plus Windows
 ARM64 builds and Node 26.3 compatibility). The 2025 "Zig-based" assumptions
 in this file are void. N-API behavior is re-verified on **both** Bun 1.3.x
 and 1.4.x in CI (see
-[ci-distribution.md](../implementation/ci-distribution.md)); all
+[ci-distribution.md](/implementation/ci-distribution.md)); all
 Bun-comparison benchmarks must run on both lines.
 
 ### Neon (Alternative Rust Binding)

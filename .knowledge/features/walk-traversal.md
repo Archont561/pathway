@@ -1,15 +1,25 @@
 ---
+type: Feature Spec
 title: "Walk Engine: Glob, Regex, Exclude, Pruning, Predicates"
+description: "Walk engine API: glob and regex matching, excludes, pruning, predicate composition, async iteration, chunked batching."
+tags: [walk, traversal, glob, regex, exclude, pruning, predicate, async-iterator]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: features
-status: decided
+decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2026-09-16
 source: conversation
 depends_on:
   - architecture/core-layers
   - architecture/fused-walk
   - competitive/verified-data
-tags: [walk, traversal, glob, regex, exclude, pruning, predicate, async-iterator]
 ---
 
 # Walk & Traversal Engine
@@ -18,7 +28,7 @@ tags: [walk, traversal, glob, regex, exclude, pruning, predicate, async-iterator
 
 `walkFiles()` is the **flagship feature** of `@myorg/path`. It is the primary
 justification for the native Rust dependency and the core of the fused-walk
-architecture (see [fused-walk.md](../architecture/fused-walk.md)).
+architecture (see [fused-walk.md](/architecture/fused-walk.md)).
 
 The API must feel effortless while the complexity lives entirely underneath:
 
@@ -427,7 +437,7 @@ class WalkIterator implements AsyncIterableIterator<PathEntry> {
 > `#[napi(async_iterator)]` (native `AsyncGenerator`). If it passes the
 > runtime matrix, this class is replaced by the native pull-based iterator
 > and batches become a prefetch window inside Rust. See
-> [napi-boundary.md](../architecture/napi-boundary.md) for the decision.
+> [napi-boundary.md](/architecture/napi-boundary.md) for the decision.
 
 ### Batch Size Tuning
 
@@ -541,7 +551,7 @@ single-shot.
    on case-insensitive volumes (macOS/Windows defaults), case-sensitive
    elsewhere — mirroring `std::path` behavior, like fast-glob's default.
 5. **mtime** is exposed in ms (JS `Date`); internal snapshot storage keeps
-   full nanosecond precision (see [killer-features.md](./killer-features.md)
+   full nanosecond precision (see [killer-features.md](/features/killer-features.md)
    §2) because build systems write files within the same millisecond.
 
 ---

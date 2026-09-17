@@ -1,15 +1,25 @@
 ---
+type: Feature Spec
 title: "Pluggable Patterns: Transformers, Hashers, Detectors, Validators, Resolvers, CAS"
+description: "Extension points: transformers, hashers, detectors, validators, resolvers (unrs-resolver adapter), and content-addressed storage."
+tags: [pluggable, transformer, hasher, detector, validator, resolver, pattern]
+status: draft
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: features
-status: proposed
+decision: proposed  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2026-09-16
 source: conversation
 depends_on:
   - architecture/core-layers
   - features/serializers
   - features/killer-features
-tags: [pluggable, transformer, hasher, detector, validator, resolver, pattern]
 ---
 
 # Pluggable Strategy Patterns
@@ -426,7 +436,7 @@ await cas.gc({ keep: [manifest] });              // drop unreferenced blobs
 - Digests are of **(path, content)** — not content only — so trees with
   identical files at different paths stay distinguishable.
 - Blobs are append-only; `gc` acquires the section-6 lock from
-  [killer-features.md](./killer-features.md) before pruning.
+  [killer-features.md](/features/killer-features.md) before pruning.
 - Deterministic: same tree → same digests, any machine (sorted fold, see
   walk-traversal.md).
 

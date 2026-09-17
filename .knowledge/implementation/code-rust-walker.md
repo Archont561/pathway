@@ -1,16 +1,26 @@
 ---
+type: Reference Implementation
 title: "Rust NativeScanner: ignore Crate, Chunked Batching, Fused Walk"
+description: "Reference Rust engine: NativeScanner over the ignore crate, chunked batching, fused stat+hash pipeline, NAPI exposure."
+tags: [rust, code, walker, ignore, napi, scanner, fused]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: implementation
-status: decided
+decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2026-09-16
 source: conversation
 depends_on:
   - architecture/fused-walk
   - architecture/napi-boundary
   - features/walk-traversal
   - implementation/repo-structure
-tags: [rust, code, walker, ignore, napi, scanner, fused]
 ---
 
 # Rust Walker Implementation
@@ -44,7 +54,7 @@ Results are returned in **batches** to minimize N-API boundary crossings.
 > matrix, `scan()`'s full materialization is replaced by a pull-based
 > `AsyncGenerator` (true streaming + native cancellation via `return()`).
 > See the "Target: Native Async Iterator" section below and
-> [napi-boundary.md](../architecture/napi-boundary.md).
+> [napi-boundary.md](/architecture/napi-boundary.md).
 
 ---
 
@@ -159,7 +169,7 @@ pub struct FusedEntry {
 
 > `mtime` is ms for the JS API (Date-compatible, < 2^53). Full nanosecond
 > precision is retained in Phase-2 snapshot storage (see
-> [killer-features.md](../features/killer-features.md) §2) — Rust
+> [killer-features.md](/features/killer-features.md) §2) — Rust
 > `Duration` carries sub-ms precision; don't widen the JS field.
 
 ---
@@ -579,7 +589,7 @@ fn main() {
 
 7. **Globs are root-relative; regex is absolute.** This split is
    intentional (glob = structure, regex = arbitrary pattern) and is
-   documented in [walk-traversal.md](../features/walk-traversal.md).
+   documented in [walk-traversal.md](/features/walk-traversal.md).
 
 ---
 

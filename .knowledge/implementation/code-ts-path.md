@@ -1,9 +1,20 @@
 ---
+type: Reference Implementation
 title: "TypeScript Path Class, Serializer<T>, WalkIterator, FileSystem"
+description: "Reference TypeScript surface: Path class, Serializer<T>, WalkIterator, and the FileSystem factory."
+tags: [typescript, code, path, serializer, walk, filesystem, api]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: implementation
-status: decided
+decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2026-09-16
 source: conversation
 depends_on:
   - architecture/core-layers
@@ -11,7 +22,6 @@ depends_on:
   - features/walk-traversal
   - implementation/code-rust-walker
   - implementation/repo-structure
-tags: [typescript, code, path, serializer, walk, filesystem, api]
 ---
 
 # TypeScript API Implementation

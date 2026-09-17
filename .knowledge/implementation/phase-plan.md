@@ -1,9 +1,20 @@
 ---
+type: Roadmap
 title: "Phase 1–4 Implementation Plan, v0.1–v1.0 Roadmap, Benchmark Harness"
+description: "Phase 1–4 delivery plan from v0.1 skeleton to v1.0 ecosystem replacement, with benchmark-harness gates."
+tags: [phase, roadmap, benchmark, v0.1, v1.0, plan]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: implementation
-status: decided
+decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2026-09-16
 source: conversation
 depends_on:
   - architecture/fused-walk
@@ -12,7 +23,6 @@ depends_on:
   - features/killer-features
   - competitive/positioning
   - implementation/repo-structure
-tags: [phase, roadmap, benchmark, v0.1, v1.0, plan]
 ---
 
 # Implementation Phase Plan
@@ -41,8 +51,8 @@ Gates from the gap analysis; Phase 1 does not start until these are done:
       the private `@myorg` scope is incompatible with the public adoption
       targets (1M downloads / "default FS library").
 - [ ] **Fix the reference-code defects** now documented in
-      [code-rust-walker.md](./code-rust-walker.md) /
-      [code-ts-path.md](./code-ts-path.md): walkDirs filter, `Vec<String>`
+      [code-rust-walker.md](/implementation/code-rust-walker.md) /
+      [code-ts-path.md](/implementation/code-ts-path.md): walkDirs filter, `Vec<String>`
       globs, generated binding loader, root-relative glob matching, error
       collection, `dot`/`gitignore`, chunked hashing, `cancel()`/`errors()`.
 - [ ] **NAPI-RS spike (1–2 days):** `#[napi(async_iterator)]` +
@@ -60,7 +70,7 @@ Gates from the gap analysis; Phase 1 does not start until these are done:
 - [ ] Configure NAPI-RS v3 with `tokio` async support
 - [ ] Set up TypeScript build (tsc, vitest)
 - [ ] Verify "hello world" NAPI-RS binding compiles and loads on Node + Bun
-- [ ] Set up GitHub Actions CI skeleton (see [ci-distribution.md](./ci-distribution.md))
+- [ ] Set up GitHub Actions CI skeleton (see [ci-distribution.md](/implementation/ci-distribution.md))
 
 #### Step 1.2: Rust Traversal Engine (Weeks 2–3)
 - [ ] Implement `NativeScanner` using `ignore` crate
@@ -80,7 +90,7 @@ Gates from the gap analysis; Phase 1 does not start until these are done:
       glob-semantics matrix** (nested/root-level `**/*.ts`, `*.ts`,
       Windows separators)
 
-**See:** [code-rust-walker.md](./code-rust-walker.md) for the implementation.
+**See:** [code-rust-walker.md](/implementation/code-rust-walker.md) for the implementation.
 
 #### Step 1.3: TypeScript API (Weeks 3–4)
 - [ ] Implement `Path` class with `pathe` for string ops
@@ -92,7 +102,7 @@ Gates from the gap analysis; Phase 1 does not start until these are done:
 - [ ] Implement `walkFiles()`, `walkDirs()`, `walk()`
 - [ ] Write TypeScript tests for all Path operations
 
-**See:** [code-ts-path.md](./code-ts-path.md) for the implementation.
+**See:** [code-ts-path.md](/implementation/code-ts-path.md) for the implementation.
 
 #### Step 1.4: Benchmark Harness (Week 4)
 - [ ] Create file tree generator (10k, 100k, 500k, 1M files)
@@ -116,7 +126,7 @@ Gates from the gap analysis; Phase 1 does not start until these are done:
 - [ ] All tests pass on Linux (glibc), macOS (arm64), Windows (x64)
 - [ ] Package installs and loads correctly via NAPI-RS platform binaries
       (including the oldest-supported-npm install smoke test)
-- [ ] API matches the design in [walk-traversal.md](../features/walk-traversal.md)
+- [ ] API matches the design in [walk-traversal.md](/features/walk-traversal.md)
       (including `dot`, `gitignore`, `absolute`, `signal`, error reporting)
 
 ---
@@ -129,7 +139,7 @@ Temp dirs, content hashing, directory snapshots, additional hashers.
 ### Deliverables
 - [ ] `Path.temp(callback)` — RAII temp directories via `tempfile` crate
       + `O_TMPFILE` / `DELETE_ON_CLOSE` for the hard guarantee (tiered
-      cleanup documented per [killer-features.md](../features/killer-features.md))
+      cleanup documented per [killer-features.md](/features/killer-features.md))
 - [ ] `file.hash(hasher)` — Single-file content hashing
 - [ ] `project.hashTree(options)` — Parallel tree hashing (dedicated
       rayon stage over pruned paths)
@@ -204,8 +214,8 @@ Transactions, native codecs, detection, resolution, watching.
 - [ ] Full CI matrix with all 7 platform targets
 
 ### v1.0 Success Criteria
-- [ ] All features from [killer-features.md](../features/killer-features.md) shipped
-- [ ] All pluggable patterns from [pluggable-patterns.md](../features/pluggable-patterns.md) implemented
+- [ ] All features from [killer-features.md](/features/killer-features.md) shipped
+- [ ] All pluggable patterns from [pluggable-patterns.md](/features/pluggable-patterns.md) implemented
 - [ ] 10k+ GitHub stars
 - [ ] 1M+ weekly npm downloads
 - [ ] Adopted by ≥2 major build tools or frameworks

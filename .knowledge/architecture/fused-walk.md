@@ -1,15 +1,25 @@
 ---
+type: Architecture Decision
 title: "Fused Walk: Single-Pass Stat + Hash + Filter"
+description: "Single-pass Rust traversal fusing stat + hash + filter — the performance moat versus fdir, tinyglobby, Bun.Glob, and node:fs.glob."
+tags: [walk, traversal, fused, performance, fdir, tinyglobby, benchmark]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: architecture
-status: decided
+decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2026-09-16
 source: conversation
 depends_on:
   - architecture/core-layers
   - architecture/napi-boundary
   - competitive/verified-data
-tags: [walk, traversal, fused, performance, fdir, tinyglobby, benchmark]
 ---
 
 # The Fused Walk

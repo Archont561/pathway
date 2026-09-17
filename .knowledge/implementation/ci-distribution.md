@@ -1,15 +1,25 @@
 ---
+type: Implementation Spec
 title: "NAPI-RS Targets, Platform Matrix, Bun CI, Distribution Hardening"
+description: "NAPI-RS target matrix, GitHub Actions CI, Bun 1.3/1.4 and optional Deno legs, provenance and distribution hardening."
+tags: [ci, napi-rs, distribution, platform, bun, targets, github-actions, provenance]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: implementation
-status: decided
+decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2026-09-16
 source: conversation
 depends_on:
   - architecture/napi-boundary
   - implementation/repo-structure
   - competitive/verified-data
-tags: [ci, napi-rs, distribution, platform, bun, targets, github-actions, provenance]
 ---
 
 # CI & Distribution
@@ -82,7 +92,7 @@ Each platform package contains a single `.node` binary:
 
 | Target | Reason |
 |--------|--------|
-| WASM/WASI | Filesystem needs real OS access; see [napi-boundary.md](../architecture/napi-boundary.md) |
+| WASM/WASI | Filesystem needs real OS access; see [napi-boundary.md](/architecture/napi-boundary.md) |
 | FreeBSD | Low demand; can be added if community requests |
 | 32-bit (x86, armv7) | Node.js dropped 32-bit support |
 

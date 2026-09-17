@@ -1,16 +1,26 @@
 ---
+type: Market Intelligence
 title: "Strategic Conclusions, Target Audience, Pitch, Bun-as-Ally"
+description: "Strategic conclusions: target audience, one-line pitch, Bun-as-ally posture, and messaging guardrails."
+tags: [positioning, strategy, pitch, audience, bun, marketing]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: competitive
-status: decided
+decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2026-09-16
 source: conversation
 depends_on:
   - competitive/landscape
   - competitive/verified-data
   - architecture/fused-walk
   - features/killer-features
-tags: [positioning, strategy, pitch, audience, bun, marketing]
 ---
 
 # Strategic Positioning

@@ -1,14 +1,24 @@
 ---
+type: Feature Spec
 title: "Serializer Pattern: Pluggable Codecs, Serde, Registry, Generics"
+description: "Pluggable Serializer<T> pattern: JS strategy objects and native Serde codecs behind per-FileSystem registries."
+tags: [serializer, serde, json, toml, yaml, codec, generics, registry]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: features
-status: decided
+decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2026-09-16
 source: conversation
 depends_on:
   - architecture/core-layers
   - architecture/napi-boundary
-tags: [serializer, serde, json, toml, yaml, codec, generics, registry]
 ---
 
 # Pluggable Serializer Architecture
@@ -399,7 +409,7 @@ interface WriteOptions {
 ## Serializer Composition
 
 Serializers can be composed with transformers (see
-[pluggable-patterns.md](./pluggable-patterns.md)):
+[pluggable-patterns.md](/features/pluggable-patterns.md)):
 
 ```ts
 // Read a gzipped JSON file

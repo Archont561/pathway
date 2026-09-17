@@ -1,16 +1,26 @@
 ---
+type: Feature Spec
 title: "Killer Features: Temp Dirs, Snapshots, Sandbox, Transactions, Locking, Parallel Ops"
+description: "Differentiating filesystem features: temp dirs, snapshots and diff, sandboxing, transactions, locking, and parallel operations."
+tags: [temp, snapshot, diff, sandbox, transaction, lock, parallel, security]
+status: draft
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: features
-status: proposed
+decision: proposed  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2026-09-16
 source: conversation
 depends_on:
   - architecture/core-layers
   - architecture/napi-boundary
   - features/walk-traversal
   - features/serializers
-tags: [temp, snapshot, diff, sandbox, transaction, lock, parallel, security]
 ---
 
 # Killer Features (v0.2–v1.0)
@@ -27,7 +37,7 @@ of the Phase 1 implementation. They are included here to ensure the v0.1
 architecture does not accidentally foreclose on them.
 
 > **Scope note (Sept 2026):** `watch()` is delivered in **Phase 4 (v0.4)**
-> via the `notify` crate per [phase-plan.md](../implementation/phase-plan.md)
+> via the `notify` crate per [phase-plan.md](/implementation/phase-plan.md)
 > — the "uninstall chokidar" claim above holds at v0.4, not v0.2.
 > Incumbent context: chokidar 5.0.0 (Nov 2025) is ESM-only / Node ≥20.19;
 > `@parcel/watcher` is the native watcher used by Parcel, VS Code, and

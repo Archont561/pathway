@@ -1,13 +1,33 @@
 ---
+type: Market Intelligence
 title: "Verified Market Data: Round 1 (July 2025) + Round 2 (Sept 2026)"
+description: "Web-verified market facts: Node 24/26, stable node:fs.glob, Bun 1.3/1.4 Rust rewrite, Deno 2 NAPI, NAPI-RS iterators, and Round-1 corrections."
+tags: [verification, corrections, tinyglobby, bun, fdir, fast-glob, downloads, node, fs.glob, napi-rs]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: process:web-search-round2
+    at: 2026-09-16T00:00:00Z
+stale_after: 2026-12-16T00:00:00Z
+sources:
+  - id: web-verification-round2
+    resource: "live web re-verification, 2026-09-16: Node release index and node:fs.glob API docs (nodejs.org), Bun 1.3/1.4 release notes and Bun.GlobScanOptions docs (bun.com), NAPI-RS iterator/async decision-table docs (napi.rs), Deno 2 NAPI compatibility notes, chokidar 5.0.0 release notes, unrs-resolver npm listing"
+    title: Round 2 live web re-verification
+    author: process:web-search
+    last_modified: 2026-09-16T00:00:00Z
+  - id: market-snapshot-round1
+    resource: "npm registry weekly-download and GitHub star snapshot, July 2025"
+    title: Round 1 market snapshot (historical)
+    author: process:web-search
+    last_modified: 2025-07-11T00:00:00Z
 domain: competitive
-status: decided
+decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2026-09-16
 source: web-search
 depends_on:
   - competitive/landscape
-tags: [verification, corrections, tinyglobby, bun, fdir, fast-glob, downloads, node, fs.glob, napi-rs]
 ---
 
 # Verified Market Data
@@ -229,7 +249,7 @@ our Rust walker may be narrow (perhaps 2–3x, not 10x).
 The decisive advantage is the **fused pipeline**: when you add stat + hash
 to the traversal, `fdir` requires 100k+ additional JS↔libuv round-trips
 while our Rust engine does it in a single pass. See
-[fused-walk.md](../architecture/fused-walk.md) for benchmark criteria.
+[fused-walk.md](/architecture/fused-walk.md) for benchmark criteria.
 
 ---
 
