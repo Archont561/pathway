@@ -1,16 +1,26 @@
 ---
+type: Market Intelligence
 title: "Strategic Conclusions, Target Audience, Pitch, Bun-as-Ally"
+description: "Strategic conclusions: target audience, one-line pitch, Bun-as-ally posture, and messaging guardrails."
+tags: [positioning, strategy, pitch, audience, bun, marketing]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: competitive
-status: decided
+decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2025-07-11
 source: conversation
 depends_on:
   - competitive/landscape
   - competitive/verified-data
   - architecture/fused-walk
   - features/killer-features
-tags: [positioning, strategy, pitch, audience, bun, marketing]
 ---
 
 # Strategic Positioning
@@ -46,6 +56,13 @@ Then the features:
 - Async iteration with chunked batching
 
 Now there's a legitimate reason to install it.
+
+**Benchmark framing (added Sept 2026):** Since `node:fs.glob` is stable
+and C++-native in Node core, we never claim to beat Node at globbing. The
+claim is: *"Node can glob natively. Only @myorg/path fuses glob + stat +
+hash + filter into a single native pass — 5–20× faster than
+`fs.glob` + `fs.stat` + `crypto` on 100k+ file trees."* The moat is the
+fusion, not the glob.
 
 ### The One-Liner for Build Tool Authors
 
@@ -167,6 +184,13 @@ Our library runs on Bun via NAPI-RS (Node-API ABI). The Rust engine provides
 the fused walk, serialization, and orchestration that Bun intentionally
 doesn't ship. Bun's primitives are the floor; we're the ceiling.
 
+**Update (Sept 2026):** Bun 1.4 (Aug 20, 2026) rewrote the runtime in Rust
+and shipped a 2× faster `Bun.Glob.scan()`. The ally stance holds —
+`scan()` still returns strings only — but the raw-speed gap has narrowed.
+All "Bun floor" claims must be re-benchmarked on Bun 1.3.x **and** 1.4.x
+before publication, and CI validates N-API on both (a runtime rewritten in
+a new language can change addon behavior).
+
 ### Implementation
 
 ```ts
@@ -196,6 +220,12 @@ No JS library can match single-pass traverse+stat+hash because the JS
 event loop requires a separate libuv round-trip for each `fs.stat()` and
 `fs.readFile()` call. This is an **architectural limitation** of the
 Node.js runtime, not an implementation detail that can be optimized away.
+
+**Updated scope (Sept 2026):** this also applies to `node:fs.glob` —
+Node core's native C++ glob is fast at *finding* files but still returns
+paths/Dirents only; fusing stat+hash into the pass remains something only
+an out-of-process engine (ours) can do. The moat is against the best
+native baseline, not just pure JS.
 
 Our Rust engine bypasses this by performing all I/O in OS worker threads
 and returning fully populated batches across a single N-API boundary.
@@ -235,11 +265,14 @@ defensible because they flow from the architectural advantage.
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|-----------|
 | NAPI-RS distribution pain | Medium | High | Use `napi-rs/cli` tooling; proven by SWC/lightningcss |
-| Bun N-API breakage | Medium | Medium | CI matrix includes Bun; pin Bun versions |
-| Fused walk not fast enough | Low | Critical | Benchmark before committing; ≥5x threshold |
+| Bun N-API breakage | Medium | Medium | CI matrix includes Bun; **test both 1.3.x and 1.4.x (Rust-rewrite release, Aug 2026)** |
+| Fused walk not fast enough vs `node:fs.glob` | Low | Critical | Benchmark before committing; ≥5x threshold measured against the native C++ baseline, not just JS |
 | `tinyglobby` adds native backend | Low | High | Unlikely (JS ecosystem); our composition layer remains |
+| Node core ships stat/hash fusion in `fs.glob` | Low | High | Watch Node tracking issues; composition layer + ecosystem remain the fallback |
 | Bun ships compositional FS API | Low | Medium | Would take years; we establish ecosystem first |
 | Serde→JS bridge too slow | Low | Medium | Fall back to JS parsing for JSON; native only for TOML/YAML |
+| Legacy npm fails platform `optionalDependencies` | Low | Medium | `napi-postinstall` fallback + oldest-supported-npm install smoke test in CI |
+| Effect Platform becomes the default typed-FS layer for Effect users | Medium | Medium | Fused-walk moat unaffected; ship an Effect adapter if adoption data supports it |
 | Community doesn't adopt | Medium | Critical | Target build tool authors first; they influence the ecosystem |
 
 ---
@@ -247,8 +280,9 @@ defensible because they flow from the architectural advantage.
 ## Success Metrics
 
 ### v0.1 (Proof of Concept)
-- [ ] Fused walk benchmark ≥5x faster than `fdir` + `fs.stat` + `crypto`
-- [ ] Works on Node 22, Node 24, Bun latest
+- [ ] Fused walk benchmark ≥5x faster than `node:fs.glob` + `fs.stat` +
+      `crypto` (and all JS incumbents)
+- [ ] Works on Node 24 (LTS), Node 26 (Current), Bun 1.3.x, Bun 1.4.x
 - [ ] CI passes on Linux, macOS, Windows
 - [ ] `Path`, `walkFiles`, `read(json)`, `write(json)` all functional
 

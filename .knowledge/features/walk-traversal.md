@@ -1,15 +1,25 @@
 ---
+type: Feature Spec
 title: "Walk Engine: Glob, Regex, Exclude, Pruning, Predicates"
+description: "Walk engine API: glob and regex matching, excludes, pruning, predicate composition, async iteration, chunked batching."
+tags: [walk, traversal, glob, regex, exclude, pruning, predicate, async-iterator]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: features
-status: decided
+decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2025-07-11
 source: conversation
 depends_on:
   - architecture/core-layers
   - architecture/fused-walk
   - competitive/verified-data
-tags: [walk, traversal, glob, regex, exclude, pruning, predicate, async-iterator]
 ---
 
 # Walk & Traversal Engine
@@ -18,7 +28,7 @@ tags: [walk, traversal, glob, regex, exclude, pruning, predicate, async-iterator
 
 `walkFiles()` is the **flagship feature** of `@myorg/path`. It is the primary
 justification for the native Rust dependency and the core of the fused-walk
-architecture (see [fused-walk.md](../architecture/fused-walk.md)).
+architecture (see [fused-walk.md](/architecture/fused-walk.md)).
 
 The API must feel effortless while the complexity lives entirely underneath:
 
@@ -55,16 +65,35 @@ project.walkFiles({
 });
 ```
 
+### Pattern Semantics (added Sept 2026)
+
+**Glob patterns are matched against paths relative to the walk root**
+(fast-glob-compatible). `**/*.ts` matches `src/a.ts`, `a/b/c.ts`, and
+`x.ts` alike.
+
+> ⚠️ The 2025 draft matched globs against **absolute** paths. Glob patterns
+> are anchored and `*` does not cross `/`, so `**/*.ts` against
+> `/repo/src/a.ts` matched only root-level files. This is fixed and covered
+> by a dedicated unit-test matrix (nested, root-level, `*.ts` basename,
+> Windows separators).
+
+**Regex is matched against the full absolute path** (unchanged from the
+original design).
+
+**Glob arrays use AND logic:** `glob: ["**/*.ts", "!**/generated/**"]` —
+when passed as an array, an entry must match **all** patterns (negation via
+`!` prefix, like globby). A single string is a single pattern.
+
 ### Internal Representation
 
 The Rust engine maintains a tagged enum, not a unified "pattern" abstraction:
 
 ```rust
 enum Matcher {
-    Glob(GlobMatcher),    // globset::GlobSet — compiled glob patterns
+    Glob(GlobSet),        // globset::GlobSet — ALL patterns compiled together
     Regex(RegexMatcher),  // regex::Regex — compiled regular expression
     Both {
-        glob: GlobMatcher,
+        glob: GlobSet,
         regex: RegexMatcher,
     },
     None,
@@ -134,6 +163,10 @@ walker.filter_entry(move |entry| {
 });
 ```
 
+**Non-UTF-8 directory names:** `file_name().to_str()` is `None` for them, so
+pruning is silently skipped (we descend). This matches libuv's lossy
+behavior and is documented, not an error.
+
 ### Exclusion Semantics
 
 Exclusion patterns match against **directory names**, not full paths:
@@ -170,6 +203,28 @@ Rationale:
    want the files, why pay the I/O cost of entering the directory?
 3. The rare case is covered by `filter` predicates.
 4. Simpler API = faster adoption.
+
+### Dotfiles & `.gitignore` (added Sept 2026)
+
+Two opt-in controls that the 2025 draft lacked:
+
+```ts
+// dot (default: false) — skip dotfiles/dotdirs, like every glob incumbent
+project.walkFiles({ dot: true });            // include .env, .github, …
+
+// gitignore (default: false) — honor .gitignore/.ignore + parent .git dirs
+project.walkFiles({ gitignore: true });
+```
+
+- **`dot: boolean` (default `false`)** maps to the `ignore` crate's
+  `hidden(!dot)`. The 2025 draft had **no** `dot` option and included
+  hidden files unconditionally — the opposite of Bun.Glob, `node:fs.glob`,
+  fast-glob, and globby, all of which default to skipping dotfiles. With
+  `dot: false`, walking a repo no longer silently enters `.git`.
+- **`gitignore: boolean` (default `false`)** enables the `ignore` crate's
+  native gitignore support (`git_ignore(true)` + `parents(true)` +
+  `.ignore` files). `globby` ships a `gitignore: true` option; build tools
+  regularly filter by git status. The 2025 draft hard-disabled it.
 
 ---
 
@@ -238,11 +293,12 @@ type WalkFilter = (entry: PathEntry) => boolean | Promise<boolean>;
 interface PathEntry {
   readonly path: Path;
   readonly size: number;
-  readonly mtime: Date;
+  readonly mtime: Date | null;      // null when withMetadata is false
   readonly isFile: boolean;
   readonly isDirectory: boolean;
   readonly isSymlink: boolean;
-  readonly hash?: string;       // Only if hash option was set
+  readonly hash?: string;           // undefined = not requested
+  readonly error?: string;          // set when the entry could not be fully read
   relativeTo(base: Path): string;
 }
 ```
@@ -260,7 +316,7 @@ for await (const file of project.walkFiles({
     if (entry.size > 500_000) return false;
 
     // Read first 200 bytes to check for generated file marker
-    const head = await entry.path.readBytes(200);
+    const head = await entry.path.readBytes(0, 200);
     return !head.toString().includes("@generated");
   },
 })) {
@@ -268,6 +324,50 @@ for await (const file of project.walkFiles({
   console.log(file.path.value);
 }
 ```
+
+---
+
+## Cancellation & Error Reporting (added Sept 2026)
+
+The 2025 draft swallowed every traversal error (`Err(_) => continue`) and
+had no way to stop a long walk. Both are fixed:
+
+### `signal?: AbortSignal`
+
+```ts
+const controller = new AbortController();
+const iter = project.walkFiles({ glob: "**/*", hash: "blake3",
+  signal: controller.signal });
+
+for await (const file of iter) {
+  if (done()) break;      // early break
+}
+// The walk actually stops:
+// - native async iterator: for-await exit calls return(), which cancels the
+//   Rust producer (napi.rs)
+// - paging fallback: the signal handler calls scanner.cancel() (AtomicBool
+//   checked per entry in the Rust loop)
+```
+
+Long walks on million-file trees in CLIs must be interruptible — this is
+table stakes for build-tool adoption.
+
+### Per-Entry Errors
+
+- Unreadable entries (EACCES, EMFILE, broken symlinks…) are **collected**,
+  not dropped. `PathEntry.error` carries the per-entry failure; a global
+  `errors` report is available after the walk completes.
+- `hash` is three-state: `undefined` = not requested, a hex string =
+  success, `entry.error` set = requested but failed. An empty hash string
+  can never appear.
+- `throwOnError?: boolean` (default `false`): when true, the first
+  collected error is thrown at the end of the walk instead of reported.
+
+### Progress
+
+`onProgress?: (p: { scanned: number; emitted: number; bytesHashed: number }) => void`
+— counted per batch in the TS layer (no native callback needed). Build
+tools display this; monorepo teams expect it.
 
 ---
 
@@ -333,6 +433,12 @@ class WalkIterator implements AsyncIterableIterator<PathEntry> {
 }
 ```
 
+> **2026 note:** Phase 1 Step 0 spikes the experimental NAPI-RS
+> `#[napi(async_iterator)]` (native `AsyncGenerator`). If it passes the
+> runtime matrix, this class is replaced by the native pull-based iterator
+> and batches become a prefetch window inside Rust. See
+> [napi-boundary.md](/architecture/napi-boundary.md) for the decision.
+
 ### Batch Size Tuning
 
 | Batch Size | N-API Crossings (100k files) | Memory per Batch | Latency per Yield |
@@ -352,24 +458,33 @@ class WalkIterator implements AsyncIterableIterator<PathEntry> {
 ```ts
 interface WalkOptions {
   // Matching (at least one recommended)
-  glob?: string | string[];       // Glob pattern(s), AND logic if array
-  regex?: RegExp;                 // Regex pattern, AND with glob if both set
+  glob?: string | string[];   // Glob pattern(s); AND logic if array;
+                              // matched RELATIVE to the walk root
+  regex?: RegExp;             // Regex; matched against the FULL absolute path
 
   // Pruning
-  exclude?: string[];             // Directory names to never enter
+  exclude?: string[];         // Directory names to never enter (pre-descent)
+  dot?: boolean;              // Include dotfiles/dotdirs (default: false)
+  gitignore?: boolean;        // Honor .gitignore/.ignore + parents (default: false)
 
-  // Metadata
-  withMetadata?: boolean;         // Include stat info (default: false)
-  hash?: "blake3" | "sha256" | "xxhash";  // Compute content hash
-  maxDepth?: number;              // Maximum directory depth
+  // Results
+  absolute?: boolean;         // Return absolute paths (default: false → root-relative)
+  maxDepth?: number;          // Maximum directory depth below the root
+  filesOnly?: boolean;        // Yield only files (default: true)
+  withMetadata?: boolean;     // Include stat info (default: false)
+  hash?: "blake3" | "sha256" | "xxhash";  // Compute content hash (chunked I/O)
 
   // Filtering
-  filesOnly?: boolean;            // Yield only files (default: true)
-  filter?: WalkFilter;            // JS predicate (post-native, may be async)
+  filter?: WalkFilter;        // JS predicate (post-native, may be async)
+
+  // Control
+  signal?: AbortSignal;       // Cancellation
+  onProgress?: (p: { scanned: number; emitted: number; bytesHashed: number }) => void;
+  throwOnError?: boolean;     // Throw collected errors at end (default: false)
 
   // Performance
-  batchSize?: number;             // N-API batch size (default: 512)
-  concurrency?: number;           // Rust worker threads (default: CPU count)
+  batchSize?: number;         // N-API batch size (default: 512)
+  concurrency?: number;       // Rust worker threads (default: CPU count)
 }
 ```
 
@@ -393,6 +508,10 @@ for await (const dir of project.walkDirs({ exclude: ["node_modules"] })) {
 }
 ```
 
+Implementation: a dedicated walk with `filesOnly: false` that yields only
+entries where `isDirectory === true`. (The 2025 draft passed `filesOnly:
+false` **without** the directory filter — it yielded files too. Fixed.)
+
 ### `walk()` — Everything
 
 ```ts
@@ -410,6 +529,31 @@ for (const file of project.walkSync({ glob: "**/*.ts" })) {
 }
 ```
 
+Requires a **synchronous** N-API scan (blocking call, no promise). Document
+the event-loop cost; intended for CLI cold starts where the process is
+single-shot.
+
+---
+
+## Ordering, Determinism & Encoding Policies (added Sept 2026)
+
+1. **Raw walk order is unspecified.** The `ignore` crate traverses in
+   parallel; yield order varies by thread scheduling (same as fdir /
+   tinyglobby consumers must already handle).
+2. **`hashTree()` and `snapshot()` fold entries in sorted (path) order** so
+   their outputs are deterministic across runs — required for build-cache
+   keys.
+3. **Non-UTF-8 filenames** are lossy-converted to U+FFFD, matching
+   libuv/Node's own path representation. Round-trip (create → walk → open)
+   is covered by tests. Exclusion pruning is skipped for non-UTF-8 dir
+   names (documented above).
+4. **Case sensitivity** follows the OS: glob matching is case-insensitive
+   on case-insensitive volumes (macOS/Windows defaults), case-sensitive
+   elsewhere — mirroring `std::path` behavior, like fast-glob's default.
+5. **mtime** is exposed in ms (JS `Date`); internal snapshot storage keeps
+   full nanosecond precision (see [killer-features.md](/features/killer-features.md)
+   §2) because build systems write files within the same millisecond.
+
 ---
 
 ## Decision Summary
@@ -418,10 +562,16 @@ for (const file of project.walkSync({ glob: "**/*.ts" })) {
 |----------|-----------|
 | Glob + regex as equal citizens | Different semantics, different strengths, both needed |
 | `Matcher` enum internally | No false abstraction; each matcher type optimized separately |
+| **Globs matched root-relative** | fast-glob-compatible; absolute matching is a bug (2026 audit) |
 | `exclude` = pre-descent prune | 1000x faster than post-filter for large directories |
 | Single `exclude`, no `ignore` | Simpler API; rare "descend but skip" case covered by `filter` |
+| **`dot` default false** | Matches Bun.Glob / fs.glob / fast-glob / globby expectations (2026 audit) |
+| **`gitignore` opt-in** | Native `ignore`-crate support; globby parity (2026 audit) |
+| **`signal` cancellation + error collection** | Long walks must be interruptible; errors must be visible (2026 audit) |
+| **`onProgress` per batch in TS** | Zero native overhead; expected by build tools (2026 audit) |
 | JS `filter` as post-native | Explicit trade-off: flexibility at cost of per-file FFI |
 | Batched async iterator | Clean per-file API with minimal N-API crossings |
 | Default batch size 512 | Balanced memory/latency; tunable |
 | `withMetadata` opt-in | Avoid stat overhead when only paths are needed |
 | `hash` opt-in | Avoid I/O overhead when hashing isn't needed |
+| **Sorted fold for hashTree/snapshot** | Deterministic cache keys (2026 audit) |

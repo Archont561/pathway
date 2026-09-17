@@ -1,15 +1,25 @@
 ---
-title: "Pluggable Patterns: Transformers, Hashers, Detectors, Validators, Resolvers"
+type: Feature Spec
+title: "Pluggable Patterns: Transformers, Hashers, Detectors, Validators, Resolvers, CAS"
+description: "Extension points: transformers, hashers, detectors, validators, resolvers (unrs-resolver adapter), and content-addressed storage."
+tags: [pluggable, transformer, hasher, detector, validator, resolver, pattern]
+status: draft
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: features
-status: proposed
+decision: proposed  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2025-07-11
 source: conversation
 depends_on:
   - architecture/core-layers
   - features/serializers
   - features/killer-features
-tags: [pluggable, transformer, hasher, detector, validator, resolver, pattern]
 ---
 
 # Pluggable Strategy Patterns
@@ -338,44 +348,39 @@ interface Resolver {
 }
 ```
 
-### Implementations
+### Implementation Decision (Sept 2026): Integrate, Don't Build
 
-```ts
-const nodeResolver: Resolver = {
-  name: "node",
-  resolve: (from, specifier) => {
-    // Implements Node's module resolution:
-    // 1. Check node_modules/<specifier>/package.json "exports"
-    // 2. Check node_modules/<specifier>/index.js
-    // 3. Walk up directory tree
-    // 4. Check NODE_PATH
-    return nativeNodeResolve(from.value, specifier);
-  },
-};
+The 2025 draft planned a from-scratch native resolver. **`unrs-resolver`
+(MIT, Rust + NAPI-RS, published to npm) already implements exactly this:**
 
-const tsconfigResolver: Resolver = {
-  name: "tsconfig",
-  resolve: (from, specifier) => {
-    // Reads nearest tsconfig.json "paths" and "baseUrl"
-    // Maps "@/*" → "./src/*"
-    return nativeTsconfigResolve(from.value, specifier);
-  },
-};
+- ESM + CJS resolution per spec (package.json `exports` conditionals,
+  `main`, `browser` fields)
+- tsconfig `paths` / `baseUrl`, `extends`, project references
+  (tsconfck-style discovery)
+- Yarn Plug'n'Play (`.pnp.cjs`)
+- Concurrent LRU caching, tracing instrumentation, 74 platform targets,
+  WASM + JS fallbacks
 
-const bunResolver: Resolver = {
-  name: "bun",
-  resolve: (from, specifier) => {
-    // Bun's resolution algorithm (compatible with Node but with extras)
-    return nativeBunResolve(from.value, specifier);
-  },
-};
-```
+It is maintained and used by Rspack-class tooling. Building our own would
+reimagine a solved problem and lose PnP/`extends` compatibility.
+
+**The v1.0 deliverable is an adapter, not an engine:**
+
+1. Add the `unrs_resolver` **Rust crate** as an engine dependency (primary —
+   zero extra FFI hops) or the npm package (fallback for TS-only builds).
+2. Expose it through the `Resolver` interface above:
+   ```ts
+   export const unrsNodeResolver: Resolver;      // ESM/CJS + exports conditions
+   export const unrsTsconfigResolver: Resolver;  // + tsconfig paths/references
+   ```
+3. Keep the interface open for other resolvers (Bun-specific, custom,
+   in-memory FS).
 
 ### Usage
 
 ```ts
 const resolved = project.resolve("@myorg/utils", {
-  resolvers: [tsconfigResolver, nodeResolver],
+  resolvers: [unrsTsconfigResolver, unrsNodeResolver],
 });
 // Tries tsconfig first, falls back to node resolution
 // Returns Path or throws ResolutionError
@@ -383,7 +388,7 @@ const resolved = project.resolve("@myorg/utils", {
 // With the fused walk — resolve all imports in a codebase
 for await (const file of project.walkFiles({ glob: "**/*.ts" })) {
   const imports = await file.resolveImports({
-    resolvers: [tsconfigResolver, nodeResolver],
+    resolvers: [unrsTsconfigResolver, unrsNodeResolver],
   });
   for (const imp of imports) {
     console.log(`${file} → ${imp.resolved}`);
@@ -391,19 +396,51 @@ for await (const file of project.walkFiles({ glob: "**/*.ts" })) {
 }
 ```
 
-### Why Native
+### Why Native (via unrs-resolver)
 
-Module resolution involves:
-- Walking up the directory tree looking for `node_modules`
-- Reading and parsing `package.json` files (potentially hundreds)
-- Evaluating `exports` field conditional logic
-- Resolving TypeScript `paths` aliases
-
-Doing this in JS for a large monorepo means thousands of `fs.stat()` and
-`fs.readFile()` calls. Rust can do it with a cached, parallel resolution
+Module resolution involves walking `node_modules` trees, reading hundreds of
+`package.json` files, evaluating `exports` conditionals, and resolving
+tsconfig aliases. `unrs-resolver` does all of it in Rust with concurrent
+LRU caching — we get the performance without maintaining a second resolver
 engine.
 
-### Phase Target: v1.0
+### Phase Target: v1.0 (adapter work; can be pulled forward if adoption requires)
+
+---
+
+## F. Content-Addressed Store (CAS) (added Sept 2026)
+
+### The Problem
+
+positioning.md promises "content-addressed caching primitives" to monorepo
+teams, but no feature spec existed. Turbo-class tools keep this internal;
+publishing it is a direct differentiator.
+
+### The Interface
+
+```ts
+const cas = FileSystem.cas(project.join(".cas"));
+
+const digest = await cas.put(file);              // → "blake3:7d2f9a1b…"
+await cas.get("blake3:7d2f9a1b", dest);
+cas.has("blake3:7d2f9a1b");                      // → boolean
+await cas.gc({ keep: [manifest] });              // drop unreferenced blobs
+```
+
+### Design
+
+- Store layout: `<root>/<first 2 hex chars>/<remaining hex>` (fanout 256,
+  flat enough for fast lookups, shallow enough for `readdir`).
+- `put` = hash (reuses the `Hasher` interface, chunked I/O) + **hardlink**
+  into the store (copy fallback across filesystem boundaries) + verify.
+- Digests are of **(path, content)** — not content only — so trees with
+  identical files at different paths stay distinguishable.
+- Blobs are append-only; `gc` acquires the section-6 lock from
+  [killer-features.md](/features/killer-features.md) before pruning.
+- Deterministic: same tree → same digests, any machine (sorted fold, see
+  walk-traversal.md).
+
+### Phase Target: v0.4
 
 ---
 
@@ -432,7 +469,8 @@ All pluggable patterns collapse into one structural archetype:
 | Hasher | `Hasher` | digest | Native | v0.2 |
 | Detector | `Detector<T>` | detect | Native | v0.4 |
 | Validator | `Validator<T>` | validate | JS | v0.4 |
-| Resolver | `Resolver` | resolve | Native | v1.0 |
+| Resolver | `Resolver` | resolve | Native (`unrs-resolver` adapter, Sept 2026) | v1.0 |
+| CAS | `FileSystem.cas()` | put / get | Native | v0.4 (added Sept 2026) |
 
 ---
 
@@ -480,4 +518,5 @@ WALK PIPELINE:
 | Composition via arrays | Order matters; explicit is better than magic |
 | Validators stay in JS | Avoid coupling to Zod/Valibot; validation is fast enough |
 | Hashers are native-first | SIMD-accelerated Rust crates are 3–5x faster than JS crypto |
-| Resolvers are v1.0 | Complex; needs mature ecosystem integration |
+| Resolvers wrap `unrs-resolver` | A maintained MIT Rust resolver (ESM/CJS + tsconfig + PnP + LRU cache) already exists — integrating beats rebuilding (Sept 2026 audit) |
+| CAS ships in v0.4 with lock support | Backs the "content-addressed caching primitives" pitch promise (Sept 2026 audit) |

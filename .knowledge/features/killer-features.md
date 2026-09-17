@@ -1,16 +1,26 @@
 ---
+type: Feature Spec
 title: "Killer Features: Temp Dirs, Snapshots, Sandbox, Transactions, Locking, Parallel Ops"
+description: "Differentiating filesystem features: temp dirs, snapshots and diff, sandboxing, transactions, locking, and parallel operations."
+tags: [temp, snapshot, diff, sandbox, transaction, lock, parallel, security]
+status: draft
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: features
-status: proposed
+decision: proposed  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2025-07-11
 source: conversation
 depends_on:
   - architecture/core-layers
   - architecture/napi-boundary
   - features/walk-traversal
   - features/serializers
-tags: [temp, snapshot, diff, sandbox, transaction, lock, parallel, security]
 ---
 
 # Killer Features (v0.2–v1.0)
@@ -25,6 +35,13 @@ multiple libraries with fragile glue code.
 All features in this document are **proposed** for v0.2+ and are not part
 of the Phase 1 implementation. They are included here to ensure the v0.1
 architecture does not accidentally foreclose on them.
+
+> **Scope note (Sept 2026):** `watch()` is delivered in **Phase 4 (v0.4)**
+> via the `notify` crate per [phase-plan.md](/implementation/phase-plan.md)
+> — the "uninstall chokidar" claim above holds at v0.4, not v0.2.
+> Incumbent context: chokidar 5.0.0 (Nov 2025) is ESM-only / Node ≥20.19;
+> `@parcel/watcher` is the native watcher used by Parcel, VS Code, and
+> Effect Platform.
 
 ---
 
@@ -69,18 +86,25 @@ await Path.temp({ prefix: "build-", dir: "/fast-ssd" }, async (dir) => {
 });
 ```
 
-### Why Rust Matters
+### Why Rust Matters (corrected Sept 2026)
 
-Rust's `tempfile` crate uses OS-level guarantees:
-- **Linux:** `O_TMPFILE` flag — file exists only as an inode, never appears
-  in the directory tree. Or `mkstemp()` + immediate `unlink()`.
-- **Windows:** `FILE_FLAG_DELETE_ON_CLOSE` — the OS deletes the file when
-  the last handle is closed, even if the process crashes.
-- **macOS:** `mkstemp()` + `unlink()` with `atexit()` handler.
+The 2025 draft overstated the guarantee. The Rust `tempfile` crate uses
+`mkstemp`/`mkdtemp` + **destructor-based** cleanup. That covers throws,
+`process.exit()`, and GC — but **not** `SIGKILL`/hard crash: the
+destructor never runs, and the OS reclaims nothing until a tmp reaper does.
 
-The cleanup happens at the **file descriptor level**, not via JS `finally`
-blocks that can be skipped. Even if the Node/Bun process is killed with
-`SIGKILL`, the OS reclaims the temp files.
+The implementation must therefore use OS-level flags where available, and
+the docs must state the **tiered** guarantee honestly:
+
+| Tier | Mechanism | Survives |
+|------|-----------|----------|
+| 1 | `tempfile` Drop + atexit | throw, `process.exit()`, normal GC |
+| 2a | **Linux:** `O_TMPFILE` (anonymous inode — never appears in the directory tree; reclaimed on close even after SIGKILL). Not supported on all filesystems (e.g. NFS) — fall back to mkstemp + immediate unlink | SIGKILL (local FS) |
+| 2b | **Windows:** `FILE_FLAG_DELETE_ON_CLOSE` — OS deletes on last handle close | SIGKILL |
+| 3 | **macOS/other:** mkstemp + unlink, best-effort | leaks until OS tmp reaper on SIGKILL — documented |
+
+The cleanup happens at the **file descriptor / OS level** where tier 2 is
+available, not via JS `finally` blocks that can be skipped.
 
 ### Implementation Notes
 
@@ -116,8 +140,11 @@ impl NativeTempDir {
 ```
 
 The `TempDir` destructor runs when the N-API wrapper is garbage-collected,
-providing a best-effort cleanup even if the JS callback throws. The OS-level
-flags provide the hard guarantee.
+providing best-effort cleanup even if the JS callback throws. **In
+addition**, the implementation opens temp files with `O_TMPFILE` on Linux
+local filesystems and `FILE_FLAG_DELETE_ON_CLOSE` on Windows (via the
+`open`/`tempfile` crate options) to obtain the hard tier-2 guarantee; where
+those flags are unavailable the tier-3 documented behavior applies.
 
 ### Phase Target: v0.2
 
@@ -239,6 +266,15 @@ interface SnapshotDiff {
   readonly unchanged: Path[];
 }
 ```
+
+> **Precision & determinism (Sept 2026):**
+> - `SnapshotEntry.mtime` is stored at **full nanosecond precision** in the
+>   persisted format (Rust `Duration` carries sub-ms precision; the JS API
+>   exposes ms `Date`s). Build systems write files within the same
+>   millisecond — ms-only snapshots would falsely report "unchanged".
+> - Snapshots fold entries in **sorted path order**, so `save()`/`load()`
+>   round-trips and diffs are deterministic across runs and machines
+>   (required for cross-build caching).
 
 ### Phase Target: v0.2
 
@@ -364,6 +400,26 @@ function serveStatic(file: SandboxedPath): Response {
 serveStatic(Path.cwd().join("etc/passwd"));  // ❌ Not sandboxed
 serveStatic(sandbox.join("index.html"));      // ✅ Sandboxed
 ```
+
+### Hardening Requirements (added Sept 2026)
+
+The final-path canonicalize check above is **not sufficient**:
+
+1. **Intermediate symlinks:** `public/link → /etc` escapes even when the
+   *final* canonical path is inside the root. Fix: per-component realpath,
+   or (preferred) fd-based `openat(2, O_NOFOLLOW)` opens in the Rust engine
+   so resolution and open are a single step — which also closes the TOCTOU
+   window (the file can't be swapped for a symlink between check and open).
+2. **Prefix collision:** `startsWith(root + sep)` must compare against the
+   separator-terminated root (the sketch does this; keep the unit test:
+   `root = /app/public`, `candidate = /app/public-evil/x` must fail).
+3. **Case-insensitive FS:** macOS/Windows default volumes — `Public/` vs
+   `public`. Canonicalize both sides (already done) and test.
+4. **Unicode normalization:** NFC vs NFD on macOS — test.
+
+**Test matrix:** nested symlink escape, symlink loops, case-insensitive
+FS, Unicode normalization, root-exact path, broken symlink, `public-evil`
+prefix collision.
 
 ### Phase Target: v0.3
 
@@ -586,13 +642,18 @@ await file.withLock(
   {
     exclusive: true,     // Exclusive (write) vs shared (read) lock
     timeout: 5000,       // Wait up to 5s to acquire lock
-    stale: 30000,        // Auto-release after 30s (safety net)
+    sidecar: true,       // Lock a "<file>.lock" next to the target (default: false)
   },
   async () => {
     // Critical section
   }
 );
 ```
+
+> **Sept 2026:** `stale` was removed from the 2025 draft API. With
+> kernel-managed `flock`, locks release automatically on process death — a
+> stale timeout is meaningless (and the `proper-lockfile` heuristics it
+> mimics are exactly what this feature exists to eliminate).
 
 ### Why Rust Matters
 
@@ -641,6 +702,18 @@ pub async fn with_lock(
 }
 ```
 
+### Refinements (added Sept 2026)
+
+- **Sidecar option:** `sidecar: true` locks a `"<file>.lock"` file next to
+  the target instead of the data file itself (the proper-lockfile
+  convention). Use it when the target must remain readable/unlocked by
+  other readers, or when the target may not exist yet.
+- **NFS caveat (documented):** POSIX `flock` on NFS is client-side
+  emulation; a crashed holder may leave the lock until the lease expires.
+  Kernel guarantees hold on local filesystems.
+- **Windows:** `LockFileEx` is range-based — we lock a 0..1 sentinel byte.
+  Documented, and tested on the Windows CI legs.
+
 ### Phase Target: v0.3
 
 ---
@@ -662,10 +735,10 @@ pub async fn with_lock(
 
 | Decision | Rationale |
 |----------|-----------|
-| Temp dirs via OS flags | `O_TMPFILE` / `DELETE_ON_CLOSE` survive crashes; JS `finally` doesn't |
-| Snapshots use content hash | `mtime` is unreliable across git checkout, Docker, CI |
-| Sandbox is a Path subclass | Type-level enforcement; zero-cost at runtime |
+| Temp dirs: tiered guarantee, documented | `O_TMPFILE` / `DELETE_ON_CLOSE` where available; mkstemp+Drop baseline; SIGKILL behavior documented per tier (2026 correction) |
+| Snapshots use content hash | `mtime` is unreliable across git checkout, Docker, CI; ns-precision mtime kept as fast-path tie-breaker |
+| Sandbox via `openat(O_NOFOLLOW)` + canonicalize | Final-path check alone misses intermediate symlink escapes and TOCTOU (2026 audit) |
 | Parallel ops cross boundary only for transform | User code is unavoidable; everything else stays native |
 | Transactions are best-effort | Honest about limitations; not a database |
-| Locking uses `flock()` | Kernel-managed; no polling, no PID files, no races |
+| Locking uses `flock()` | Kernel-managed; no polling, no PID files, no races; `stale` option removed (2026) |
 | All features opt-in | Core package stays lean; features don't bloat v0.1 |

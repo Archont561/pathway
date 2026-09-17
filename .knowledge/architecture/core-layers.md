@@ -1,13 +1,21 @@
 ---
+type: Architecture Decision
 title: "3-Layer Architecture, Path vs FileSystem, Rust Trait"
+description: "The 3-layer stack — TypeScript surface, NAPI-RS bridge, Rust engine — the Path vs FileSystem split, and the Rust-internal FileSystem trait."
+tags: [architecture, layers, path, filesystem, rust, trait]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2025-07-11T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
 domain: architecture
-status: decided
+decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2025-07-11
 source: conversation
 depends_on:
-  - meta/CONTEXT
-tags: [architecture, layers, path, filesystem, rust, trait]
+  - CONTEXT
 ---
 
 # 3-Layer Architecture
@@ -58,14 +66,14 @@ for await (const file of project.walkFiles({
 **Key constraint:** All path string manipulation (`join`, `resolve`, `relative`,
 `dirname`, `basename`, `extname`) stays in TypeScript using `pathe`. These are
 pure string operations with zero I/O — crossing the N-API boundary for them
-would be pure overhead. See [napi-boundary.md](./napi-boundary.md) for the
+would be pure overhead. See [napi-boundary.md](/architecture/napi-boundary.md) for the
 full rationale.
 
 ### Layer 2: NAPI-RS Bridge (Coarse-Grained FFI)
 
 The bridge crosses the JS↔Rust boundary **only** for operations where native
 code provides measurable value: bulk traversal, content hashing, parallel I/O,
-native codec parsing. See [napi-boundary.md](./napi-boundary.md).
+native codec parsing. See [napi-boundary.md](/architecture/napi-boundary.md).
 
 ### Layer 3: Rust Engine (Performance Core)
 
@@ -160,7 +168,7 @@ The default implementation uses `std::fs`. Future implementations could use:
 - An overlay filesystem for build caches
 
 **Critical rule:** This trait is never exposed through N-API. The N-API layer
-exposes coarse-grained operations (see [napi-boundary.md](./napi-boundary.md)),
+exposes coarse-grained operations (see [napi-boundary.md](/architecture/napi-boundary.md)),
 not individual trait methods. The trait exists to keep the Rust codebase
 testable and extensible internally.
 

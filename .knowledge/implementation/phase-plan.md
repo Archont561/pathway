@@ -1,9 +1,20 @@
 ---
+type: Roadmap
 title: "Phase 1–4 Implementation Plan, v0.1–v1.0 Roadmap, Benchmark Harness"
+description: "Phase 1–4 delivery plan from v0.1 skeleton to v1.0 ecosystem replacement, with benchmark-harness gates."
+tags: [phase, roadmap, benchmark, v0.1, v1.0, plan]
+status: stable
+generated:
+  by: pathway_kb/1.0
+  at: 2026-09-16T00:00:00Z
+verified:
+  - by: human:archont561
+    at: 2025-07-11T00:00:00Z
+  - by: process:gap-analysis-2026-09
+    at: 2026-09-16T00:00:00Z
 domain: implementation
-status: decided
+decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
-updated: 2025-07-11
 source: conversation
 depends_on:
   - architecture/fused-walk
@@ -12,7 +23,6 @@ depends_on:
   - features/killer-features
   - competitive/positioning
   - implementation/repo-structure
-tags: [phase, roadmap, benchmark, v0.1, v1.0, plan]
 ---
 
 # Implementation Phase Plan
@@ -32,25 +42,55 @@ Rust walker + TypeScript `Path` class + JSON serializer + benchmark proof.
 
 ### Steps
 
+#### Step 0: Pre-Flight (added Sept 2026 — before any code)
+
+Gates from the gap analysis; Phase 1 does not start until these are done:
+
+- [ ] **Owner sign-off: license + public package name.** MIT or
+      Apache-2.0 dual (NAPI-RS ecosystem convention) and a public name —
+      the private `@myorg` scope is incompatible with the public adoption
+      targets (1M downloads / "default FS library").
+- [ ] **Fix the reference-code defects** now documented in
+      [code-rust-walker.md](/implementation/code-rust-walker.md) /
+      [code-ts-path.md](/implementation/code-ts-path.md): walkDirs filter, `Vec<String>`
+      globs, generated binding loader, root-relative glob matching, error
+      collection, `dot`/`gitignore`, chunked hashing, `cancel()`/`errors()`.
+- [ ] **NAPI-RS spike (1–2 days):** `#[napi(async_iterator)]` +
+      `AsyncTask` across Node 24/26 + Bun 1.3/1.4, per the napi.rs test
+      checklist → freeze the streaming architecture (native async
+      iterator vs. chunked paging fallback).
+- [ ] **Refresh the CI matrix** (ci-distribution.md): Node 24/26, Bun
+      1.3/1.4, cross toolchains, npm provenance, install smoke test.
+- [ ] **Re-pull npm download stats** for any external benchmark document
+      (the July 2025 figures are stale).
+
 #### Step 1.1: Project Scaffolding (Week 1)
 - [ ] Initialize Cargo workspace with `crates/engine`
 - [ ] Initialize pnpm workspace with `packages/path`
 - [ ] Configure NAPI-RS v3 with `tokio` async support
 - [ ] Set up TypeScript build (tsc, vitest)
 - [ ] Verify "hello world" NAPI-RS binding compiles and loads on Node + Bun
-- [ ] Set up GitHub Actions CI skeleton (see [ci-distribution.md](./ci-distribution.md))
+- [ ] Set up GitHub Actions CI skeleton (see [ci-distribution.md](/implementation/ci-distribution.md))
 
 #### Step 1.2: Rust Traversal Engine (Weeks 2–3)
 - [ ] Implement `NativeScanner` using `ignore` crate
-- [ ] Add `globset` glob matching
-- [ ] Add `regex` filtering
+- [ ] Add `globset` glob matching — **Vec of patterns, AND logic, matched
+      against root-relative paths** (see code-rust-walker.md)
+- [ ] Add `regex` filtering (full absolute path)
 - [ ] Implement pre-descent directory exclusion (pruning)
+- [ ] Add `dot` (default false → `hidden(true)`) and `gitignore` options
+- [ ] Add `absolute` option (default: root-relative paths)
 - [ ] Implement batched result yielding (default batch size: 512)
 - [ ] Add `withMetadata` option (stat info via `DirEntry::metadata`)
-- [ ] Add BLAKE3 content hashing via `blake3` crate
-- [ ] Write Rust unit tests for all walker configurations
+- [ ] Add BLAKE3/xxhash/sha256 content hashing via **chunked 64 KB reads**
+      (never whole-file loads)
+- [ ] Collect traversal/hash errors (`errors()` + per-entry `error`)
+- [ ] Add `cancel()` (AtomicBool, wired to JS `AbortSignal`)
+- [ ] Write Rust unit tests for all walker configurations, **including the
+      glob-semantics matrix** (nested/root-level `**/*.ts`, `*.ts`,
+      Windows separators)
 
-**See:** [code-rust-walker.md](./code-rust-walker.md) for the implementation.
+**See:** [code-rust-walker.md](/implementation/code-rust-walker.md) for the implementation.
 
 #### Step 1.3: TypeScript API (Weeks 3–4)
 - [ ] Implement `Path` class with `pathe` for string ops
@@ -62,24 +102,32 @@ Rust walker + TypeScript `Path` class + JSON serializer + benchmark proof.
 - [ ] Implement `walkFiles()`, `walkDirs()`, `walk()`
 - [ ] Write TypeScript tests for all Path operations
 
-**See:** [code-ts-path.md](./code-ts-path.md) for the implementation.
+**See:** [code-ts-path.md](/implementation/code-ts-path.md) for the implementation.
 
 #### Step 1.4: Benchmark Harness (Week 4)
 - [ ] Create file tree generator (10k, 100k, 500k, 1M files)
 - [ ] Benchmark A: Raw traversal (paths only)
 - [ ] Benchmark B: Traversal + complex exclusion
 - [ ] Benchmark C: Fused walk (traverse + stat + hash)
-- [ ] Compare against: `fdir`, `tinyglobby`, `Bun.Glob.scan()`
+- [ ] Compare against: **`node:fs.glob`** (native C++ baseline), `fdir`,
+      `tinyglobby`, `Bun.Glob.scan()` (Bun 1.3 **and** 1.4)
+- [ ] Record per run: wall time (p50/p95), peak heap, GC pressure,
+      time-to-first-entry, cancellation cost
 - [ ] Document results and determine if ≥5x speedup is achieved
 
 **See:** Benchmark section below for the full test plan.
 
 ### Success Criteria
-- [ ] Fused walk ≥5x faster than best JS alternative on 100k+ files
-- [ ] All tests pass on Node 22, Node 24, Bun latest
+- [ ] Fused walk ≥5x faster than the best alternative on 100k+ files —
+      the baseline on Node 24 is `node:fs.glob` + `fs.stat` + `crypto`
+      (native C++), not just pure JS
+- [ ] All tests pass on Node 24 (LTS), Node 26 (Current), Bun 1.3.x,
+      Bun 1.4.x
 - [ ] All tests pass on Linux (glibc), macOS (arm64), Windows (x64)
 - [ ] Package installs and loads correctly via NAPI-RS platform binaries
-- [ ] API matches the design in [walk-traversal.md](../features/walk-traversal.md)
+      (including the oldest-supported-npm install smoke test)
+- [ ] API matches the design in [walk-traversal.md](/features/walk-traversal.md)
+      (including `dot`, `gitignore`, `absolute`, `signal`, error reporting)
 
 ---
 
@@ -90,17 +138,25 @@ Temp dirs, content hashing, directory snapshots, additional hashers.
 
 ### Deliverables
 - [ ] `Path.temp(callback)` — RAII temp directories via `tempfile` crate
+      + `O_TMPFILE` / `DELETE_ON_CLOSE` for the hard guarantee (tiered
+      cleanup documented per [killer-features.md](/features/killer-features.md))
 - [ ] `file.hash(hasher)` — Single-file content hashing
-- [ ] `project.hashTree(options)` — Parallel tree hashing via rayon
+- [ ] `project.hashTree(options)` — Parallel tree hashing (dedicated
+      rayon stage over pruned paths)
 - [ ] `Hasher` interface with `blake3`, `xxhash`, `sha256` implementations
 - [ ] `project.snapshot(options)` — Directory snapshot with stat + hash
 - [ ] `Snapshot.diff(other)` — Added/removed/modified/unchanged
-- [ ] `Snapshot.save()` / `Snapshot.load()` — Persistence for incremental builds
+- [ ] `Snapshot.save()` / `Snapshot.load()` — Persistence for incremental
+      builds; **full nanosecond mtime precision** in the persisted format
+      and **sorted-path fold** (deterministic across runs/machines)
 
 ### Success Criteria
 - [ ] Snapshot + diff on 100k files completes in <500ms
-- [ ] Temp dir cleanup verified on process crash (SIGKILL test)
+- [ ] Temp dir cleanup verified: throw/exit (tier 1) and SIGKILL on
+      Linux local FS + Windows (tier 2) — tier-3 platforms documented
 - [ ] Tree hash is deterministic across runs
+- [ ] Two files written in the same millisecond are distinguished in
+      mtime-mode diffs (ns-precision check)
 
 ---
 
@@ -110,15 +166,26 @@ Temp dirs, content hashing, directory snapshots, additional hashers.
 Sandbox, file locking, parallel bulk ops, transformers.
 
 ### Deliverables
-- [ ] `project.sandbox(subdir)` — Path containment with symlink resolution
-- [ ] `file.withLock(callback)` — Native `flock()` / `LockFileEx()`
+- [ ] `project.sandbox(subdir)` — Path containment with **per-component
+      realpath / fd-based `openat(O_NOFOLLOW)`** (final-path checks alone
+      miss intermediate symlink escapes + TOCTOU — see
+      killer-features.md hardening requirements)
+- [ ] `file.withLock(callback)` — Native `flock()` / `LockFileEx()`,
+      sidecar option, NFS/Windows caveats documented
 - [ ] `project.copyTo(dest, options)` — Parallel recursive copy
+- [ ] `path.moveTo(dest)` / `rename()` — fs-extra `move` parity
 - [ ] `project.transform(dest, options)` — Parallel file transformation
 - [ ] `Transformer` interface with `gzip`, `brotli` implementations
+- [ ] Symlink controls: `followSymlinks` walk option, `lstat` support,
+      broken-symlink policy (`throwOnError` parity)
+- [ ] Atomic-write hardening shipped: `O_EXCL` temp creation +
+      best-effort directory fsync after rename
 - [ ] `ContainmentError` with type-level `SandboxedPath` brand
 
 ### Success Criteria
-- [ ] Sandbox blocks all `../` traversal attempts (including symlinks)
+- [ ] Sandbox blocks the full test matrix: `../`, intermediate symlinks,
+      symlink loops, case-insensitive FS, Unicode normalization,
+      `public-evil` prefix collision
 - [ ] File locking verified under concurrent access (10 processes)
 - [ ] Parallel copy of 50k files ≥3x faster than `fs-extra.copy()`
 
@@ -135,14 +202,20 @@ Transactions, native codecs, detection, resolution, watching.
 - [ ] `@myorg/path-yaml` — Native YAML serializer via `serde_yaml`
 - [ ] `Detector` interface with `mime`, `encoding` implementations
 - [ ] `Validator` interface with Zod/Valibot integration examples
-- [ ] `Resolver` interface with Node and tsconfig resolution
+- [ ] **`Resolver` interface backed by `unrs-resolver`** (Rust crate in
+      the engine, npm package as fallback) — adapter, NOT a from-scratch
+      resolver (Sept 2026 decision); interface stays open for other
+      implementations
 - [ ] `project.watch()` — Native filesystem watching via `notify` crate
+      (makes the "uninstall chokidar" pitch true at v0.4)
+- [ ] **Content-Addressed Store** (`FileSystem.cas()`) — backs the
+      "content-addressed caching primitives" pitch (pluggable-patterns.md §F)
 - [ ] `FileSystem.create({ serializers })` — Per-instance registry
 - [ ] Full CI matrix with all 7 platform targets
 
 ### v1.0 Success Criteria
-- [ ] All features from [killer-features.md](../features/killer-features.md) shipped
-- [ ] All pluggable patterns from [pluggable-patterns.md](../features/pluggable-patterns.md) implemented
+- [ ] All features from [killer-features.md](/features/killer-features.md) shipped
+- [ ] All pluggable patterns from [pluggable-patterns.md](/features/pluggable-patterns.md) implemented
 - [ ] 10k+ GitHub stars
 - [ ] 1M+ weekly npm downloads
 - [ ] Adopted by ≥2 major build tools or frameworks
@@ -187,12 +260,20 @@ import { bench, group, run } from "mitata";
 import { Path } from "@myorg/path";
 import { fdir } from "fdir";
 import { glob } from "tinyglobby";
-import { readFile } from "node:fs/promises";
+import { glob as nodeGlob, readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 
 const ROOT = process.argv[2] || "./fixtures/100k";
 
+// Wall time is not enough: record peak heap + GC pressure per run
+// (see "Measured Metrics" in fused-walk.md), plus time-to-first-entry
+// and cancellation cost.
+
 group("Raw Traversal (paths only)", () => {
+  bench("node:fs.glob (native C++)", async () => {
+    return [...await nodeGlob("**/*.ts", { cwd: ROOT })];
+  });
+
   bench("fdir", async () => {
     return new fdir().glob("**/*.ts").crawl(ROOT);
   });
@@ -211,6 +292,15 @@ group("Raw Traversal (paths only)", () => {
 });
 
 group("Fused Walk (traverse + stat + hash)", () => {
+  bench("node:fs.glob + fs.readFile + crypto", async () => {
+    const paths = [...await nodeGlob("**/*.ts", { cwd: ROOT })];
+    return Promise.all(paths.map(async (p: string) => {
+      const content = await readFile(p);
+      const hash = createHash("sha256").update(content).digest("hex");
+      return { path: p, hash };
+    }));
+  });
+
   bench("fdir + fs.stat + crypto", async () => {
     const paths = await new fdir().glob("**/*.ts").crawl(ROOT);
     return Promise.all(paths.map(async (p: string) => {
@@ -236,6 +326,10 @@ group("Fused Walk (traverse + stat + hash)", () => {
 await run();
 ```
 
+> **Competitor set (Sept 2026):** `node:fs.glob` is stable and C++-native
+> in Node core — it is the fused walk's primary baseline on Node 24.
+> The Bun comparison runs on **both** Bun 1.3 and 1.4 (Rust rewrite).
+
 ### Test Matrix
 
 | Tree Size | Filter | Hash | Expected JS Time | Target Native Time |
@@ -249,9 +343,10 @@ await run();
 ### Success Threshold
 
 The fused walk (traverse + stat + hash) must be **≥5x faster** than the
-best JS alternative. If the improvement is only 5–10%, the Rust complexity
-is not justified. If it is 10–20x faster with lower memory, that is the
-foundation of the project.
+best alternative — on Node 24 that means `node:fs.glob` + `fs.stat` +
+`crypto` (the native C++ baseline), not just pure JS. If the improvement is
+only 5–10%, the Rust complexity is not justified. If it is 10–20x faster
+with lower memory, that is the foundation of the project.
 
 ---
 
