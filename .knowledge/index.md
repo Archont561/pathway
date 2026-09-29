@@ -13,13 +13,14 @@ foundational decisions. Change history: [update log](/log.md).
 
 # Context
 
-* [Project Context & Decision Log](/CONTEXT.md) - Identity, current state, decisions D1–D6, market snapshot, roadmap, bundle conventions.
+* [Project Context & Decision Log](/CONTEXT.md) - Identity, current state, decisions D1–D7, market snapshot, roadmap, bundle conventions.
 
 # Architecture
 
-* [3-Layer Architecture](/architecture/core-layers.md) - TS surface, NAPI-RS bridge, Rust engine; Path vs FileSystem; the Rust-internal trait.
+* [3-Layer Architecture](/architecture/core-layers.md) - TS surface, NAPI-RS bridge, Rust engine; Path vs FileSystem; the Rust-internal trait; D7 dual-surface core.
 * [Coarse-Grained FFI Boundary](/architecture/napi-boundary.md) - What stays in TypeScript, what crosses to Rust; per-call boundary hops banned.
 * [Fused Walk](/architecture/fused-walk.md) - Single-pass stat+hash+filter in Rust — the defensible performance moat.
+* [Rust Crate Surface](/architecture/rust-crate-surface.md) - D7: rlib core + `myorg-path` crate on crates.io — pathlib-like ergonomics for Rust projects.
 
 # Features
 

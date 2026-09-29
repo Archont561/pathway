@@ -1,12 +1,12 @@
 ---
 type: Project Context
 title: "Project Context and Decision Log"
-description: "Identity, current state, foundational decisions D1–D6, market snapshot, roadmap, and bundle conventions for @myorg/path."
+description: "Identity, current state, foundational decisions D1–D7, market snapshot, roadmap, and bundle conventions for @myorg/path."
 tags: [context, decisions, roadmap]
 status: stable
 generated:
   by: pathway_kb/1.0
-  at: 2026-09-16T00:00:00Z
+  at: 2026-09-30T00:00:00Z
 verified:
   - by: human:archont561
     at: 2026-09-16T00:00:00Z
@@ -22,9 +22,12 @@ depends_on: []
 
 A **native, pathlib-inspired filesystem API** for TypeScript, Bun, and Node.
 Built on a 3-layer stack: ergonomic TS surface → NAPI-RS bridge → Rust engine.
+The engine core also ships as a **published Rust crate** (`myorg-path`),
+giving Rust projects the same pathlib-like surface over the same core (D7).
 
 **One-line pitch:**
 > The filesystem library that build tools wish they had.
+> (And for Rust: pathlib's convenience + ripgrep's walker, one crate.)
 
 **Target audience:**
 Build tool authors, monorepo infrastructure, CLI frameworks, server frameworks —
@@ -38,13 +41,17 @@ anyone currently stitching together `tinyglobby` + `fs-extra` + `pathe` +
 **Phase:** Pre-implementation. Knowledge base updated 2026-09-16 to
 incorporate the Sept 2026 gap analysis (runtime lines, `node:fs.glob`,
 Bun 1.4, NAPI-RS iterator/AsyncTask, `unrs-resolver`, reference-code
-fixes, benchmark re-baseline). No code written yet.
+fixes, benchmark re-baseline), and on 2026-09-30 to add **D7** (publishable
+Rust core + ergonomic `myorg-path` crate; three-crate workspace — see
+[rust-crate-surface.md](/architecture/rust-crate-surface.md)). No code written yet.
 
 **Next action:** Begin Phase 1 per [phase-plan.md](/implementation/phase-plan.md)
-— **Step 0 pre-flight first**: owner sign-off on license + public name,
-NAPI-RS `async_iterator`/`AsyncTask` spike, CI matrix refresh
-(Node 24/26, Bun 1.3/1.4), then scaffolding + Rust walker + TS Path class
-+ benchmark harness (vs `node:fs.glob`, fdir, tinyglobby, Bun 1.3/1.4).
+— **Step 0 pre-flight first**: owner sign-off on license + public name
+(npm **and** crates.io names, per D7), NAPI-RS `async_iterator`/`AsyncTask`
+spike, CI matrix refresh (Node 24/26, Bun 1.3/1.4), then scaffolding
+(three-crate workspace: `core` rlib + `engine` cdylib + `path` stub)
++ Rust walker + TS Path class + benchmark harness (vs `node:fs.glob`,
+fdir, tinyglobby, Bun 1.3/1.4).
 
 ---
 
@@ -93,6 +100,20 @@ own CI matrix is the support contract.
 - **Per-file FFI hops:** Rejected. `path.join("a").join("b").join("c")` must
   NOT cross the N-API boundary three times.
 
+### D7: One core, two surfaces — publish a Rust crate (added 2026-09-30)
+The engine is split into `crates/core` (**rlib**, all logic, zero napi
+deps) and `crates/engine` (thin **cdylib** NAPI-RS wrapper). A third
+crate, `crates/path`, is published to crates.io as **`myorg-path`** — an
+ergonomic, pathlib-like Rust API over the same core: fused walk builder,
+glob-on-a-path, integrated hashing, typed serde read/write with atomic
+semantics, temp/lock/sandbox sugar. Rust-surface rules: platform-native
+path semantics (`std::path`, not pathe), independent semver + MSRV
+policy, engine never on crates.io, TS remains the primary product (a
+Rust-surface gap never blocks an npm release). Core split lands in
+Phase 1 scaffolding; the crate ships as a preview at v0.3 and stabilizes
+at v1.0. Full spec:
+[rust-crate-surface.md](/architecture/rust-crate-surface.md).
+
 ---
 
 ## Verified Market Data
@@ -131,9 +152,9 @@ internal Rust filesystem engines but don't publish them as libraries.
 |-------|-------|-----------------|
 | **v0.1** | `Path`, `walk`, `read/write`, `json` serializer, `exclude` | Prove architecture. Benchmark vs fdir/Bun. |
 | **v0.2** | `temp`, `hash`, `snapshot/diff`, `blake3`/`xxhash` | Build system adoption. |
-| **v0.3** | `sandbox` (openat-based), `withLock`, `copyTo`/`moveTo`, `transform`, symlink controls | Server & infra adoption. |
+| **v0.3** | `sandbox` (openat-based), `withLock`, `copyTo`/`moveTo`, `transform`, symlink controls, **`myorg-path` Rust crate preview on crates.io (D7)** | Server & infra adoption; first Rust consumers. |
 | **v0.4** | `transaction`, `detect`, `watch` (notify), CAS, native TOML/YAML serializers | Power users, monorepos. |
-| **v1.0** | `resolve` (unrs-resolver adapter), streaming transforms, full CI matrix | Ecosystem replacement. |
+| **v1.0** | `resolve` (unrs-resolver adapter), streaming transforms, full CI matrix, **Rust crate stabilized (1.0 on crates.io)** | Ecosystem replacement. |
 
 ---
 

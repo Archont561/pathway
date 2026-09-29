@@ -6,7 +6,7 @@ tags: [rust, code, walker, ignore, napi, scanner, fused]
 status: stable
 generated:
   by: pathway_kb/1.0
-  at: 2026-09-16T00:00:00Z
+  at: 2026-09-30T00:00:00Z
 verified:
   - by: human:archont561
     at: 2025-07-11T00:00:00Z
@@ -19,6 +19,7 @@ source: conversation
 depends_on:
   - architecture/fused-walk
   - architecture/napi-boundary
+  - architecture/rust-crate-surface
   - features/walk-traversal
   - implementation/repo-structure
 ---
@@ -55,6 +56,17 @@ Results are returned in **batches** to minimize N-API boundary crossings.
 > `AsyncGenerator` (true streaming + native cancellation via `return()`).
 > See the "Target: Native Async Iterator" section below and
 > [napi-boundary.md](/architecture/napi-boundary.md).
+
+> **D7 layout note (2026-09-30):** The module paths below
+> (`crates/engine/src/walk/…`) predate the three-crate split. Under
+> **D7** ([rust-crate-surface.md](/architecture/rust-crate-surface.md)),
+> the scanner/matcher/entry/hash logic lives **napi-free in
+> `crates/core`** (same file names under `crates/core/src/…`), and only
+> the `#[napi]`-annotated structs/functions shown here remain in
+> `crates/engine` as thin wrappers that delegate to core types. The
+> logic in this reference is unchanged; only where the `#[napi]`
+> attribute lives moves. Core's plain-Rust API is re-used directly by
+> the `myorg-path` crate.
 
 ---
 
