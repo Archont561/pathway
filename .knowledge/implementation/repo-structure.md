@@ -1,12 +1,12 @@
 ---
 type: Implementation Spec
 title: "Workspace Layout: Cargo Workspace, TypeScript Package, Directory Tree"
-description: "Workspace layout: Cargo workspace, npm/TypeScript package tree, and target directory structure."
-tags: [repo, workspace, cargo, npm, directory, structure]
+description: "Workspace layout: three-crate Cargo workspace (core rlib, path crate, napi engine), npm/TypeScript package tree, and target directory structure."
+tags: [repo, workspace, cargo, npm, directory, structure, crates-io]
 status: stable
 generated:
   by: pathway_kb/1.0
-  at: 2026-09-16T00:00:00Z
+  at: 2026-09-30T00:00:00Z
 verified:
   - by: human:archont561
     at: 2025-07-11T00:00:00Z
@@ -19,6 +19,7 @@ source: conversation
 depends_on:
   - architecture/core-layers
   - architecture/napi-boundary
+  - architecture/rust-crate-surface
 ---
 
 # Repository Structure
@@ -28,6 +29,13 @@ depends_on:
 The project uses a **Cargo workspace** for Rust crates and a **packages/**
 directory for the published npm package. This keeps the native engine and
 the TypeScript API in a single repository with unified CI.
+
+Per **D7** ([rust-crate-surface.md](/architecture/rust-crate-surface.md)),
+the workspace has **three crates** (added 2026-09-30): all engine logic
+lives in `crates/core` (an `rlib` with zero napi deps, published to
+crates.io as `myorg-path-core`); `crates/engine` is a thin `cdylib`
+NAPI-RS wrapper for npm distribution; and `crates/path` is the ergonomic
+pathlib-like Rust API published to crates.io as `myorg-path`.
 
 ```
 @myorg/path/
@@ -40,36 +48,53 @@ the TypeScript API in a single repository with unified CI.
 │   └── config.toml               # Rust build config (linker, target dirs)
 │
 ├── crates/
-│   └── engine/                   # NAPI-RS Rust core
-│       ├── Cargo.toml
+│   ├── core/                     # myorg-path-core — rlib, ALL engine logic, zero napi deps (D7)
+│   │   ├── Cargo.toml            # crates.io-publishable; `cargo test` needs no Node
+│   │   └── src/
+│   │       ├── lib.rs            # Public Rust API of the core (curated, low-level)
+│   │       ├── walk/
+│   │       │   ├── mod.rs        # Walk module exports
+│   │       │   ├── scanner.rs    # NativeScanner (ignore + globset + regex)
+│   │       │   ├── matcher.rs    # Matcher enum (Glob, Regex, Both)
+│   │       │   └── entry.rs      # FusedEntry struct (path, stat, hash)
+│   │       ├── hash/
+│   │       │   ├── mod.rs
+│   │       │   ├── blake3.rs     # BLAKE3 via blake3 crate
+│   │       │   ├── xxhash.rs     # xxHash via xxhash-rust
+│   │       │   └── sha256.rs     # SHA-256 via sha2 crate
+│   │       ├── fs/
+│   │       │   ├── mod.rs
+│   │       │   ├── atomic.rs     # Atomic write (O_EXCL temp + fsync + rename + dir fsync)
+│   │       │   ├── sandbox.rs    # Path containment (canonicalize + openat(O_NOFOLLOW))
+│   │       │   ├── lock.rs       # File locking (flock / LockFileEx, sidecar option)
+│   │       │   └── temp.rs       # Temp dirs (tempfile + O_TMPFILE / DELETE_ON_CLOSE)
+│   │       ├── serializers/
+│   │       │   ├── mod.rs
+│   │       │   ├── toml.rs       # TOML via toml-rs + serde
+│   │       │   └── yaml.rs       # YAML via serde_yaml
+│   │       ├── watch/            # v0.4 — native filesystem watching (notify crate)
+│   │       │   └── mod.rs
+│   │       ├── resolve/          # v1.0 — adapter over the unrs_resolver crate
+│   │       │   └── mod.rs        #   (NOT a from-scratch resolver — Sept 2026)
+│   │       └── error.rs          # Unified error types (thiserror)
+│   │
+│   ├── path/                     # myorg-path — ergonomic pathlib-like Rust API (D7, v0.3 preview)
+│   │   ├── Cargo.toml            # rlib over core; published to crates.io
+│   │   └── src/
+│   │       ├── lib.rs            # Public exports (Path, WalkBuilder, Hash, ...)
+│   │       ├── path.rs           # Path: join/cwd sugar + read_/write_ helpers over core
+│   │       ├── walk.rs           # Fluent walk builder → core scanner iterator
+│   │       └── serde_ext.rs      # read_json/read_toml/write_*_atomic via serde
+│   │
+│   └── engine/                   # myorg-path-engine — thin NAPI-RS wrapper, npm only
+│       ├── Cargo.toml            # cdylib; never published to crates.io
 │       ├── build.rs              # napi-rs build script
 │       └── src/
 │           ├── lib.rs            # N-API module registration
-│           ├── walk/
-│           │   ├── mod.rs        # Walk module exports
-│           │   ├── scanner.rs    # NativeScanner (ignore + globset + regex)
-│           │   ├── matcher.rs    # Matcher enum (Glob, Regex, Both)
-│           │   └── entry.rs      # FusedEntry struct (path, stat, hash)
-│           ├── hash/
-│           │   ├── mod.rs
-│           │   ├── blake3.rs     # BLAKE3 via blake3 crate
-│           │   ├── xxhash.rs     # xxHash via xxhash-rust
-│           │   └── sha256.rs     # SHA-256 via sha2 crate
-│           ├── fs/
-│           │   ├── mod.rs
-│           │   ├── atomic.rs     # Atomic write (O_EXCL temp + fsync + rename + dir fsync)
-│           │   ├── sandbox.rs    # Path containment (canonicalize + openat(O_NOFOLLOW))
-│           │   ├── lock.rs       # File locking (flock / LockFileEx, sidecar option)
-│           │   └── temp.rs       # Temp dirs (tempfile + O_TMPFILE / DELETE_ON_CLOSE)
-│           ├── serializers/
-│           │   ├── mod.rs
-│           │   ├── toml.rs       # TOML via toml-rs + serde
-│           │   └── yaml.rs       # YAML via serde_yaml
-│           ├── watch/            # v0.4 — native filesystem watching (notify crate)
-│           │   └── mod.rs
-│           ├── resolve/          # v1.0 — adapter over the unrs_resolver crate
-│           │   └── mod.rs        #   (NOT a from-scratch resolver — Sept 2026)
-│           └── error.rs          # Unified error types → N-API errors
+│           ├── walk.rs           # #[napi] bindings → core walk (batches, AbortSignal)
+│           ├── fs.rs             # #[napi] bindings → core fs ops
+│           ├── serializers.rs    # serde_json::Value → JsUnknown conversion
+│           └── error.rs          # core errors → N-API errors
 │
 ├── packages/
 │   └── path/                     # Published npm package: @myorg/path
@@ -126,8 +151,16 @@ the TypeScript API in a single repository with unified CI.
 
 ```toml
 [workspace]
-members = ["crates/engine"]
+members = ["crates/core", "crates/path", "crates/engine"]
 resolver = "2"
+
+# Profiles must live at the workspace root — Cargo ignores [profile.*]
+# in member manifests (moved here from crates/engine, 2026-09-30).
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = "symbols"
 
 [workspace.dependencies]
 # Sept 2026: feature set re-verified against current napi-rs docs.
@@ -157,21 +190,25 @@ thiserror = "2"
 
 ---
 
-## Engine Crate (`crates/engine/Cargo.toml`)
+## Core Crate (`crates/core/Cargo.toml`) — added 2026-09-30 (D7)
+
+All filesystem/traversal/hash/codec logic lives here. **No napi
+dependencies** — this crate compiles and tests without Node, and is
+published to crates.io.
 
 ```toml
 [package]
-name = "myorg-path-engine"
+name = "myorg-path-core"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.85"          # MSRV: latest stable minus 2, CI-enforced
+license = "MIT OR Apache-2.0"  # pending Step-0 sign-off
+description = "Native filesystem core: fused walk, hashing, atomic ops, serde codecs"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["rlib"]
 
 [dependencies]
-napi = { workspace = true }
-napi-derive = { workspace = true }
-tokio = { workspace = true }
 ignore = { workspace = true }
 globset = { workspace = true }
 regex = { workspace = true }
@@ -186,16 +223,70 @@ tempfile = { workspace = true }
 fs2 = { workspace = true }
 rayon = { workspace = true }
 thiserror = { workspace = true }
+```
+
+---
+
+## Rust API Crate (`crates/path/Cargo.toml`) — added 2026-09-30 (D7)
+
+The ergonomic pathlib-like surface for Rust consumers
+([rust-crate-surface.md](/architecture/rust-crate-surface.md)). Stub in
+Phase 1; published as a preview at v0.3.
+
+```toml
+[package]
+name = "myorg-path"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"  # pending Step-0 sign-off
+description = "pathlib's convenience + ripgrep's walker: ergonomic paths, fused walk, hashing, typed serde I/O"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+myorg-path-core = { path = "../core", version = "0.1" }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+camino = ["dep:camino"]        # optional UTF-8 path type
+
+[dependencies.camino]
+version = "1"
+optional = true
+```
+
+---
+
+## Engine Crate (`crates/engine/Cargo.toml`)
+
+Thin NAPI-RS wrapper over `crates/core` — bindings, JS type conversion,
+async plumbing only. **Never published to crates.io.**
+
+```toml
+[package]
+name = "myorg-path-engine"
+version = "0.1.0"
+edition = "2021"
+publish = false                # npm-only artifact (D7)
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+myorg-path-core = { path = "../core" }
+napi = { workspace = true }
+napi-derive = { workspace = true }
+tokio = { workspace = true }
+serde_json = { workspace = true }   # Value → JsUnknown conversion
 
 [build-dependencies]
 napi-build = "2"
-
-[profile.release]
-lto = true
-codegen-units = 1
-opt-level = 3
-strip = "symbols"
 ```
+
+(Release profile lives in the workspace root `Cargo.toml` — see above.)
 
 ---
 
@@ -281,6 +372,7 @@ is written.
 | Decision | Rationale |
 |----------|-----------|
 | Cargo workspace | Single Rust dependency tree; shared crate versions |
+| **Three-crate split: `core` (rlib) / `path` (Rust API) / `engine` (cdylib)** | D7: Rust consumers get a published crate; core is `cargo test`-able without Node; napi glue stays thin |
 | `crates/engine` separate from `packages/path` | Clean native/JS boundary; engine is not published to npm directly |
 | `pathe` as only runtime dependency | Minimal footprint; all heavy lifting is native |
 | Platform-specific optional deps | NAPI-RS distribution model; only the right binary is installed |
@@ -298,6 +390,9 @@ is written.
 |----------|-----------|
 | Monorepo (Cargo + pnpm) | Unified CI, single source of truth |
 | Engine as cdylib | Required by NAPI-RS for native addon output |
-| Release profile with LTO | Maximum performance for the native binary |
+| Core as rlib on crates.io (`myorg-path-core`) | D7: reusable from Rust; Node-free unit tests for all engine logic |
+| `myorg-path` crate as the Rust Layer 1 | D7: pathlib-like ergonomics for Rust projects, same core as the TS surface |
+| `publish = false` on engine | cdylib napi glue is not a usable Rust dependency |
+| Release profile with LTO (workspace root) | Maximum performance for the native binary |
 | Optional platform deps | Users only download their platform's binary |
 | Extension packages separate | Tree-shakeable; keeps core lean |

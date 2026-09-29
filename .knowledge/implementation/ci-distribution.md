@@ -6,7 +6,7 @@ tags: [ci, napi-rs, distribution, platform, bun, targets, github-actions, proven
 status: stable
 generated:
   by: pathway_kb/1.0
-  at: 2026-09-16T00:00:00Z
+  at: 2026-09-30T00:00:00Z
 verified:
   - by: human:archont561
     at: 2025-07-11T00:00:00Z
@@ -18,6 +18,7 @@ created: 2025-07-11
 source: conversation
 depends_on:
   - architecture/napi-boundary
+  - architecture/rust-crate-surface
   - implementation/repo-structure
   - competitive/verified-data
 ---
@@ -42,6 +43,21 @@ packages, and npm/pnpm/bun automatically installs the correct one.
 @myorg/path-win32-x64-msvc           ← Windows x64
 @myorg/path-win32-arm64-msvc         ← Windows arm64
 ```
+
+### Published Crates (crates.io — D7, added 2026-09-30)
+
+Per [rust-crate-surface.md](/architecture/rust-crate-surface.md), the Rust
+surface is distributed through crates.io, on an **independent semver
+cadence** from the npm packages:
+
+```
+myorg-path-core                      ← rlib engine core (from Phase 1; napi-free)
+myorg-path                           ← ergonomic pathlib-like Rust API (v0.3 preview)
+myorg-path-engine                    ← NEVER published (publish = false; cdylib napi glue)
+```
+
+`cargo publish` for the two crates is a separate release workflow step,
+gated on the same tag but not coupled to the npm version number.
 
 Each platform package contains a single `.node` binary:
 
@@ -125,6 +141,15 @@ Each platform package contains a single `.node` binary:
 ---
 
 ## CI Configuration
+
+### Rust Core Job (D7, added 2026-09-30)
+
+Before the runtime matrix below, a cheap **Node-free Rust job** runs on
+all three OSes: `cargo test -p myorg-path-core` (+ `-p myorg-path` once
+the crate lands), `cargo clippy -D warnings`, and an **MSRV check**
+(build with the pinned `rust-version`). This job catches engine-logic
+regressions without paying for the napi build, and is the entire test
+story for the crates.io artifacts.
 
 ### Test Matrix (`.github/workflows/ci.yml`)
 

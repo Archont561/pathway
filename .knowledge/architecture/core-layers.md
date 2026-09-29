@@ -1,12 +1,12 @@
 ---
 type: Architecture Decision
 title: "3-Layer Architecture, Path vs FileSystem, Rust Trait"
-description: "The 3-layer stack — TypeScript surface, NAPI-RS bridge, Rust engine — the Path vs FileSystem split, and the Rust-internal FileSystem trait."
-tags: [architecture, layers, path, filesystem, rust, trait]
+description: "The 3-layer stack — TypeScript surface, NAPI-RS bridge, Rust engine — the Path vs FileSystem split, the Rust-internal FileSystem trait, and the D7 dual-surface core."
+tags: [architecture, layers, path, filesystem, rust, trait, dual-surface]
 status: stable
 generated:
   by: pathway_kb/1.0
-  at: 2025-07-11T00:00:00Z
+  at: 2026-09-30T00:00:00Z
 verified:
   - by: human:archont561
     at: 2025-07-11T00:00:00Z
@@ -81,6 +81,35 @@ Owns all heavy filesystem operations. Uses the Rust `std::fs` ecosystem plus
 battle-tested crates (`ignore`, `globset`, `regex`, `blake3`, `serde`).
 Internally structured around a `FileSystem` trait, but this trait is an
 **internal architecture boundary** — it is never exposed through N-API.
+
+---
+
+## One Core, Two Surfaces (D7, added 2026-09-30)
+
+Layer 3 is packaged as an **rlib crate** (`crates/core`, zero napi
+deps), consumed by two independent Layer-1 surfaces:
+
+```
+   TypeScript surface (@myorg/path)        Rust surface (myorg-path crate)
+        Path • walk • Serializer<T>            Path • walk() • read_toml()
+                 │                                       │
+         napi-rs (crates/engine,                 plain Rust dependency
+          thin cdylib wrapper)                    (crates/path → rlib)
+                 │                                       │
+                 └──────────────┬────────────────────────┘
+                                ▼
+                     crates/core (rlib)
+          scanner • hashers • atomic fs • serde codecs
+```
+
+- The N-API bridge (Layer 2) is a **JS-surface concern only**; Rust
+  consumers link core directly, with no FFI in the path.
+- The internal `FileSystem` trait stays internal on **both** surfaces —
+  `crates/path` exposes a curated pathlib-like API, not the trait.
+- Path semantics differ by design: pathe/POSIX on the TS side,
+  platform-native `std::path` on the Rust side; core is platform-native
+  and glob semantics are defined once in core. Full spec:
+  [rust-crate-surface.md](/architecture/rust-crate-surface.md).
 
 ---
 
@@ -183,3 +212,4 @@ testable and extensible internally.
 | `Path` as default entry | Boring, familiar API; lowest barrier to adoption |
 | `FileSystem` as optional | Enables testing, sandboxing, overlays without breaking simple usage |
 | Rust trait is internal | Architecture boundary, not API surface; keeps N-API coarse-grained |
+| Core as rlib with two surfaces (D7) | Rust projects consume the same engine via `myorg-path`; napi stays a JS-boundary detail |

@@ -6,7 +6,7 @@ tags: [phase, roadmap, benchmark, v0.1, v1.0, plan]
 status: stable
 generated:
   by: pathway_kb/1.0
-  at: 2026-09-16T00:00:00Z
+  at: 2026-09-30T00:00:00Z
 verified:
   - by: human:archont561
     at: 2025-07-11T00:00:00Z
@@ -50,6 +50,11 @@ Gates from the gap analysis; Phase 1 does not start until these are done:
       Apache-2.0 dual (NAPI-RS ecosystem convention) and a public name —
       the private `@myorg` scope is incompatible with the public adoption
       targets (1M downloads / "default FS library").
+- [ ] **Reserve crates.io names** for the Rust surface (D7): the
+      `myorg-path` and `myorg-path-core` equivalents of whatever public
+      name is chosen — decided together with the npm name so the two
+      ecosystems match. See
+      [rust-crate-surface.md](/architecture/rust-crate-surface.md).
 - [ ] **Fix the reference-code defects** now documented in
       [code-rust-walker.md](/implementation/code-rust-walker.md) /
       [code-ts-path.md](/implementation/code-ts-path.md): walkDirs filter, `Vec<String>`
@@ -65,7 +70,11 @@ Gates from the gap analysis; Phase 1 does not start until these are done:
       (the July 2025 figures are stale).
 
 #### Step 1.1: Project Scaffolding (Week 1)
-- [ ] Initialize Cargo workspace with `crates/engine`
+- [ ] Initialize Cargo workspace with the **three-crate split (D7)**:
+      `crates/core` (rlib, all logic, zero napi deps), `crates/engine`
+      (cdylib NAPI wrapper, `publish = false`), `crates/path` (stub for
+      the v0.3 Rust API crate)
+- [ ] Verify `cargo test -p myorg-path-core` runs green **without Node**
 - [ ] Initialize pnpm workspace with `packages/path`
 - [ ] Configure NAPI-RS v3 with `tokio` async support
 - [ ] Set up TypeScript build (tsc, vitest)
@@ -73,6 +82,10 @@ Gates from the gap analysis; Phase 1 does not start until these are done:
 - [ ] Set up GitHub Actions CI skeleton (see [ci-distribution.md](/implementation/ci-distribution.md))
 
 #### Step 1.2: Rust Traversal Engine (Weeks 2–3)
+
+All items below are implemented in **`crates/core`** (napi-free);
+`crates/engine` only exposes them over N-API.
+
 - [ ] Implement `NativeScanner` using `ignore` crate
 - [ ] Add `globset` glob matching — **Vec of patterns, AND logic, matched
       against root-relative paths** (see code-rust-walker.md)
@@ -181,6 +194,12 @@ Sandbox, file locking, parallel bulk ops, transformers.
 - [ ] Atomic-write hardening shipped: `O_EXCL` temp creation +
       best-effort directory fsync after rename
 - [ ] `ContainmentError` with type-level `SandboxedPath` brand
+- [ ] **`myorg-path` Rust crate preview on crates.io (D7):** fluent
+      walk builder, glob-on-a-path, hashing, typed serde read/write
+      (atomic), temp/lock sugar over `crates/core`; docs.rs docs +
+      README quickstart. Independent semver; a gap here never blocks
+      the npm release
+      ([rust-crate-surface.md](/architecture/rust-crate-surface.md))
 
 ### Success Criteria
 - [ ] Sandbox blocks the full test matrix: `../`, intermediate symlinks,
@@ -216,6 +235,9 @@ Transactions, native codecs, detection, resolution, watching.
 ### v1.0 Success Criteria
 - [ ] All features from [killer-features.md](/features/killer-features.md) shipped
 - [ ] All pluggable patterns from [pluggable-patterns.md](/features/pluggable-patterns.md) implemented
+- [ ] **Rust surface stabilized (D7):** `myorg-path` 1.0 on crates.io,
+      MSRV CI-enforced, docs.rs coverage for the full walk/hash/serde
+      surface
 - [ ] 10k+ GitHub stars
 - [ ] 1M+ weekly npm downloads
 - [ ] Adopted by ≥2 major build tools or frameworks
@@ -355,6 +377,7 @@ with lower memory, that is the foundation of the project.
 | Decision | Rationale |
 |----------|-----------|
 | Phase 1 = walker + Path + JSON | Minimal viable product; proves the architecture |
+| Core/engine split in Phase 1, Rust crate at v0.3 (D7) | Split is cheap during scaffolding; deferring the ergonomic crate keeps Phase 1 focused on the benchmark gate |
 | Benchmark before expanding | Must prove ≥5x speedup before committing to full Rust codebase |
 | Phase 2 = build system features | Highest-value audience (build tools) gets their features first |
 | Phase 3 = infrastructure | Server frameworks and CLI tools |
