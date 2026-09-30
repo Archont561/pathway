@@ -41,11 +41,14 @@ pathlib-like Rust API published to crates.io as `pathway-fs`.
 @archont561/pathway/
 │
 ├── Cargo.toml                    # Cargo workspace root
-├── package.json                  # Root package.json (scripts, devDeps)
-├── pnpm-workspace.yaml           # pnpm workspace config
-├── tsconfig.base.json            # Shared TS config
+├── package.json                  # Bun workspace root: workspaces, scripts, toolchain devDeps
+├── bun.lock                      # The single JS dependency resolution record
+├── pixi.toml / pixi.lock         # pixi environments + tasks; the lockfile is what CI verifies
+├── biome.json / turbo.json       # JS lint config; turbo task graph + cache inputs
+├── lefthook.yml / .versionrc     # Hooks delegate to pixi tasks; convco changelog config
+├── .pixi-sandbox.toml            # The reviewed sandbox publish plan
 ├── .cargo/
-│   └── config.toml               # Rust build config (linker, target dirs)
+│   └── config.toml               # gitignored — written by `pixi-sandbox restore` (crates.io → vendored tree)
 │
 ├── crates/
 │   ├── core/                     # pathway-fs-core — rlib, ALL engine logic, zero napi deps (D7)
@@ -296,61 +299,63 @@ napi-build = "2"
 
 ## Package Configuration (`packages/path/package.json`)
 
+The actual manifest (verified 2026-09-30 — the 2025 draft sketched pnpm +
+vitest; the repo standardized on bun + `bun test` when it scaffolded):
+
 ```json
 {
   "name": "@archont561/pathway",
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     }
   },
   "engines": { "node": ">=24" },
-  "packageManager": "pnpm@10.0.0",
+  "packageManager": "bun@1.3.11",
   "sideEffects": false,
-  "files": ["dist", "index.js", "index.d.ts", "pathway-fs.*.node"],
+  "files": ["dist", "pathway.*.node"],
   "publishConfig": { "access": "public" },
-  "repository": { "type": "git", "url": "TODO: public repo URL (see naming/license decision)" },
-  "napi": {
-    "name": "pathway-fs",
-    "triples": {
-      "defaults": true,
-      "additional": [
-        "x86_64-unknown-linux-musl",
-        "aarch64-unknown-linux-gnu",
-        "aarch64-apple-darwin",
-        "aarch64-pc-windows-msvc"
-      ]
-    }
-  },
+  "napi": { "binaryName": "pathway" },
   "scripts": {
-    "build": "tsc && napi build --platform --release",
-    "test": "vitest run",
-    "test:bun": "bun test"
+    "build": "tsc -p tsconfig.build.json",
+    "build:native": "napi build --platform --no-js --dts native-engine.d.ts --manifest-path ../../crates/engine/Cargo.toml --output-dir .",
+    "build:native:release": "napi build --platform --release --no-js --dts native-engine.d.ts --manifest-path ../../crates/engine/Cargo.toml --output-dir .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "pathe": "^2.0.3"
   },
   "devDependencies": {
     "@napi-rs/cli": "^3.0.0",
-    "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
-  },
-  "optionalDependencies": {
-    "@archont561/pathway-linux-x64-gnu": "0.1.0",
-    "@archont561/pathway-linux-x64-musl": "0.1.0",
-    "@archont561/pathway-linux-arm64-gnu": "0.1.0",
-    "@archont561/pathway-darwin-x64": "0.1.0",
-    "@archont561/pathway-darwin-arm64": "0.1.0",
-    "@archont561/pathway-win32-x64-msvc": "0.1.0",
-    "@archont561/pathway-win32-arm64-msvc": "0.1.0"
+    "@repo/typescript-config": "workspace:*"
   }
 }
 ```
+
+Notes:
+
+- `napi.binaryName` names the addon `pathway.<platform>.node`. `--no-js` keeps
+  the hand-written loader front-end (`src/binding.ts`) in charge until the
+  generated loader replaces it with the task-3 engine bridge.
+- `build:native` is the debug build (the dev loop, ~40s cold); the release
+  variant (LTO) is for benchmarks and the publish pipeline. turbo runs the
+  same scripts as its `build:native` task with `$TURBO_ROOT$/crates/**`
+  inputs, so a tsc-only change never pays for a cargo rebuild.
+- The version is asserted against `[workspace.package] version` in the root
+  `Cargo.toml` by a test in `packages/path/test` — never bumped here alone.
+- The platform-specific `optionalDependencies` matrix
+  (`@archont561/pathway-linux-x64-gnu` and friends) is **added by the release
+  pipeline** (`napi publish`, per
+  [ci-distribution.md](/implementation/ci-distribution.md)), never
+  hand-maintained in this manifest.
 
 ---
 
@@ -384,7 +389,7 @@ is written.
 | **`engines`/`packageManager`/`sideEffects`/`files`/`publishConfig`** | Publishing best practices; missing from the 2025 draft (2026 audit) |
 | Extension packages (`path-toml`, etc.) | Tree-shakeable; users install only what they need |
 | `benches/` as separate package | Isolated benchmark deps; doesn't bloat the main package |
-| `pnpm-workspace.yaml` | pnpm is the standard for NAPI-RS monorepos |
+| Bun workspaces in the root `package.json` (no workspace yaml) | bun is the repo's only JS runtime — no Node anywhere; one root `bun.lock` resolves the whole JS toolchain |
 
 ---
 
@@ -392,7 +397,7 @@ is written.
 
 | Decision | Rationale |
 |----------|-----------|
-| Monorepo (Cargo + pnpm) | Unified CI, single source of truth |
+| Monorepo (Cargo + bun) | Unified CI, single source of truth |
 | Engine as cdylib | Required by NAPI-RS for native addon output |
 | Core as rlib on crates.io (`pathway-fs-core`) | D7: reusable from Rust; Node-free unit tests for all engine logic |
 | `pathway-fs` crate as the Rust Layer 1 | D7: pathlib-like ergonomics for Rust projects, same core as the TS surface |

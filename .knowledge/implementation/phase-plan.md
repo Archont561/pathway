@@ -76,7 +76,7 @@ Gates from the gap analysis; Phase 1 does not start until these are done:
       (cdylib NAPI wrapper, `publish = false`), `crates/path` (stub for
       the v0.3 Rust API crate)
 - [ ] Verify `cargo test -p pathway-fs-core` runs green **without Node**
-- [ ] Initialize pnpm workspace with `packages/path`
+- [ ] Initialize the JS workspace around `packages/path` (bun workspaces — the repo's only JS runtime; there is no pnpm)
 - [ ] Configure NAPI-RS v3 with `tokio` async support
 - [ ] Set up TypeScript build (tsc, vitest)
 - [ ] Verify "hello world" NAPI-RS binding compiles and loads on Node + Bun
