@@ -280,9 +280,10 @@ lint-sandbox-plan = { cmd = "pixi-sandbox plan --config .pixi-sandbox.toml", des
 # `[workspace.package] version` from the root Cargo.toml directly (through
 # `scripts/version.ts`), which is the same single source the variable was
 # resolved from, so both paths produced identical output while hashing
-# differently. apps/docs/turbo.json names that manifest and that script as
-# build inputs, so a version bump invalidates the docs cache — which is the
-# guarantee the environment variable was standing in for.
+# differently. apps/docs/turbo.json names that manifest and that script as the
+# docs build's inputs instead — which also drops the phantom `build:native`
+# dependency the site inherited from the root task definition, and with it the
+# full docs rebuild that every unrelated `crates/**` edit used to trigger.
 docs-dev = { cmd = "bun run docs:dev", depends-on = [
   "bun-install",
 ], description = "Run the docs site locally" }

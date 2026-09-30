@@ -63,7 +63,7 @@ pixi run docs-check    # type-check, frontmatter and routes included
 
 Each of these is a filter over the same turbo graph the repo-wide verbs use (`turbo run <task> --filter=pathway-docs`), so `pixi run build` and `pixi run docs-build` share one task and one cache entry rather than being two ways to build the same site.
 
-The version the site documents is read from `[workspace.package] version` in the root `Cargo.toml` — the one place it is written down — through `scripts/version.ts`. A test asserts `packages/path/package.json` agrees with Cargo, so the three published surfaces cannot drift. `apps/docs/turbo.json` declares that manifest as a build input, so a version bump invalidates the docs cache instead of serving a site that quotes the old number.
+The version the site documents is read from `[workspace.package] version` in the root `Cargo.toml` — the one place it is written down — through `scripts/version.ts`. A test asserts `packages/path/package.json` agrees with Cargo, so the three published surfaces cannot drift. `apps/docs/turbo.json` declares that manifest and that script as the docs build's inputs, so the site's cache turns over on a version bump and *not* on every unrelated Rust change.
 
 ## Development workflow
 

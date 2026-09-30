@@ -20,9 +20,15 @@ version exists.
 There is no `PATHWAY_VERSION` environment variable any more. It resolved from
 that same manifest, so it could only ever produce the same string, while making
 the build hash differently depending on whether the task that ran it happened to
-set it. `turbo.json` in this directory declares the manifest and the script as
-build inputs, so a version bump invalidates the cached site — which is the
-guarantee the variable was standing in for.
+set it.
+
+`turbo.json` in this directory declares the manifest and the script as build
+inputs. That is not what makes a version bump rebuild the site — that already
+happened, by accident: the root `build` task depends on `build:native`, and a
+package without a `build:native` script still gets a phantom one whose inputs
+are the whole Rust workspace, so **any** edit under `crates/` invalidated the
+docs cache. The Package Configuration replaces that accident with the real
+dependency: `Cargo.toml` and `scripts/version.ts` in, `crates/**` out.
 
 ## Known build warnings
 

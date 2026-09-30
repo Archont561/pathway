@@ -27,6 +27,26 @@ What changed, and so what needs proving:
 
 Run this on a machine with the real toolchain and record the results. Where a criterion fails, the fix belongs in this task, not a new one.
 
+## Partial verification already done (2026-09-30)
+
+A session with npm egress only (no conda, no crates.io, no GitHub release assets) obtained `bun` 1.3.11 from the `@oven/bun-linux-x64` npm tarball and exercised the JavaScript half of the graph directly, without pixi. Results, so this task starts from evidence rather than zero:
+
+| Check | Result |
+| --- | --- |
+| `bun install --frozen-lockfile` after the `workspaces` edit | **pass** — `bun.lock` byte-identical, no regeneration needed |
+| `test` depends on `build:native` (`turbo run test --dry=json`) | **pass** — `@archont561/pathway#test` → `@archont561/pathway#build:native` → `napi build …`. Pre-refactor it depended only on `@repo/typescript-config#build`, which is `<NONEXISTENT>` |
+| `biome check .` over the hand-written JSON/TOML edits | **pass** — 27 files, no fixes needed |
+| `turbo run typecheck` | **pass** — 2 packages incl. `pathway-docs` (`astro check`, 0 errors). 9.4 s cold for the whole task |
+| Docs build with no `PATHWAY_VERSION` anywhere | **pass** — site emits `pathway-version = 0.1.0`, read from `Cargo.toml` |
+| Version bump invalidates the docs build | **pass** — cache hit → bump → cache miss → site emits `0.1.1` |
+| `crates/**` edit leaves the docs cache intact | **pass** *with* `apps/docs/turbo.json`; **fails without it** (hash changes) — see the correction note below |
+| `bun test` in `packages/path` | **pass** — 7/7 |
+| `turbo run build` end to end | **blocked** — fails at `build:native` because `napi build` needs cargo, which was unobtainable (crates.io and static.rust-lang.org unreachable) |
+
+**Correction folded into the docs already:** the refactor originally claimed that without `apps/docs/turbo.json` a version bump would serve a stale cached site. Measurement disproved that — the bump was caught anyway, because the root `build` task depends on `build:native` and a package with no such script still gets a phantom one whose inputs are the whole Rust workspace. The Package Configuration's real value is narrowing that to the declared edge. `.knowledge/log.md`, `repo-structure.md`, both READMEs, `pixi.toml` and `apps/docs/src/version.ts` were corrected.
+
+What remains for this task is everything that needs **pixi and cargo**: the pixi task layer itself, `build:native`, the Rust gates, `pixi run gates` / `pixi run ci` end to end, and the lefthook hooks.
+
 ## Acceptance Criteria
 
 - [ ] `pixi install` succeeds and `pixi run bun-install` (`bun install --frozen-lockfile`) still accepts the existing `bun.lock` — removing the `benches/*` glob changed no resolved member, so the lockfile should not need regenerating. If it does, regenerate it in this task and note why.
@@ -39,7 +59,8 @@ Run this on a machine with the real toolchain and record the results. Where a cr
   - a `.rs` change under `crates/` invalidates `build:native`, `build` and `test`
   - a change to `packages/path/src/**` invalidates `build`/`test` but **not** `build:native`
   - an `.mdx` change under `apps/docs/src/content/` invalidates only the docs tasks
-  - a `[workspace.package] version` bump in the root `Cargo.toml` invalidates the docs build (this is the guarantee that replaced `PATHWAY_VERSION`; confirm the built site quotes the new number rather than serving a stale cached one)
+  - a `[workspace.package] version` bump in the root `Cargo.toml` invalidates the docs build and the rebuilt site quotes the new number
+  - a `crates/**` edit leaves the docs cache **intact** (this is what `apps/docs/turbo.json` buys; without it the site inherits a phantom `build:native` dependency on the whole Rust workspace)
 - [ ] The docs site renders the correct version with no `PATHWAY_VERSION` set anywhere.
 - [ ] Record the wall-clock cost `astro check` adds to a cold `pixi run gates`. If it is large enough to discourage running gates locally, either drop `apps/docs` back out of the `typecheck` task or split a `gates-fast`; note the decision here.
 - [ ] `pixi run lint-js` works under its new root script name (`lint:js`), and the lefthook `js-biome` / `js-typecheck` hooks still fire on the right globs (`apps/**` replaced `benches/**` in the typecheck glob).

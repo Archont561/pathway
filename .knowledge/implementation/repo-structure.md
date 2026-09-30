@@ -127,8 +127,9 @@ pathlib-like Rust API published to crates.io as `pathway-fs`.
 │       ├── package.json          # dev / build / preview / typecheck (astro check)
 │       ├── turbo.json            # Package Configuration: declares the root
 │       │                         #   Cargo.toml and scripts/version.ts as build
-│       │                         #   inputs, so a version bump invalidates the
-│       │                         #   cached site instead of serving a stale one
+│       │                         #   inputs, and drops the inherited phantom
+│       │                         #   build:native dep that made every crates/**
+│       │                         #   edit rebuild the site
 │       ├── astro.config.mjs      # aliases @workspace/version → scripts/version.ts
 │       └── src/
 │           ├── version.ts        # reads [workspace.package] version; throws if absent
@@ -418,7 +419,7 @@ is written.
 | **Workspace globs name only directories that exist** | A glob matching nothing makes `turbo run <task>` exit 0 having run nothing. `benches/*` was such a glob and was removed until task-4 |
 | **No pixi task uses `cwd = "<package>"`** | Package-scoped work goes through `turbo run <task> --filter=<package>`. A task that shells into a package bypasses the cache and diverges from the turbo task for the same verb — which is how the docs site came to be built twice in `pixi run ci` |
 | **`test` depends on `build:native`** | The addon must exist before the Bun suite runs. Encoding it in `turbo.json` rather than as `napi build && bun test` keeps the edge visible to the task graph and to the cache |
-| **`apps/docs/turbo.json` names `Cargo.toml` a build input** | The site quotes `[workspace.package] version`; without that input a version bump would serve a cached site with the old number |
+| **`apps/docs/turbo.json` names `Cargo.toml` + `scripts/version.ts` its build inputs** | The site quotes `[workspace.package] version`. Measured 2026-09-30: without the Package Configuration the bump *was* caught, but only because the root `build` task depends on `build:native` and a package with no such script still gets a phantom one whose inputs are the whole Rust workspace — so every `crates/**` edit rebuilt the site, and the real dependency was undeclared. This replaces the accident with the actual edge |
 
 ---
 
