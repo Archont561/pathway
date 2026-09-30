@@ -4,11 +4,12 @@ title: 'Make the Rust doctest gate real: the workspace has zero doctests'
 status: To Do
 assignee: []
 created_date: '2026-09-30 13:01'
-updated_date: '2026-09-30 13:29'
+updated_date: '2026-09-30 20:24'
 labels:
   - rust
   - testing
   - tooling
+milestone: m-0
 dependencies: []
 priority: medium
 type: chore

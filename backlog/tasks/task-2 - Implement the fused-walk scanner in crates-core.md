@@ -2,14 +2,15 @@
 id: task-2
 title: Implement the fused-walk scanner in crates/core
 status: To Do
-priority: high
 assignee: []
 created_date: '2026-09-30'
-updated_date: '2026-09-30'
+updated_date: '2026-09-30 20:24'
 labels:
   - rust
   - core
+milestone: m-0
 dependencies: []
+priority: high
 ---
 
 ## Description

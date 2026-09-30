@@ -4,10 +4,11 @@ title: Decide whether the Rust checks join the turbo task graph
 status: Done
 assignee: []
 created_date: '2026-09-30'
-updated_date: '2026-09-30 13:29'
+updated_date: '2026-09-30 20:25'
 labels:
   - build
   - tooling
+milestone: m-0
 dependencies:
   - TASK-5
 priority: medium

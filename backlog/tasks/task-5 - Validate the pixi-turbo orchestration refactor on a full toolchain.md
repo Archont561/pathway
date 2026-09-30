@@ -4,10 +4,11 @@ title: Validate the pixi/turbo orchestration refactor on a full toolchain
 status: In Progress
 assignee: []
 created_date: '2026-09-30'
-updated_date: '2026-09-30 13:05'
+updated_date: '2026-09-30 20:24'
 labels:
   - build
   - tooling
+milestone: m-0
 dependencies: []
 priority: high
 ---
