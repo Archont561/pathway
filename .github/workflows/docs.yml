@@ -5,12 +5,15 @@ name: docs
 # (base: /pathway), so the deploy target is
 # https://archont561.github.io/pathway/.
 #
-# ci.yml already proves the site builds on every change (the `ci` aggregator
-# includes docs-build); this workflow owns the site itself: `docs-check` runs
-# here because astro check is where a docs site actually breaks (a renamed
-# route is a broken link, not a runtime error), and the Pages deploy happens
-# only from main so no PR can publish. The paths filter keeps a src-only
-# change from paying for a second Astro build.
+# ci.yml already proves the site builds on every change — its `build` step is
+# `turbo run build`, and apps/docs is a workspace package, so the site is in
+# that graph. This workflow owns the site itself: the Pages deploy happens
+# only from main, so no pull request can publish. `docs-check` is also run by
+# ci.yml (as part of `typecheck`, and so of `gates`); it is repeated here
+# because a renamed route is a broken link rather than a runtime error and
+# this is the workflow that publishes. With the shared turbo cache below that
+# repetition is a cache hit rather than a second `astro check`. The paths
+# filter keeps an unrelated change from paying for a docs job at all.
 
 on:
   pull_request:
@@ -61,9 +64,29 @@ jobs:
           cache: true
           environments: default
 
-      # docs-build resolves PATHWAY_VERSION from the workspace manifest via
-      # scripts/version.ts, so the documented version is decided here and
-      # never written into the site. docs-check type-checks the frontmatter
+      # Both steps below are turbo tasks (`docs-build` is
+      # `turbo run build --filter=pathway-docs`, `docs-check` is
+      # `turbo run typecheck --filter=pathway-docs`), so this workflow pays
+      # the same cold-cache cost ci.yml did. The key prefix is shared with
+      # ci.yml on purpose: a docs-only pull request can restore the Astro
+      # build that the ci workflow already produced for the same inputs.
+      # See ci.yml for why the restore-keys, not the key, are what hit.
+      - uses: actions/cache@v6.1.0
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ github.ref_name }}-
+            turbo-${{ runner.os }}-
+
+      # The site takes its version from `[workspace.package] version` in the
+      # root Cargo.toml: apps/docs imports scripts/version.ts directly, so the
+      # documented version is resolved at build time and never written into
+      # the site nor passed in from the environment. There was a
+      # PATHWAY_VERSION variable in front of this once; it read that same
+      # manifest field, so it was removed, and apps/docs/turbo.json now
+      # declares the manifest a build input instead — that is what invalidates
+      # the cache on a version bump. docs-check type-checks the frontmatter
       # and the config, which is where a docs site actually breaks.
       - run: pixi run docs-build
       - run: pixi run docs-check
