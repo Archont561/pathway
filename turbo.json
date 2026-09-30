@@ -1,7 +1,7 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "ui": "stream",
-  "globalDependencies": ["biome.json", "tsconfig.base.json", "pixi.toml"],
+  "globalDependencies": ["biome.json", "pixi.toml"],
   "globalEnv": ["PATHWAY_VERSION"],
   "tasks": {
     "build:native": {
@@ -16,7 +16,13 @@
     },
     "build": {
       "dependsOn": ["^build", "build:native"],
-      "inputs": ["src/**", "package.json", "tsconfig.json", "tsconfig.build.json"],
+      "inputs": [
+        "src/**",
+        "package.json",
+        "tsconfig.json",
+        "tsconfig.build.json",
+        "$TURBO_ROOT$/packages/typescript-config/**"
+      ],
       "outputs": ["dist/**"]
     },
     "test": {
@@ -26,7 +32,13 @@
     },
     "typecheck": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "package.json", "tsconfig.json", "tsconfig.build.json"],
+      "inputs": [
+        "src/**",
+        "package.json",
+        "tsconfig.json",
+        "tsconfig.build.json",
+        "$TURBO_ROOT$/packages/typescript-config/**"
+      ],
       "outputs": []
     },
     "bench": {

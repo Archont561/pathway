@@ -39,6 +39,7 @@
     "pathe": "^2.0.3"
   },
   "devDependencies": {
-    "@napi-rs/cli": "^3.0.0"
+    "@napi-rs/cli": "^3.0.0",
+    "@repo/typescript-config": "workspace:*"
   }
 }

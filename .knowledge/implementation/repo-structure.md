@@ -97,6 +97,10 @@ pathlib-like Rust API published to crates.io as `pathway-fs`.
 │           └── error.rs          # core errors → N-API errors
 │
 ├── packages/
+│   ├── typescript-config/        # @repo/typescript-config — internal package: shared tsconfig
+│   │   ├── package.json          #   bases (base.json language+resolution, library.json
+│   │   ├── base.json             #   + declaration emit). Internal (@repo/*), never published;
+│   │   └── library.json          #   consumers extend it via a real dependency edge.
 │   └── path/                     # Published npm package: @archont561/pathway
 │       ├── package.json
 │       ├── tsconfig.json

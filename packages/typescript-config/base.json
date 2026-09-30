@@ -18,10 +18,6 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
 
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "removeComments": false,
     "newLine": "lf",
 
     "skipLibCheck": true,
