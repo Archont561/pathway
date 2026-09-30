@@ -28,20 +28,20 @@ depends_on:
 ## NAPI-RS Distribution Model
 
 NAPI-RS uses a **platform-specific package** model. The root package
-(`@myorg/path`) declares optional dependencies on platform-specific
+(`@archont561/pathway`) declares optional dependencies on platform-specific
 packages, and npm/pnpm/bun automatically installs the correct one.
 
 ### Published Packages
 
 ```
-@myorg/path                          ← Root package (JS + types)
-@myorg/path-linux-x64-gnu            ← Linux x64 glibc
-@myorg/path-linux-arm64-gnu          ← Linux arm64 glibc
-@myorg/path-linux-x64-musl           ← Linux x64 musl (Alpine)
-@myorg/path-darwin-x64               ← macOS Intel
-@myorg/path-darwin-arm64             ← macOS Apple Silicon
-@myorg/path-win32-x64-msvc           ← Windows x64
-@myorg/path-win32-arm64-msvc         ← Windows arm64
+@archont561/pathway                          ← Root package (JS + types)
+@archont561/pathway-linux-x64-gnu            ← Linux x64 glibc
+@archont561/pathway-linux-arm64-gnu          ← Linux arm64 glibc
+@archont561/pathway-linux-x64-musl           ← Linux x64 musl (Alpine)
+@archont561/pathway-darwin-x64               ← macOS Intel
+@archont561/pathway-darwin-arm64             ← macOS Apple Silicon
+@archont561/pathway-win32-x64-msvc           ← Windows x64
+@archont561/pathway-win32-arm64-msvc         ← Windows arm64
 ```
 
 ### Published Crates (crates.io — D7, added 2026-09-30)
@@ -51,9 +51,9 @@ surface is distributed through crates.io, on an **independent semver
 cadence** from the npm packages:
 
 ```
-myorg-path-core                      ← rlib engine core (from Phase 1; napi-free)
-myorg-path                           ← ergonomic pathlib-like Rust API (v0.3 preview)
-myorg-path-engine                    ← NEVER published (publish = false; cdylib napi glue)
+pathway-fs-core                      ← rlib engine core (from Phase 1; napi-free)
+pathway-fs                           ← ergonomic pathlib-like Rust API (v0.3 preview)
+pathway-fs-engine                    ← NEVER published (publish = false; cdylib napi glue)
 ```
 
 `cargo publish` for the two crates is a separate release workflow step,
@@ -62,9 +62,9 @@ gated on the same tag but not coupled to the npm version number.
 Each platform package contains a single `.node` binary:
 
 ```
-@myorg/path-linux-x64-gnu/
+@archont561/pathway-linux-x64-gnu/
 ├── package.json
-└── myorg-path.linux-x64-gnu.node    ← The compiled Rust addon
+└── pathway-fs.linux-x64-gnu.node    ← The compiled Rust addon
 ```
 
 > **Legacy-npm fallback (added Sept 2026):** some npm versions mishandle
@@ -145,7 +145,7 @@ Each platform package contains a single `.node` binary:
 ### Rust Core Job (D7, added 2026-09-30)
 
 Before the runtime matrix below, a cheap **Node-free Rust job** runs on
-all three OSes: `cargo test -p myorg-path-core` (+ `-p myorg-path` once
+all three OSes: `cargo test -p pathway-fs-core` (+ `-p pathway-fs` once
 the crate lands), `cargo clippy -D warnings`, and an **MSRV check**
 (build with the pinned `rust-version`). This job catches engine-logic
 regressions without paying for the napi build, and is the entire test
@@ -202,15 +202,15 @@ jobs:
         run: pnpm install
 
       - name: Build native addon
-        run: pnpm --filter @myorg/path build
+        run: pnpm --filter @archont561/pathway build
 
       - name: Test (Node)
         if: matrix.runtime == 'node'
-        run: pnpm --filter @myorg/path test
+        run: pnpm --filter @archont561/pathway test
 
       - name: Test (Bun)
         if: matrix.runtime == 'bun'
-        run: pnpm --filter @myorg/path test:bun
+        run: pnpm --filter @archont561/pathway test:bun
 
   # Optional, non-blocking: NAPI is a supported Deno 2 surface
   deno-smoke:
@@ -232,7 +232,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "24", npm-version: "8" }
       - run: npm publish --dry-run --dry-run  # placeholder: use a staged package
-      - run: npm install --ignore-scripts ./published-packs/@myorg-path.tgz && node -e "require('./node_modules/@myorg/path')"
+      - run: npm install --ignore-scripts ./published-packs/@pathway-fs.tgz && node -e "require('./node_modules/@archont561/pathway')"
 ```
 
 ### Release Workflow (`.github/workflows/release.yml`)
@@ -378,7 +378,7 @@ Applies once the `#[napi(async_iterator)]` spike lands:
 ### Architecture Remains
 
 ```
-@myorg/path
+@archont561/pathway
     ↓
   napi-rs
     ↓

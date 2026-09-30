@@ -27,3 +27,7 @@ dist/
 # Native addon built by `napi build`; it is a build artefact of crates/engine
 # and is produced per platform by the release pipeline.
 *.node
+# The generated dts of the native surface (`napi build --dts`); regenerated on
+# every build:native, consumed when the generated loader replaces the
+# hand-written front-end in binding.ts.
+packages/path/native-engine.d.ts

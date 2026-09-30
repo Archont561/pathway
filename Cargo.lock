@@ -394,47 +394,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
-name = "myorg-path"
-version = "0.1.0"
-dependencies = [
- "myorg-path-core",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "myorg-path-core"
-version = "0.1.0"
-dependencies = [
- "blake3",
- "fs2",
- "globset",
- "ignore",
- "rayon",
- "regex",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha2",
- "tempfile",
- "thiserror",
- "toml",
- "xxhash-rust",
-]
-
-[[package]]
-name = "myorg-path-engine"
-version = "0.1.0"
-dependencies = [
- "myorg-path-core",
- "napi",
- "napi-build",
- "napi-derive",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "napi"
 version = "3.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -506,6 +465,47 @@ name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
+
+[[package]]
+name = "pathway-fs"
+version = "0.1.0"
+dependencies = [
+ "pathway-fs-core",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "pathway-fs-core"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "fs2",
+ "globset",
+ "ignore",
+ "rayon",
+ "regex",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "toml",
+ "xxhash-rust",
+]
+
+[[package]]
+name = "pathway-fs-engine"
+version = "0.1.0"
+dependencies = [
+ "napi",
+ "napi-build",
+ "napi-derive",
+ "pathway-fs-core",
+ "serde_json",
+ "tokio",
+]
 
 [[package]]
 name = "pin-project-lite"

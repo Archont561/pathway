@@ -1,7 +1,7 @@
 ---
 type: Architecture Decision
 title: "Rust Crate Surface: Publishable Core + Ergonomic pathlib API for Rust"
-description: "D7 — split the engine into an rlib core and publish `myorg-path` to crates.io as a pathlib-like Rust API over the same core the N-API engine uses."
+description: "D7 — split the engine into an rlib core and publish `pathway-fs` to crates.io as a pathlib-like Rust API over the same core the N-API engine uses."
 tags: [architecture, rust, crate, crates-io, core, pathlib, dual-surface]
 status: stable
 generated:
@@ -30,9 +30,9 @@ that the same core ships as a **published Rust crate** giving Rust projects
 the same pathlib-like ergonomics the TypeScript surface gives JS:
 
 ```
-crates/core     myorg-path-core     rlib    crates.io   low-level ops (walk, hash, fs, codecs)
-crates/path     myorg-path          rlib    crates.io   ergonomic pathlib-like Rust API
-crates/engine   myorg-path-engine   cdylib  npm only    thin NAPI-RS wrapper over core
+crates/core     pathway-fs-core     rlib    crates.io   low-level ops (walk, hash, fs, codecs)
+crates/path     pathway-fs          rlib    crates.io   ergonomic pathlib-like Rust API
+crates/engine   pathway-fs-engine   cdylib  npm only    thin NAPI-RS wrapper over core
 ```
 
 - `crates/core` contains **all** engine logic (scanner, hashers, atomic
@@ -56,7 +56,7 @@ The Rust surface mirrors the TS surface where it makes sense, and defers
 to `std`/idiomatic Rust where it doesn't:
 
 ```rust
-use myorg_path::{Path, Hash};
+use pathway_fs::{Path, Hash};
 
 let project = Path::cwd()?;
 
@@ -115,7 +115,7 @@ is documented rather than papered over:
 
 ## Versioning, MSRV, Scope Discipline
 
-- `myorg-path` / `myorg-path-core` follow **independent semver** from the
+- `pathway-fs` / `pathway-fs-core` follow **independent semver** from the
   npm package. Feature parity is a goal, lockstep version numbers are not.
 - MSRV policy: latest stable minus 2, declared via `rust-version` in
   `crates/core` and CI-enforced.
@@ -135,7 +135,7 @@ is documented rather than papered over:
 | Phase | Rust-surface deliverable |
 |-------|--------------------------|
 | **v0.1 (Phase 1)** | `crates/core` exists as rlib from day one; `crates/path` is a stub. Core is `cargo test`-covered. Names reserved on crates.io (Step 0). |
-| **v0.3 (Phase 3)** | `myorg-path` **preview** published to crates.io (walk + hash + serde read/write + temp/lock). docs.rs docs. |
+| **v0.3 (Phase 3)** | `pathway-fs` **preview** published to crates.io (walk + hash + serde read/write + temp/lock). docs.rs docs. |
 | **v1.0 (Phase 4)** | Rust surface stabilized (1.0 on crates.io), full killer-feature coverage where applicable. |
 
 Deferring the ergonomic surface to v0.3 keeps Phase 1 focused on the

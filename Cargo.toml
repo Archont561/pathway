@@ -4,24 +4,26 @@
 # and reusable from Rust, and so the N-API glue stays thin:
 #
 #   crates/core     rlib   ALL engine logic. Zero napi dependencies, so
-#                           `cargo test -p myorg-path-core` needs neither Node
+#                           `cargo test -p pathway-fs-core` needs neither Node
 #                           nor a built addon.
 #   crates/path     rlib   the ergonomic pathlib-like Rust surface over core.
 #   crates/engine   cdylib a thin NAPI-RS wrapper over core. npm-only; it is
 #                           glue, not a library, and is never on crates.io.
 #
 # The members below are named with directory paths so the published crate names
-# (`myorg-path-core`, `myorg-path`) can change at Step 0 without touching
-# `crates.path = "…"`, `crates.engine = "…"` in the TypeScript package or the
-# [patch] sections a consumer needs.
+# (`pathway-fs-core`, `pathway-fs`) stay decoupled from `crates.path = "…"`,
+# `crates.engine = "…"` in the TypeScript package and any [patch] sections a
+# consumer needs.
 #
-# NOTE: every crate is `publish = false` at scaffold time. The license is settled
-# (MIT, one LICENSE file at the root, inherited by `license` below), but the
-# public names (npm and crates.io together) are still the Phase 1 Step 0 owner
-# sign-off, and an unpublishable manifest cannot be published by accident while
-# that decision is open. Publishing is a one-line change per crate once the
-# names are settled — and nothing else, because `deny.toml` has already checked
-# that the licence policy of the whole graph allows it.
+# NOTE: every crate is `publish = false` at scaffold time. The names are now
+# settled (Step 0 sign-off, 2026-09-30): npm `@archont561/pathway`, crates.io
+# `pathway-fs` + `pathway-fs-core` — `pathway` itself is taken on crates.io
+# (a 2022 placeholder), hence the `-fs` suffix on the Rust family — but the
+# crates.io names are not reserved yet, so an unpublishable manifest cannot be
+# published by accident while that reservation is outstanding. Publishing is a
+# one-line change per crate once they are reserved — and nothing else, because
+# `deny.toml` has already checked that the licence policy of the whole graph
+# allows it.
 
 [workspace]
 resolver = "2"
@@ -44,7 +46,7 @@ homepage = "https://github.com/Archont561/pathway"
 
 # One place to bump a dependency version; members opt in with `{ workspace = true }`.
 [workspace.dependencies]
-myorg-path-core = { path = "crates/core", version = "0.1.0" }
+pathway-fs-core = { path = "crates/core", version = "0.1.0" }
 
 # Traversal (D1 layer 3): `ignore` is ripgrep's walker, which is what gives
 # .gitignore and .ignore support for free rather than as a re-implementation.

@@ -113,7 +113,7 @@ Everything was computed natively during the single traversal pass.
 
 ### Against `fdir` / `tinyglobby`
 
-| Metric | fdir + JS post-processing | @myorg/path fused walk |
+| Metric | fdir + JS post-processing | @archont561/pathway fused walk |
 |--------|--------------------------|----------------------|
 | Traversal (100k files) | ~30ms | ~25ms (ignore crate) |
 | Stat all files | ~800ms (100k libuv hops) | ~0ms (dirent d_type) |
@@ -290,7 +290,7 @@ Before committing to the full Rust codebase, Phase 1 must prove:
 | `fdir` + `node:fs` + `node:crypto` | Node 24 |
 | `tinyglobby` + `node:fs` + `node:crypto` | Node 24 |
 | `Bun.Glob.scan()` + `Bun.file()` + `Bun.hash` | Bun 1.3 + Bun 1.4 |
-| **@myorg/path fused walk** | Node 24 + Bun 1.3/1.4 |
+| **@archont561/pathway fused walk** | Node 24 + Bun 1.3/1.4 |
 
 `node:fs.glob` is **stable in Node core** (v22.17.0/v24.0.0) and C++-native —
 it is the baseline the fused walk must beat *on Node*. It returns paths or

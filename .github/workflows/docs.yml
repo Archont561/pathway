@@ -1,0 +1,98 @@
+name: docs
+
+# Build the Astro/Starlight site for pull requests and publish it to GitHub
+# Pages after changes land on main. The site is configured as a project site
+# (base: /pathway), so the deploy target is
+# https://archont561.github.io/pathway/.
+#
+# ci.yml already proves the site builds on every change (the `ci` aggregator
+# includes docs-build); this workflow owns the site itself: `docs-check` runs
+# here because astro check is where a docs site actually breaks (a renamed
+# route is a broken link, not a runtime error), and the Pages deploy happens
+# only from main so no PR can publish. The paths filter keeps a src-only
+# change from paying for a second Astro build.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/docs/**"
+      - "scripts/version.ts"
+      - "Cargo.toml"
+      - "package.json"
+      - "bun.lock"
+      - "pixi.toml"
+      - "pixi.lock"
+      - ".github/workflows/docs.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/docs/**"
+      - "scripts/version.ts"
+      - "Cargo.toml"
+      - "package.json"
+      - "bun.lock"
+      - "pixi.toml"
+      - "pixi.lock"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Do not interrupt a deployment that is already in progress.
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build documentation site
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: prefix-dev/setup-pixi@v0.10.2
+        with:
+          cache: true
+          environments: default
+
+      # docs-build resolves PATHWAY_VERSION from the workspace manifest via
+      # scripts/version.ts, so the documented version is decided here and
+      # never written into the site. docs-check type-checks the frontmatter
+      # and the config, which is where a docs site actually breaks.
+      - run: pixi run docs-build
+      - run: pixi run docs-check
+
+      # Only main publishes: a PR build stops at proving the site compiles.
+      - name: Configure GitHub Pages
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/configure-pages@v6.0.0
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: apps/docs/dist
+
+  deploy:
+    name: publish to GitHub Pages
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5.0.1

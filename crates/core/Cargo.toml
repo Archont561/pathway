@@ -1,5 +1,5 @@
 [package]
-name = "myorg-path-core"
+name = "pathway-fs-core"
 description = "Native filesystem core: fused walk, hashing, atomic ops, serde codecs"
 # Phase 1 Step 0 owner sign-off is open on the public name (the license is
 # settled: MIT). Not publishable until the name is, and see the workspace

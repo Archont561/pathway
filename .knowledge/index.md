@@ -2,7 +2,7 @@
 okf_version: "0.2"
 ---
 
-# @myorg/path — Knowledge Base
+# @archont561/pathway — Knowledge Base
 
 Native, pathlib-inspired filesystem API for TypeScript, Bun, and Node,
 built on a 3-layer stack: ergonomic TS surface → NAPI-RS bridge → Rust
@@ -20,7 +20,7 @@ foundational decisions. Change history: [update log](/log.md).
 * [3-Layer Architecture](/architecture/core-layers.md) - TS surface, NAPI-RS bridge, Rust engine; Path vs FileSystem; the Rust-internal trait; D7 dual-surface core.
 * [Coarse-Grained FFI Boundary](/architecture/napi-boundary.md) - What stays in TypeScript, what crosses to Rust; per-call boundary hops banned.
 * [Fused Walk](/architecture/fused-walk.md) - Single-pass stat+hash+filter in Rust — the defensible performance moat.
-* [Rust Crate Surface](/architecture/rust-crate-surface.md) - D7: rlib core + `myorg-path` crate on crates.io — pathlib-like ergonomics for Rust projects.
+* [Rust Crate Surface](/architecture/rust-crate-surface.md) - D7: rlib core + `pathway-fs` crate on crates.io — pathlib-like ergonomics for Rust projects.
 
 # Features
 
@@ -31,7 +31,7 @@ foundational decisions. Change history: [update log](/log.md).
 
 # Competitive Intelligence
 
-* [Landscape](/competitive/landscape.md) - Tiers 1–5 library map and the gap matrix @myorg/path targets.
+* [Landscape](/competitive/landscape.md) - Tiers 1–5 library map and the gap matrix @archont561/pathway targets.
 * [Verified Market Data](/competitive/verified-data.md) - Node 24/26, stable `node:fs.glob`, Bun 1.3/1.4, Deno 2, NAPI-RS state; Round-1 corrections.
 * [Positioning](/competitive/positioning.md) - Target audience, one-line pitch, Bun-as-ally posture, messaging guardrails.
 

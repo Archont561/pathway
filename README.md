@@ -2,8 +2,8 @@
 
 A native, pathlib-inspired filesystem API for TypeScript, Bun, Node and Rust. One engine, two ergonomic surfaces:
 
-- **TypeScript surface (`@myorg/path`)** — Path objects, pluggable serializers, async iteration. String manipulation stays in TypeScript (`pathe`).
-- **Rust surface (`myorg-path`)** — The same engine behind an ergonomic pathlib-like API, publishable to crates.io; the core is `myorg-path-core`.
+- **TypeScript surface (`@archont561/pathway`)** — Path objects, pluggable serializers, async iteration. String manipulation stays in TypeScript (`pathe`).
+- **Rust surface (`pathway-fs`)** — The same engine behind an ergonomic pathlib-like API, publishable to crates.io; the core is `pathway-fs-core`.
 
 **Three-crate split (D7):** all engine logic in `crates/core` (rlib, zero N-API dependencies, testable without Node), `crates/path` (Rust API over core), `crates/engine` (cdylib NAPI-RS bridge, npm-only).
 
@@ -12,7 +12,7 @@ pathway/
 ├── crates/core        # engine logic, napi-free: the whole test story runs without Node
 ├── crates/path        # the ergonomic Rust API over core
 ├── crates/engine      # the NAPI-RS bridge; npm-only, never on crates.io
-├── packages/path      # @myorg/path, the TypeScript surface
+├── packages/path      # @archont561/pathway, the TypeScript surface
 ├── apps/docs          # the documentation site (Astro + Starlight)
 └── .knowledge/        # the source of truth for architecture and phases
 ```

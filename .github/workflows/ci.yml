@@ -1,0 +1,92 @@
+name: ci
+
+# Every step in this file is ONE line: `pixi run <task>`. The task definitions
+# in pixi.toml are the single source of truth for what a check is, so the exact
+# command CI runs is the command you run locally. A step that needs more than
+# one line is a missing task, not inline bash.
+#
+# This mirrors the `ci` task aggregator (gates + release build + TS build +
+# docs site) plus the two checks that cannot run anywhere but here:
+# `lint-sandbox-plan` needs the pixi-sandbox release binary and
+# `deny-advisories` needs the network (cargo-deny 0.20 always fetches the
+# RustSec database). The airlocked sandbox restores neither, so a developer
+# machine and CI agree on everything they can both run.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: ci (lint · test · coverage · build · docs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: prefix-dev/setup-pixi@v0.10.2
+        with:
+          cache: true
+          environments: default
+
+      # Cache the cargo target dir and ~/.cargo between runs. Turbo has no
+      # remote cache here, so `build:native` (debug addon) and `build-rs`
+      # (release) would otherwise recompile the whole workspace from scratch
+      # on every push; with the cache only the changed crates rebuild.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      # The publish plan is a wire format shared with the publisher, so a
+      # malformed bundle must fail here rather than as a push to the orphan
+      # branch. `pixi-sandbox` is a static release binary, not a conda
+      # dependency (see pixi.toml), so CI is where this task runs.
+      - uses: Archont561/pixi-sandbox/setup@da230c2db2dff8a242c40a89c3a4c66de7777518
+        with:
+          version: v0.3.2
+          token: ${{ github.token }}
+
+      # ── lint ──────────────────────────────────────────────────────────────
+      - run: pixi run fmt-check-rs
+      - run: pixi run clippy
+      - run: pixi run deny
+      # Network-only: the RustSec advisory fetch the airlocked sandbox cannot
+      # make, so it lives in CI and nowhere else.
+      - run: pixi run deny-advisories
+      - run: pixi run lint-js
+      - run: pixi run lint-actions
+      - run: pixi run lint-sandbox-plan
+
+      # ── test ──────────────────────────────────────────────────────────────
+      - run: pixi run test-rs
+      - run: pixi run test-doc-rs
+      - run: pixi run test
+      - run: pixi run typecheck
+
+      # ── coverage ──────────────────────────────────────────────────────────
+      - run: pixi run coverage
+      - uses: codecov/codecov-action@v7.1.1
+        with:
+          files: lcov.info
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      # ── build (the `ci` aggregator tail) ─────────────────────────────────
+      - run: pixi run build-rs
+      - run: pixi run build
+      # A broken site still fails CI; an Astro production build is too slow to
+      # make every local `gates` run wait on, which is why it is here and not
+      # in the pre-push hook.
+      - run: pixi run docs-build

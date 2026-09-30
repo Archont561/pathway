@@ -1,4 +1,4 @@
-//! TOML — for `@myorg/path-toml` (v0.4).
+//! TOML — for `@archont561/pathway-toml` (v0.4).
 //!
 //! A *native* codec, and that is the qualification that matters: TOML has no
 //! parser in Node or Bun, so a JavaScript serializer here would mean shipping a

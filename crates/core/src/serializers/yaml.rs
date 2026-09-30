@@ -1,4 +1,4 @@
-//! YAML — for `@myorg/path-yaml` (v0.4).
+//! YAML — for `@archont561/pathway-yaml` (v0.4).
 //!
 //! Same reasoning as [`super::toml`]: no native YAML parser in either runtime, so
 //! the codec earns its place on the native side. `serde_yaml` is behind an

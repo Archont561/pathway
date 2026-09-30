@@ -3,7 +3,7 @@
 //! Decision D7 says one engine has two ergonomic surfaces. The TypeScript one is
 //! the primary product; this one exists so a Rust project gets the same
 //! behaviour without going through Node. Both are thin, and a rule implemented
-//! here instead of in [`myorg_path_core`] is a bug waiting to happen — the
+//! here instead of in [`pathway_fs_core`] is a bug waiting to happen — the
 //! surfaces are supposed to agree.
 //!
 //! # Rules that differ from the TypeScript surface, on purpose
@@ -33,10 +33,10 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// The core engine this surface is a view over.
 ///
-/// Re-exported so a consumer that depends only on `myorg-path` can still reach
+/// Re-exported so a consumer that depends only on `pathway-fs` can still reach
 /// the low-level API — the curated core surface is the escape hatch from the
 /// ergonomic one, and hiding it would make the ergonomic surface the only door.
-pub use myorg_path_core as core;
+pub use pathway_fs_core as core;
 
 #[cfg(test)]
 mod tests {

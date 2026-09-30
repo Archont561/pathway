@@ -6,8 +6,8 @@ This document provides guidelines for AI agents working on the pathway codebase.
 
 **pathway** is a native, pathlib-inspired filesystem API for TypeScript, Bun, Node and Rust. Its central architectural claim is two ergonomic surfaces over the same engine:
 
-- **TypeScript surface** (`@myorg/path`, packages/path) — Path objects, pluggable serializers, async iteration. All string manipulation stays here (pathe). 
-- **Rust surface** (`myorg-path`) — the ergonomic pathlib-like API over the same core (ships to crates.io as a separate crate; the core itself is `myorg-path-core`).
+- **TypeScript surface** (`@archont561/pathway`, packages/path) — Path objects, pluggable serializers, async iteration. All string manipulation stays here (pathe). 
+- **Rust surface** (`pathway-fs`) — the ergonomic pathlib-like API over the same core (ships to crates.io as a separate crate; the core itself is `pathway-fs-core`).
 
 Engine: **three-crate split (D7)**. All logic in `crates/core` (rlib, zero napi deps, testable without Node), `crates/path` (ergonomic Rust API over core), `crates/engine` (cdylib NAPI-RS bridge; npm-only, never published to crates.io).
 
@@ -55,7 +55,7 @@ Run `pixi run gates` before pushing: fmt-check-rs, clippy, deny, lint-js, lint-a
 
 ## Rule: Core is NAPI-free
 
-`crates/core` must compile and test with `cargo test -p myorg-path-core` in an environment with no Node. No `napi`/`napi-derive` dependencies in core.
+`crates/core` must compile and test with `cargo test -p pathway-fs-core` in an environment with no Node. No `napi`/`napi-derive` dependencies in core.
 
 ## Questions
 

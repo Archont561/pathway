@@ -34,7 +34,7 @@ pre-commit:
       stage_fixed: true
 
     - name: js-typecheck
-      glob: "{packages/**,benches/**,turbo.json,tsconfig.base.json}"
+      glob: "{packages/**,benches/**,turbo.json}"
       run: pixi run -e default typecheck
 
     - name: workflows

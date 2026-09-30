@@ -2,18 +2,18 @@
 //!
 //! This crate is the whole of D1's layer 3, and the reason D7 splits it out of
 //! `crates/engine`: it depends on nothing from the N-API world, so
-//! `cargo test -p myorg-path-core` exercises the engine without Node, without a
+//! `cargo test -p pathway-fs-core` exercises the engine without Node, without a
 //! built addon, and without a JavaScript runtime in the loop at all.
 //!
 //! # Layering
 //!
 //! ```text
-//!   @myorg/path (TypeScript)   ergonomic Path objects, Serializer<T>, iterators
-//!   myorg-path   (Rust)       ergonomic Path objects, walk builder, serde sugar
+//!   @archont561/pathway (TypeScript)  ergonomic Path objects, Serializer<T>, iterators
+//!   pathway-fs (Rust)                 ergonomic Path objects, walk builder, serde sugar
 //!         │                            │
 //!         └──────────────┬─────────────┘
 //!                        ▼
-//!              myorg-path-core  ← this crate: traversal, hashing, codecs, atomic IO
+//!   pathway-fs-core  ← this crate: traversal, hashing, codecs, atomic IO
 //!                        ▲
 //!                        │
 //!   crates/engine (NAPI-RS cdylib) — glue only, never a dependency of this crate

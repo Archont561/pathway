@@ -24,7 +24,7 @@ depends_on:
 
 ```
 ┌─────────────────────────────────────────┐
-│             @myorg/path                 │
+│             @archont561/pathway                 │
 │                                         │
 │  Path • walk • glob • serializers       │
 │  ergonomic TypeScript API               │
@@ -90,7 +90,7 @@ Layer 3 is packaged as an **rlib crate** (`crates/core`, zero napi
 deps), consumed by two independent Layer-1 surfaces:
 
 ```
-   TypeScript surface (@myorg/path)        Rust surface (myorg-path crate)
+   TypeScript surface (@archont561/pathway)        Rust surface (pathway-fs crate)
         Path • walk • Serializer<T>            Path • walk() • read_toml()
                  │                                       │
          napi-rs (crates/engine,                 plain Rust dependency
@@ -212,4 +212,4 @@ testable and extensible internally.
 | `Path` as default entry | Boring, familiar API; lowest barrier to adoption |
 | `FileSystem` as optional | Enables testing, sandboxing, overlays without breaking simple usage |
 | Rust trait is internal | Architecture boundary, not API surface; keeps N-API coarse-grained |
-| Core as rlib with two surfaces (D7) | Rust projects consume the same engine via `myorg-path`; napi stays a JS-boundary detail |
+| Core as rlib with two surfaces (D7) | Rust projects consume the same engine via `pathway-fs`; napi stays a JS-boundary detail |

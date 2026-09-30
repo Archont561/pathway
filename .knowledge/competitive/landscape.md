@@ -1,7 +1,7 @@
 ---
 type: Market Intelligence
 title: "Competitive Landscape: Tiers 1–5, Full Library Map, Gap Matrix"
-description: "Five-tier competitive map — fdir, tinyglobby, fs-extra, pathe, Bun.Glob, fs-jetpack and more — with the gap matrix @myorg/path targets."
+description: "Five-tier competitive map — fdir, tinyglobby, fs-extra, pathe, Bun.Glob, fs-jetpack and more — with the gap matrix @archont561/pathway targets."
 tags: [competitive, landscape, gap-matrix, fdir, tinyglobby, fs-extra, pathe, bun]
 status: stable
 generated:
@@ -112,7 +112,7 @@ string layer; we handle the I/O layer.
 
 **Relationship to us:** The legacy incumbent we aim to replace. Users who
 currently `npm install fs-extra` for `readJson`/`writeJson`/`copy`/`ensureDir`
-should be able to switch to `@myorg/path` and get the same functionality
+should be able to switch to `@archont561/pathway` and get the same functionality
 plus native speed, type safety, and a much richer API.
 
 ---
@@ -552,7 +552,7 @@ foundation.
 This is the definitive comparison. **No existing library fills more than
 a fraction of the cells.**
 
-| Capability | `pathe` | `fs-extra` | `fs-jetpack` | `fast-glob` | `fdir` | `tinyglobby` | `node:fs.glob` | `Bun` | **@myorg/path** |
+| Capability | `pathe` | `fs-extra` | `fs-jetpack` | `fast-glob` | `fdir` | `tinyglobby` | `node:fs.glob` | `Bun` | **@archont561/pathway** |
 |-----------|---------|-----------|-------------|------------|--------|-------------|----------------|-------|----------------|
 | Path objects | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Typed generics | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |

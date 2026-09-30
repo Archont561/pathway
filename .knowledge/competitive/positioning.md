@@ -59,7 +59,7 @@ Now there's a legitimate reason to install it.
 
 **Benchmark framing (added Sept 2026):** Since `node:fs.glob` is stable
 and C++-native in Node core, we never claim to beat Node at globbing. The
-claim is: *"Node can glob natively. Only @myorg/path fuses glob + stat +
+claim is: *"Node can glob natively. Only @archont561/pathway fuses glob + stat +
 hash + filter into a single native pass — 5–20× faster than
 `fs.glob` + `fs.stat` + `crypto` on 100k+ file trees."* The moat is the
 fusion, not the glob.

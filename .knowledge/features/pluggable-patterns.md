@@ -65,7 +65,7 @@ interface Transformer {
 ### Built-in Implementations
 
 ```ts
-import { gzip, brotli } from "@myorg/path";
+import { gzip, brotli } from "@archont561/pathway";
 
 const gzip: Transformer = {
   name: "gzip",
@@ -135,7 +135,7 @@ interface Hasher {
 ### Implementations
 
 ```ts
-import { blake3, xxhash, sha256 } from "@myorg/path";
+import { blake3, xxhash, sha256 } from "@archont561/pathway";
 
 const blake3: Hasher = {
   name: "blake3",
@@ -333,7 +333,7 @@ the raw object. Rationale:
 
 ### The Problem
 
-Resolving a module specifier like `@myorg/utils` to an actual file path
+Resolving a module specifier like `@acme/utils` to an actual file path
 requires understanding the resolution algorithm (Node's `node_modules`,
 TypeScript's `paths`, Bun's module resolution, etc.). Currently, every
 tool reimplements this.
@@ -379,7 +379,7 @@ reimagine a solved problem and lose PnP/`extends` compatibility.
 ### Usage
 
 ```ts
-const resolved = project.resolve("@myorg/utils", {
+const resolved = project.resolve("@acme/utils", {
   resolvers: [unrsTsconfigResolver, unrsNodeResolver],
 });
 // Tries tsconfig first, falls back to node resolution
