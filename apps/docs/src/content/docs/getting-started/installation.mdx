@@ -1,0 +1,58 @@
+---
+title: Installation
+description: Install pathway for Bun, Node and Rust.
+---
+
+import { version } from "../../../version.ts";
+
+pathway ships as three Rust crates and one npm package. Both surfaces are
+versioned together from a single source of truth: `[workspace.package] version`
+in the root `Cargo.toml`.
+
+## JavaScript
+
+Requires Node 24 or newer, or Bun 1.3+.
+
+:::caution[The native addon is not published yet]
+The npm package exists in this repository but is not on a registry, and the
+native half has no published platform packages. To try it today, add the
+workspace package from a clone:
+
+```sh
+# in a clone of the repository
+bun install
+bun --cwd packages/path build
+```
+
+`engineAvailable()` returns `false` rather than throwing when the `.node` file
+has not been built, so importing the package in a fresh clone is always safe.
+:::
+
+## Rust
+
+```toml
+# Cargo.toml
+[dependencies]
+myorg-path = "0.1"
+```
+
+The ergonomic surface is `myorg-path`; the engine core is `myorg-path-core`;
+`myorg-path-engine` is the N-API bridge and is **not** published, because a
+`cdylib` is not something you can depend on from Rust.
+
+Neither crate is publishable yet — the public names are still an open decision.
+See `publish = false` in the workspace manifest.
+
+## Building from source
+
+```sh
+pixi install            # all environments, from the lockfile
+pixi run build          # turbo: TypeScript workspace, including these docs
+pixi run build-rs       # cargo: every crate, release mode
+```
+
+## Versions
+
+These docs describe v{version}. The number comes from the build environment
+(`PATHWAY_VERSION`, set by the pixi task), falling back to the workspace
+manifest, so the site cannot drift from the code it documents.

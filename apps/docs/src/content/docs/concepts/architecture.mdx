@@ -1,0 +1,50 @@
+---
+title: Architecture
+description: Three crates, two surfaces, one coarse boundary.
+---
+
+## The three-crate split
+
+```
+crates/core      rlib     ALL engine logic. Zero napi dependencies.
+crates/path      rlib     the ergonomic Rust API over core.
+crates/engine    cdylib   the NAPI-RS bridge. npm-only, never on crates.io.
+```
+
+The rule that makes this work: **`crates/core` is napi-free**. No `napi` or
+`napi-derive` in its dependency tree, so `cargo nextest run -p myorg-path-core`
+runs the entire engine's logic in an environment with no Node and no built
+addon. The FFI glue is `crates/engine`, and it is glue.
+
+`crates/engine` is `publish = false` because a `cdylib` is not a usable Rust
+dependency: publishing it would produce an artefact nobody could depend on.
+
+## Two surfaces, one engine
+
+| Surface | Crate / package | For |
+| --- | --- | --- |
+| TypeScript | `@myorg/path` | Bun, Node, bundlers, build tools |
+| Rust | `myorg-path` over `myorg-path-core` | Rust programs, CLIs, servers |
+
+Neither re-implements the other. `crates/path` is a thin ergonomic layer over
+core, which is what keeps the two public surfaces from drifting apart.
+
+## The boundary is coarse
+
+The N-API boundary is crossed for bulk operations — walk batches, hashes,
+read/write plans — and **never** for a single string operation. A boundary
+crossing costs more than the string manipulation it would wrap, so
+`path.join()` stays in TypeScript, where `pathe` already gets Windows right.
+
+The consequence to hold on to when writing new code: if you are tempted to add
+an FFI function whose body is "compute one string", do not. Write it in
+TypeScript.
+
+## Versioning
+
+One version for everything, from `[workspace.package] version` in the root
+`Cargo.toml`. The npm package mirrors it, a test asserts the two agree, and the
+docs site reads it from the build environment.
+
+Crates.io and npm versions move on one cadence now (the D7 decision), so
+`myorg-path` at 0.3 corresponds to `@myorg/path` at 0.3.

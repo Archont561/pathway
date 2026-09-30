@@ -1,0 +1,49 @@
+---
+title: Quick Start
+description: The Path API that exists today.
+---
+
+A `Path` is an immutable, normalised path string. Every operation returns a new
+`Path`; nothing mutates.
+
+```ts
+import { Path } from "@myorg/path";
+
+const root = Path.cwd();
+
+// Normalisation happens once, on construction.
+root.value; // "/home/you/project"
+new Path("/a/b").value === new Path("/a/./c/../b").value; // true
+
+// join normalises as it goes, and takes any number of segments.
+root.join("src", "../lib", "index.ts").value; // "/home/you/project/lib/index.ts"
+
+// Path components, pathlib's names.
+const p = new Path("/a/b/file.tar.gz");
+p.parent.value; // "/a/b"
+p.name; // "file.tar.gz"
+p.stem; // "file.tar"
+p.ext; // ".gz"
+
+`${p}`; // "/a/b/file.tar.gz" — toString()
+```
+
+String operations are handled in TypeScript by [`pathe`], so they are correct on
+Windows and POSIX without a platform check, and they never cross the FFI
+boundary.
+
+## What is not here yet
+
+Everything that needs the native engine is a stub that throws with the file that
+will implement it:
+
+- `walk()`, `walkFiles()`, `walkDirs()` — the scanner is
+  `crates/core/src/walk/scanner.rs`, not written.
+- Reading, writing, atomic writes, hashing, serializers — the core modules are
+  placeholders.
+
+That is a deliberate scaffold order: the public signatures are frozen before
+the native work, so the N-API iterator spike cannot change how callers consume
+results.
+
+[`pathe`]: https://github.com/unjs/pathe

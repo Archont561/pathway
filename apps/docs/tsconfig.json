@@ -1,0 +1,16 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "include": [".astro/types.d.ts", "**/*"],
+  "exclude": ["dist"],
+  "compilerOptions": {
+    // Mirrors the `@workspace/version` alias in astro.config.mjs: the version
+    // reader is at the repository root, and TypeScript has to be told the same
+    // thing Vite is or `astro check` reports an unresolved import that builds
+    // fine. Two places to update, which is the price of not copying the
+    // implementation into the app.
+    "baseUrl": ".",
+    "paths": {
+      "@workspace/version": ["../../scripts/version.ts"]
+    }
+  }
+}

@@ -1,0 +1,34 @@
+---
+title: pathway
+description: A native, pathlib-inspired filesystem API for TypeScript, Bun, Node and Rust.
+template: splash
+hero:
+  tagline: pathlib's ergonomics, a native engine, one version number.
+  actions:
+    - text: Installation
+      link: /getting-started/installation/
+      icon: right-arrow
+    - text: Architecture
+      link: /concepts/architecture/
+      variant: minimal
+---
+
+import { version } from "../../version.ts";
+
+**pathway** is a filesystem API with two surfaces over one engine: a
+TypeScript/Bun/Node package of `Path` objects, and a Rust crate with the same
+ergonomics for Rust callers.
+
+The engine is native (Rust) and the boundary is deliberately coarse — bulk
+operations only, never a single string operation across the FFI seam. See
+[Architecture](/concepts/architecture/) for why that is the whole design.
+
+:::caution[This is a scaffold]
+The repository is at the tooling-and-layout stage. `Path` exists with its
+string operations; traversal, hashing and atomic writes are stubs that throw
+with the file that will implement them. The docs below describe what is true
+today, not what is planned.
+:::
+
+These docs describe v{version} — the version is read from the build
+environment, not written into the site.

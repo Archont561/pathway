@@ -1,0 +1,66 @@
+---
+title: Contributing
+description: Environments, gates and the checks that must pass.
+---
+
+Everything runs through **pixi**. It owns the environments, the tasks and the
+lockfile; nothing needs a toolchain installed by hand.
+
+```sh
+pixi install         # environments from pixi.lock
+pixi run hooks-install   # once per clone
+pixi run gates       # what CI runs before a commit lands
+```
+
+## Gates
+
+| Task | What it checks |
+| --- | --- |
+| `pixi run fmt-check-rs` | `cargo fmt --check` |
+| `pixi run clippy` | clippy with `-D warnings` |
+| `pixi run deny` | dependency licences, bans and sources (offline) |
+| `pixi run lint-js` | biome format + lint |
+| `pixi run lint-actions` | actionlint over the workflows |
+| `pixi run test-rs` | `cargo nextest` over the workspace |
+| `pixi run test-doc-rs` | doctests, which nextest does not run |
+| `pixi run test` | the Bun suites through turbo |
+| `pixi run typecheck` | `tsc --noEmit` |
+
+## Beyond the gates
+
+```sh
+pixi run coverage          # cargo-llvm-cov -> lcov.info
+pixi run coverage-report   # the same numbers as a table
+pixi run deny-advisories   # RustSec; needs the network, so CI-only
+pixi run docs-dev          # this site, locally
+pixi run docs-build        # this site, production build
+```
+
+## Dependencies are a policy decision
+
+`deny.toml` is the gate for the crates.io decision, because two of the three
+crates are published and a consumer inherits the whole transitive graph. Adding
+a dependency with a licence that is not on the allow list fails the gate rather
+than being discovered later by someone running `cargo package`.
+
+## The offline sandbox
+
+The dev environment is reproducible without a network. `pixi-sandbox` packs the
+locked `default` environment and the vendored cargo registry onto an orphan
+branch; `scripts/restore.sh` (and `scripts/restore.ps1` on Windows) rebuilds it
+from that branch alone. The `linux-64` bundle is the one that is published.
+
+Because the sandbox has no network, `pixi run deny` covers only the checks that
+can run offline. The advisory check is CI's job.
+
+## Commits
+
+Conventional commits, enforced by lefthook and [convco]:
+
+```
+type(scope): description
+```
+
+`feat` `fix` `perf` `refactor` `docs` `build` `ci` `test` `chore` `style`
+
+[convco]: https://convco.github.io/
