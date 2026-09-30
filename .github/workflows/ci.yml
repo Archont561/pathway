@@ -43,6 +43,12 @@ jobs:
           cache: true
           environments: default
 
+      # Cache the cargo target dir and ~/.cargo between runs. Turbo has no
+      # remote cache here, so `build:native` (debug addon) and `build-rs`
+      # (release) would otherwise recompile the whole workspace from scratch
+      # on every push; with the cache only the changed crates rebuild.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
       # The publish plan is a wire format shared with the publisher, so a
       # malformed bundle must fail here rather than as a push to the orphan
       # branch. `pixi-sandbox` is a static release binary, not a conda

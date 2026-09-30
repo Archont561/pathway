@@ -9,9 +9,9 @@
  * anyone maintaining a list.
  *
  * A hand-written platform `require` list is forbidden in this repository. The
- * 2025 draft was `require("@myorg/path")` from inside the package that
- * `@myorg/path` *is* — a circular self-require, because the binary lives in the
- * platform packages (`@myorg/path-linux-x64-gnu` and friends) and never in the
+ * 2025 draft was `require("@archont561/pathway")` from inside the package that
+ * `@archont561/pathway` *is* — a circular self-require, because the binary lives in the
+ * platform packages (`@archont561/pathway-linux-x64-gnu` and friends) and never in the
  * root one. The failure is not a crash: it is a resolution that works in
  * development, where a stale `dist/` sits next to a symlink, and fails on a
  * clean install.
@@ -24,29 +24,56 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-/** How to build the addon, spelled out for the error message. */
+/**
+ * How to build the addon, spelled out for the error message. `build-native` is
+ * a debug build (~40s cold, seconds warm through turbo); the release variant
+ * is for benchmarks and the publish pipeline.
+ */
 const BUILD_HINT = [
   "The native engine is not built. From the repository root:",
   "",
-  "  pixi run -e default -- napi build --cwd packages/path --platform --release",
+  "  pixi run build-native",
   "",
   "Or build the crates directly (needs the C toolchain for blake3):",
   "",
-  "  pixi run -e default -- cargo build -p myorg-path-engine --release"
+  "  pixi run -e default -- cargo build -p pathway-fs-engine --release"
 ].join("\n");
 
 /**
- * The addon's platform-specific filename, e.g. `myorg-path.linux-x64-gnu.node`.
+ * The addon's platform-specific filename, e.g. `pathway.linux-x64-gnu.node`.
  *
- * Computed, not listed: the alternatives are a hardcoded table that rots
- * quietly as NAPI-RS adds triples, and a `require` of a name that does not
- * exist. Both fail the same way and neither says why.
+ * `pathway` is the `napi.name` declared in this package's manifest — the same
+ * field `napi build` reads to name the artifact — so the loader and the
+ * builder agree on it through one config rather than two constants.
+ *
+ * The platform suffix is NAPI-RS's npm spelling (`linux-x64-gnu`,
+ * `darwin-arm64`, `win32-x64-msvc`), *not* the rust triple: composing
+ * `${arch}-unknown-linux-gnu` produces a filename the CLI never writes. The
+ * alternatives — a hardcoded table of every triple, or a `require` of a name
+ * that does not exist — both fail the same way and neither says why.
  */
 function addonFileName(platform: string, arch: string): string {
-  // Windows uses dashes, every other platform uses the rust triple spelling.
-  const triple = platform === "win32" ? `${arch}-pc-windows-msvc` : `${arch}-unknown-linux-gnu`;
-  return `myorg-path.${platform}-${triple}.node`;
+  switch (platform) {
+    case "linux": {
+      // `glibcVersionRuntime` is present only on glibc; its absence is the
+      // musl (Alpine) detection the napi-rs ecosystem itself uses.
+      const report = process.report?.getReport() as
+        | { header?: { glibcVersionRuntime?: string } }
+        | undefined;
+      const libc = report?.header?.glibcVersionRuntime !== undefined ? "gnu" : "musl";
+      return `pathway.linux-${arch}-${libc}.node`;
+    }
+    case "darwin":
+      return `pathway.darwin-${arch}.node`;
+    case "win32":
+      return `pathway.win32-${arch}-msvc.node`;
+    default:
+      throw new Error(`unsupported platform for the native engine: ${platform}-${arch}`);
+  }
 }
+
+/** The package root, where `napi build --output-dir .` drops the addon. */
+const PACKAGE_ROOT = join(import.meta.dirname, "..");
 
 /** The symbols the generated loader is expected to export. */
 export interface NativeEngine {
@@ -72,13 +99,13 @@ export function loadEngine(): NativeEngine {
     return cached;
   }
 
-  const file = join(import.meta.dirname, addonFileName(process.platform, process.arch));
+  const file = join(PACKAGE_ROOT, addonFileName(process.platform, process.arch));
   if (!existsSync(file)) {
     throw new Error(`Cannot find the native engine at ${file}.\n\n${BUILD_HINT}`);
   }
 
   // Required lazily and through a non-literal specifier: a literal
-  // `import "./myorg-path.linux-x64-gnu.node"` would have to name this host's
+  // `import "./pathway.linux-x64-gnu.node"` would have to name this host's
   // platform at build time, which is the hand-written list again.
   const loaded = require(file) as Partial<NativeEngine>;
   if (typeof loaded.engineVersion !== "function" || typeof loaded.napiVersion !== "function") {
@@ -94,5 +121,5 @@ export function loadEngine(): NativeEngine {
 
 /** Whether a built addon is present, for callers that want to degrade rather than throw. */
 export function engineAvailable(): boolean {
-  return existsSync(join(import.meta.dirname, addonFileName(process.platform, process.arch)));
+  return existsSync(join(PACKAGE_ROOT, addonFileName(process.platform, process.arch)));
 }

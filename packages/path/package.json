@@ -1,5 +1,5 @@
 {
-  "name": "@myorg/path",
+  "name": "@archont561/pathway",
   "version": "0.1.0",
   "description": "A native, pathlib-inspired filesystem API for TypeScript, Bun and Node",
   "license": "MIT",
@@ -20,15 +20,18 @@
   "sideEffects": false,
   "files": [
     "dist",
-    "index.js",
-    "index.d.ts",
-    "myorg-path.*.node"
+    "pathway.*.node"
   ],
   "publishConfig": {
     "access": "public"
   },
+  "napi": {
+    "binaryName": "pathway"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "build:native": "napi build --platform --no-js --dts native-engine.d.ts --manifest-path ../../crates/engine/Cargo.toml --output-dir .",
+    "build:native:release": "napi build --platform --release --no-js --dts native-engine.d.ts --manifest-path ../../crates/engine/Cargo.toml --output-dir .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun test"
   },

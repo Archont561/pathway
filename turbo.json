@@ -4,10 +4,20 @@
   "globalDependencies": ["biome.json", "tsconfig.base.json", "pixi.toml"],
   "globalEnv": ["PATHWAY_VERSION"],
   "tasks": {
+    "build:native": {
+      "dependsOn": [],
+      "inputs": [
+        "package.json",
+        "$TURBO_ROOT$/Cargo.toml",
+        "$TURBO_ROOT$/Cargo.lock",
+        "$TURBO_ROOT$/crates/**"
+      ],
+      "outputs": ["*.node", "native-engine.d.ts"]
+    },
     "build": {
-      "dependsOn": ["^build"],
-      "inputs": ["src/**", "package.json", "tsconfig.json", "tsconfig.build.json", "*.node"],
-      "outputs": ["dist/**", "*.node"]
+      "dependsOn": ["^build", "build:native"],
+      "inputs": ["src/**", "package.json", "tsconfig.json", "tsconfig.build.json"],
+      "outputs": ["dist/**"]
     },
     "test": {
       "dependsOn": ["^build"],
