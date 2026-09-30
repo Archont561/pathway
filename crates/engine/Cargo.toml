@@ -1,0 +1,36 @@
+[package]
+name = "myorg-path-engine"
+description = "NAPI-RS bridge over myorg-path-core; the native half of @myorg/path"
+# npm-only by construction. A cdylib is not a usable Rust dependency, so
+# publishing it to crates.io would be an artefact nobody could depend on.
+# `cargo publish` would reject it anyway; saying so here makes the intent
+# reviewable rather than implied.
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# The engine. All logic lives there; this crate translates between N-API types
+# and core types and nothing else (D1 layer 2: coarse-grained, no per-`join()`
+# boundary crossings).
+myorg-path-core = { workspace = true }
+napi = { workspace = true }
+napi-derive = { workspace = true }
+# `AsyncTask<T>` runs blocking work on the libuv thread pool, which is how the
+# walk and the hashing get off the JavaScript thread. Phase 1 Step 0's spike is
+# what decides between this and the experimental `#[napi(async_iterator)]`.
+tokio = { workspace = true }
+# `serde_json::Value` -> `JsUnknown`, for the native TOML/YAML serializers.
+serde_json = { workspace = true }
+
+[build-dependencies]
+# Emits the platform suffix (`myorg_path_engine.linux-x64-gnu.node`) that
+# `@napi-rs/cli` and the generated TypeScript binding loader both look for.
+napi-build = { workspace = true }

@@ -1,0 +1,90 @@
+# pathway — the Cargo workspace root.
+#
+# D7 splits the engine in two so that all of its logic is testable without Node
+# and reusable from Rust, and so the N-API glue stays thin:
+#
+#   crates/core     rlib   ALL engine logic. Zero napi dependencies, so
+#                           `cargo test -p myorg-path-core` needs neither Node
+#                           nor a built addon.
+#   crates/path     rlib   the ergonomic pathlib-like Rust surface over core.
+#   crates/engine   cdylib a thin NAPI-RS wrapper over core. npm-only; it is
+#                           glue, not a library, and is never on crates.io.
+#
+# The members below are named with directory paths so the published crate names
+# (`myorg-path-core`, `myorg-path`) can change at Step 0 without touching
+# `crates.path = "…"`, `crates.engine = "…"` in the TypeScript package or the
+# [patch] sections a consumer needs.
+#
+# NOTE: every crate is `publish = false` at scaffold time. The license is settled
+# (MIT, one LICENSE file at the root, inherited by `license` below), but the
+# public names (npm and crates.io together) are still the Phase 1 Step 0 owner
+# sign-off, and an unpublishable manifest cannot be published by accident while
+# that decision is open. Publishing is a one-line change per crate once the
+# names are settled — and nothing else, because `deny.toml` has already checked
+# that the licence policy of the whole graph allows it.
+
+[workspace]
+resolver = "2"
+members = ["crates/core", "crates/path", "crates/engine"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+# conda-forge pins rust 1.98.x; napi 3.13 declares MSRV 1.88, so this is the
+# binding constraint. Kept here rather than per crate so the MSRV is one edit.
+rust-version = "1.98"
+# One LICENSE file at the root, so one edit covers every crate and the npm
+# package. MIT rather than MIT/Apache-2.0: a dual licence is a decision the
+# user of the crate has to make, and dual-licensing an unfinished library spends
+# that attention on nothing.
+license = "MIT"
+authors = ["Archont561 <142521648+Archont561@users.noreply.github.com>"]
+repository = "https://github.com/Archont561/pathway"
+homepage = "https://github.com/Archont561/pathway"
+
+# One place to bump a dependency version; members opt in with `{ workspace = true }`.
+[workspace.dependencies]
+myorg-path-core = { path = "crates/core", version = "0.1.0" }
+
+# Traversal (D1 layer 3): `ignore` is ripgrep's walker, which is what gives
+# .gitignore and .ignore support for free rather than as a re-implementation.
+ignore = "0.4"
+globset = "0.4"
+regex = "1"
+
+# Content hashing (D3). blake3 is the default; xxhash for the fast path and
+# sha2 for interoperability with every other tool that has ever hashed a file.
+blake3 = "1"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+sha2 = "0.10"
+
+# Codecs (D4). serde_json is the bridge target for the native TOML/YAML codecs.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+serde_yaml = "0.9"
+
+# Filesystem primitives: tempdirs, locks and parallel I/O for the v0.2/v0.3 work.
+tempfile = "3"
+fs2 = "0.4"
+rayon = "1"
+thiserror = "2"
+
+# The N-API bridge (D1 layer 2). `async` pulls in `tokio_rt`, which is what the
+# experimental `#[napi(async_iterator)]` / `AsyncTask` spike in Step 0 is
+# meant to evaluate. `serde-json` converts `serde_json::Value` to `JsUnknown`
+# for the native TOML/YAML serializers. Both are experimental surfaces upstream:
+# the version is pinned to a range and the Step 0 spike is what freezes it.
+napi = { version = "3", features = ["async", "serde-json"] }
+napi-derive = "3"
+napi-build = "2"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+
+# Release profile lives at the workspace root — Cargo ignores `[profile.*]` in
+# member manifests, so a profile written in crates/engine would silently not
+# apply to the binary that ships.
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = "symbols"

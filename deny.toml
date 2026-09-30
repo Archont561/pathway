@@ -1,0 +1,154 @@
+# cargo-deny policy for the pathway dependency graph.
+#
+# Why this file exists at all: two of the three crates are published to
+# crates.io (D7 — `myorg-path-core` and `myorg-path`; `myorg-path-engine` is
+# npm-only and `publish = false`). Publishing ships the *whole* transitive
+# graph, not just the direct dependencies, and every consumer of the crate
+# inherits it. A licence or an advisory problem in a crate three levels down is
+# invisible until someone runs `cargo package`, which is far too late to be the
+# place it is discovered. So the policy is expressed here, as code, and run as
+# a gate: adding a dependency becomes a reviewable policy decision rather than
+# a silent consequence of a `cargo add`.
+#
+# Run the offline subset with `pixi run deny` (in the `lint` gate). The
+# advisory check needs to fetch the RustSec database from GitHub, so it is a
+# separate task: `pixi run deny-advisories`. That split is not an accident of
+# convenience — the airlocked sandbox has no network, and a gate that fails
+# there for want of a database tells you nothing about the code.
+
+[graph]
+# all-features: the shipped default and the experimental native TOML/YAML codec
+# features pull different code, and an unused-by-default dependency is still
+# one a user can enable with one line in their own Cargo.toml.
+all-features = true
+# The NAPI bridge is where the interesting source variety would be if it were
+# a real source; keeping this explicit documents that the graph is crates.io
+# only, which `sources` below then enforces rather than assumes.
+no-default-features = false
+
+[licenses]
+# Permissive, attribution-compatible licences only. The bar is deliberately
+# higher than "OSS": a crate a corporation cannot vendor into a proprietary
+# product is not usable for this project, and LGPL/MPL are copyleft obligations
+# on *modification and distribution of the work itself*, which is exactly what
+# an MIT/Apache library does not want to impose on its users.
+allow = [
+  # The two licences every crate here is expected to offer, plus the
+  # Apache-with-LLVM-exception variant that rustc-family crates use.
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  # Permissive BSDs and the 3-clause licence, plus the 0-clause.
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "0BSD",
+  # Boost, ISC, zlib, the WTFPL-as-Unlicense pair, and the public-domain
+  # dedications Rust crates use for small tables and generated data.
+  "BSL-1.0",
+  "ISC",
+  "Zlib",
+  "Unlicense",
+  "CC0-1.0",
+  "MIT-0",
+  # Unicode-3.0 appears in an `AND` composition (the idna crate family), so it
+  # has to be allowed for that expression to evaluate at all.
+  "Unicode-3.0",
+]
+# The pre-1.0 crates in the graph (walkdir, same-file) are dual MIT/Apache, so
+# the practical set is stricter than it looks: a single-permissive-only crate
+# would be caught by the allow list above.
+confidence-threshold = 0.93
+# The workspace crates are `publish = false`, so they are not part of anyone
+# else's graph yet and cargo-deny skips their licence field. Their own field is
+# set (MIT, inherited from `[workspace.package]`), so this exemption disappears
+# on its own the moment publishing is enabled — the check then applies to them
+# exactly as it does to any other crate.
+private = { ignore = true }
+# The allow list is a *policy* about which licences this project will ever
+# accept, not a description of today's graph, so a licence nobody happens to use
+# yet is not a problem to be told about. Without this the four forward-looking
+# entries below (the BSDs, 0BSD, Zlib) warn on every run, and a policy file that
+# nags is a policy file people stop reading. The failure direction still works:
+# a *new* licence that is not on the list is an error.
+unused-allowed-license = "allow"
+
+[bans]
+# Warn, do not fail. The two duplicate-version pairs in the current graph are
+# `syn` 2 vs 3 and `cpufeatures` 0.2 vs 0.3, which come from direct and
+# transitive dependents that have not converged upstream. Failing the gate on
+# them would train everyone to reach for `--no-deny-warnings`, which defeats the
+# gate. They are listed below with the reason each is tolerated, so a new one
+# arriving is a signal rather than noise.
+multiple-versions = "warn"
+skip = [
+  # blake3 pins cpufeatures 0.2; sha2/ahash accept 0.3. Both are one-function
+  # crates with no behavioural surface, and the choice is theirs, not ours.
+  { name = "cpufeatures" },
+  # napi-derive is on syn 2; napi-build and a transitive macro crate moved to
+  # syn 3. Syn 3 is a breaking change gated upstream, not something a Cargo
+  # feature can bridge.
+  { name = "syn" },
+]
+# Wildcard version requirements (`foo = "1.*"`) are not allowed. They make the
+# resolved graph depend on the day you happened to build, which defeats both
+# Cargo.lock and this policy file.
+wildcards = "deny"
+# A `deny(wildcard)` list for the *specific* wildcards we might be tempted by
+# later, recorded now so the decision is already made.
+deny = [
+  # The workspace crates themselves. `deny` on a workspace member is how you
+  # keep a published crate from depending on a local path crate by accident,
+  # which fails at `cargo publish` with a much less helpful message. The
+  # workspace members are of course allowed to depend on each other, so
+  # `allow-workspace` below exempts them from this list.
+  { name = "myorg-path" },
+  { name = "myorg-path-core" },
+]
+# Without this the two entries above would also ban `myorg-path` from depending
+# on `myorg-path-core`, which is the entire point of the D7 split.
+allow-workspace = true
+
+[sources]
+# crates.io only. A git dependency is a build-time network fetch and an
+# unpinnable-by-Cargo.lock source of supply chain risk: the branch name is a
+# mutable reference, and the review tooling that reads the advisory database
+# cannot see it. If something must come from git, that is a decision to make
+# deliberately, in this file, with a full commit sha.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
+
+[advisories]
+# cargo-deny 0.20 removed `vulnerability`, `unsound`, `notice` and
+# `severity-threshold`: vulnerability, unsound and notice advisories all fail
+# unconditionally now, so there is nothing left to tune and no `warn` path to
+# accidentally rely on. The two knobs that remain are the ones with a defensible
+# answer, and both are set below.
+#
+# A yanked version in the lock means someone withdrew that release — usually
+# because it was broken or unsafe. Shipping it anyway, even indirectly, is not
+# something to allow on the grounds that it is inconvenient to re-resolve.
+yanked = "deny"
+# Scope values are all / workspace / transitive / none. `workspace` fails for a
+# crate we depend on directly or through a workspace member, and reports a note
+# for a deeper one. An unmaintained direct dependency is a roadmap risk we own;
+# an unmaintained crate three levels down in someone else's feature set is
+# information, and failing on it would be unfalsifiable busywork.
+unmaintained = "workspace"
+# An advisory in `ignore` that no longer matches anything in the graph is a
+# stale suppression. Those are the dangerous kind: the advisory gets fixed
+# upstream, the crate drops out of the graph, and nobody ever revisits the
+# reason it was written. Failing makes the ignore list pay rent.
+unused-ignored-advisory = "deny"
+# No `maximum-db-staleness` here, despite the key existing: it is only consulted
+# when fetching is disabled, and cargo-deny 0.20 offers no way to disable it —
+# there is no --offline and no check --disable-fetch, and a warm cache does not
+# help because the tool fetches unconditionally. Verified by pointing the
+# database URL at an unresolvable host against a populated cache: it fails with
+# "failed to fetch advisory database" rather than reading the cache.
+#
+# Consequence, and the reason `deny` and `deny-advisories` are separate tasks in
+# pixi.toml: the advisory check needs the network and therefore cannot run in the
+# airlocked sandbox at all. The offline gate covers bans, licences and sources;
+# advisories are CI's job, where the network exists.
