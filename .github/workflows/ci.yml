@@ -5,8 +5,9 @@ name: ci
 # command CI runs is the command you run locally. A step that needs more than
 # one line is a missing task, not inline bash.
 #
-# This mirrors the `ci` task aggregator (gates + release build + TS build +
-# docs site) plus the two checks that cannot run anywhere but here:
+# This mirrors the `ci` task aggregator (gates + release Rust build + the turbo
+# build, which covers the TS package and the docs site in one graph) plus the
+# two checks that cannot run anywhere but here:
 # `lint-sandbox-plan` needs the pixi-sandbox release binary and
 # `deny-advisories` needs the network (cargo-deny 0.20 always fetches the
 # RustSec database). The airlocked sandbox restores neither, so a developer
@@ -85,8 +86,8 @@ jobs:
 
       # ── build (the `ci` aggregator tail) ─────────────────────────────────
       - run: pixi run build-rs
+      # `build` is `turbo run build` over the whole workspace, and apps/docs is
+      # a workspace package, so this builds the documentation site too. There
+      # is no separate `docs-build` step: that used to go around turbo and
+      # produced a second, uncached Astro build of the same site.
       - run: pixi run build
-      # A broken site still fails CI; an Astro production build is too slow to
-      # make every local `gates` run wait on, which is why it is here and not
-      # in the pre-push hook.
-      - run: pixi run docs-build

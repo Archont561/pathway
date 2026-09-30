@@ -7,8 +7,15 @@
  * both derive from it rather than restating it. A test in packages/path
  * asserts the npm package agrees.
  *
- * Used by `pixi run docs-build` / `docs-dev` / `docs-preview` (which export the
- * result as PATHWAY_VERSION for the site) and by apps/docs as its fallback.
+ * Imported by apps/docs (as `@workspace/version`, aliased in astro.config.mjs)
+ * to stamp the site, and runnable as a script — `bun scripts/version.ts` —
+ * for release tooling that wants the number on stdout.
+ *
+ * The docs tasks used to run this script and export the result as
+ * PATHWAY_VERSION. They no longer do: the site imports this module directly,
+ * which is the same answer without a second, differently-hashed path through
+ * turbo. `apps/docs/turbo.json` lists this file and the root Cargo.toml as
+ * build inputs so the docs cache still invalidates on a version bump.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";

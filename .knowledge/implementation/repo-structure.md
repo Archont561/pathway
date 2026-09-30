@@ -12,6 +12,8 @@ verified:
     at: 2025-07-11T00:00:00Z
   - by: process:gap-analysis-2026-09
     at: 2026-09-16T00:00:00Z
+  - by: process:orchestration-refactor-2026-09-30
+    at: 2026-09-30T00:00:00Z
 domain: implementation
 decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
@@ -106,51 +108,59 @@ pathlib-like Rust API published to crates.io as `pathway-fs`.
 │   │   └── library.json          #   consumers extend it via a real dependency edge.
 │   └── path/                     # Published npm package: @archont561/pathway
 │       ├── package.json
-│       ├── tsconfig.json
+│       ├── tsconfig.json         # noEmit; includes src + test
+│       ├── tsconfig.build.json   # declaration emit into dist/
 │       ├── src/
 │       │   ├── index.ts          # Public exports
 │       │   ├── path.ts           # Path class
-│       │   ├── fs.ts             # FileSystem abstraction
-│       │   ├── walk.ts           # WalkIterator (async generator)
-│       │   ├── entry.ts          # PathEntry class
+│       │   ├── walk.ts           # WalkIterator (async generator; stub)
 │       │   ├── serializers/
 │       │   │   ├── index.ts
-│       │   │   ├── types.ts      # Serializer<T> interface
 │       │   │   └── json.ts       # Built-in JSON serializer
 │       │   ├── types.ts          # Core type definitions
-│       │   └── binding.ts        # NAPI-RS binding loader
+│       │   └── binding.ts        # NAPI-RS binding loader (diagnostic front end)
 │       └── test/
-│           ├── path.test.ts
-│           ├── walk.test.ts
-│           ├── serializer.test.ts
-│           └── fixtures/         # Test fixtures (small file trees)
+│           └── path.test.ts      # includes the npm/Cargo version-parity test
 │
-├── packages/
-│   ├── path-toml/                # Extension: @archont561/pathway-toml
-│   │   ├── package.json
-│   │   └── src/index.ts
-│   └── path-yaml/                # Extension: @archont561/pathway-yaml
-│       ├── package.json
-│       └── src/index.ts
+├── apps/
+│   └── docs/                     # Astro + Starlight documentation site
+│       ├── package.json          # dev / build / preview / typecheck (astro check)
+│       ├── turbo.json            # Package Configuration: declares the root
+│       │                         #   Cargo.toml and scripts/version.ts as build
+│       │                         #   inputs, so a version bump invalidates the
+│       │                         #   cached site instead of serving a stale one
+│       ├── astro.config.mjs      # aliases @workspace/version → scripts/version.ts
+│       └── src/
+│           ├── version.ts        # reads [workspace.package] version; throws if absent
+│           ├── content.config.ts
+│           └── content/docs/     # .mdx pages
 │
-├── benches/                      # Benchmark suite
-│   ├── package.json
-│   ├── fdir-vs-native.bench.ts
-│   ├── tinyglobby-vs-native.bench.ts
-│   ├── bun-glob-vs-native.bench.ts
-│   └── fixtures/
-│       └── generate.ts           # Generate 100k/500k/1M file trees
+├── scripts/
+│   ├── version.ts                # the one version reader (importable + CLI)
+│   ├── restore.sh                # offline sandbox reconstruction
+│   └── restore.ps1
 │
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml                # Test matrix (Node + Bun × OS)
-│       ├── release.yml           # NAPI-RS multi-platform build + publish
-│       └── bench.yml             # Benchmark regression detection
+│       ├── ci.yml                # one job; every step is `pixi run <task>`
+│       ├── docs.yml              # docs build + astro check; Pages deploy from main
+│       └── publish-sandbox.yml   # publishes the offline sandbox transport
 │
 ├── .gitignore
 ├── LICENSE
 └── README.md
 ```
+
+### Planned, not yet in the tree
+
+These are designed but unbuilt. They are listed separately on purpose: a
+directory in the tree above is one that exists.
+
+| Planned | Gate |
+| --- | --- |
+| `benches/*` — the benchmark harness (mitata) | backlog task-4. The `benches/*` workspace glob, the turbo `bench` task and the pixi `bench` task were **removed** until it lands: a task no package implements exits 0 having run nothing, and a benchmark that silently passes is the worst possible failure mode for the claim it exists to prove. Re-add all four together. |
+| `packages/path-toml`, `packages/path-yaml` — tree-shakeable codec extensions | v0.2+ |
+| A multi-platform npm release workflow (`napi publish`) | see [ci-distribution.md](/implementation/ci-distribution.md) |
 
 ---
 
@@ -161,6 +171,14 @@ pathlib-like Rust API published to crates.io as `pathway-fs`.
 members = ["crates/core", "crates/path", "crates/engine"]
 resolver = "2"
 
+# Shared metadata, inherited by every member with `<key>.workspace = true`, so
+# the version, the MSRV and the licence are each one edit.
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.98"
+license = "MIT"
+
 # Profiles must live at the workspace root — Cargo ignores [profile.*]
 # in member manifests (moved here from crates/engine, 2026-09-30).
 [profile.release]
@@ -170,13 +188,14 @@ opt-level = 3
 strip = "symbols"
 
 [workspace.dependencies]
+pathway-fs-core = { path = "crates/core", version = "0.1.0" }
 # Sept 2026: feature set re-verified against current napi-rs docs.
-# `async` (+ `tokio_rt`) for async fns / AsyncGenerator; `serde-json` for
-# the serde_json::Value → JsUnknown conversion used by the TOML/YAML path.
-# `web_stream` is optional (Web Streams consumers) — add if needed.
-# The iterator APIs are experimental; the Phase-1 spike pins the exact
-# napi-rs version that ships in v0.1.
-napi = { version = "3", features = ["async", "tokio_rt", "serde-json"] }
+# `async` for async fns / AsyncGenerator (it pulls in `tokio_rt`, so naming
+# that separately is redundant); `serde-json` for the serde_json::Value →
+# JsUnknown conversion used by the TOML/YAML path. `web_stream` is optional
+# (Web Streams consumers) — add if needed. The iterator APIs are experimental;
+# the Phase-1 spike pins the exact napi-rs version that ships in v0.1.
+napi = { version = "3", features = ["async", "serde-json"] }
 napi-derive = "3"
 tokio = { version = "1", features = ["rt-multi-thread"] }
 ignore = "0.4"
@@ -206,11 +225,14 @@ published to crates.io.
 ```toml
 [package]
 name = "pathway-fs-core"
-version = "0.1.0"
-edition = "2021"
-rust-version = "1.85"          # MSRV: latest stable minus 2, CI-enforced
-license = "MIT OR Apache-2.0"  # pending Step-0 sign-off
 description = "Native filesystem core: fused walk, hashing, atomic ops, serde codecs"
+publish = false                # until the crates.io names are reserved
+version.workspace = true       # 0.1.0, inherited — never restated per crate
+edition.workspace = true       # 2021
+rust-version.workspace = true  # 1.98 — conda-forge pins rust 1.98.x; napi 3.13
+                               #   declares MSRV 1.88, so the channel is binding
+# license is inherited too: MIT, settled at Step-0 sign-off (2026-09-30).
+# One LICENSE at the root covers every crate and the npm package.
 
 [lib]
 crate-type = ["rlib"]
@@ -243,27 +265,24 @@ Phase 1; published as a preview at v0.3.
 ```toml
 [package]
 name = "pathway-fs"
-version = "0.1.0"
-edition = "2021"
-rust-version = "1.85"
-license = "MIT OR Apache-2.0"  # pending Step-0 sign-off
 description = "pathlib's convenience + ripgrep's walker: ergonomic paths, fused walk, hashing, typed serde I/O"
+publish = false                # until the crates.io names are reserved
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 
 [lib]
 crate-type = ["rlib"]
 
 [dependencies]
-pathway-fs-core = { path = "../core", version = "0.1" }
+# Through the workspace, so there is one place to bump the path/version pair.
+pathway-fs-core = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
-
-[features]
-camino = ["dep:camino"]        # optional UTF-8 path type
-
-[dependencies.camino]
-version = "1"
-optional = true
 ```
+
+An optional `camino` feature (UTF-8 path type) is sketched in the D7 notes but
+is **not** in the manifest yet; add it with the v0.3 preview, not before.
 
 ---
 
@@ -275,22 +294,23 @@ async plumbing only. **Never published to crates.io.**
 ```toml
 [package]
 name = "pathway-fs-engine"
-version = "0.1.0"
-edition = "2021"
 publish = false                # npm-only artifact (D7)
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-pathway-fs-core = { path = "../core" }
+pathway-fs-core = { workspace = true }
 napi = { workspace = true }
 napi-derive = { workspace = true }
 tokio = { workspace = true }
 serde_json = { workspace = true }   # Value → JsUnknown conversion
 
 [build-dependencies]
-napi-build = "2"
+napi-build = { workspace = true }
 ```
 
 (Release profile lives in the workspace root `Cargo.toml` — see above.)
@@ -318,7 +338,6 @@ vitest; the repo standardized on bun + `bun test` when it scaffolded):
     }
   },
   "engines": { "node": ">=24" },
-  "packageManager": "bun@1.3.11",
   "sideEffects": false,
   "files": ["dist", "pathway.*.node"],
   "publishConfig": { "access": "public" },
@@ -346,9 +365,16 @@ Notes:
   the hand-written loader front-end (`src/binding.ts`) in charge until the
   generated loader replaces it with the task-3 engine bridge.
 - `build:native` is the debug build (the dev loop, ~40s cold); the release
-  variant (LTO) is for benchmarks and the publish pipeline. turbo runs the
-  same scripts as its `build:native` task with `$TURBO_ROOT$/crates/**`
-  inputs, so a tsc-only change never pays for a cargo rebuild.
+  variant (LTO) is for benchmarks and the publish pipeline. turbo runs these
+  same scripts as its `build:native` / `build:native:release` tasks with
+  `$TURBO_ROOT$/crates/**` inputs, so a tsc-only change never pays for a cargo
+  rebuild. `pixi run build-native` reaches them **through** turbo
+  (`--filter=@archont561/pathway`) rather than with `cwd`, so the pixi task and
+  the turbo task share one cache entry.
+- `packageManager` is deliberately **absent**: it is a corepack field that
+  says which package manager runs *the repository*, so it belongs to the root
+  `package.json` only. Restating it here was a second bun version to bump and
+  is meaningless in a published tarball.
 - The version is asserted against `[workspace.package] version` in the root
   `Cargo.toml` by a test in `packages/path/test` — never bumped here alone.
 - The platform-specific `optionalDependencies` matrix
@@ -386,10 +412,13 @@ is written.
 | `pathe` as only runtime dependency | Minimal footprint; all heavy lifting is native |
 | Platform-specific optional deps | NAPI-RS distribution model; only the right binary is installed |
 | **Generated binding loader** | Hand-written self-require was a circular-load bug (2026 audit) |
-| **`engines`/`packageManager`/`sideEffects`/`files`/`publishConfig`** | Publishing best practices; missing from the 2025 draft (2026 audit) |
-| Extension packages (`path-toml`, etc.) | Tree-shakeable; users install only what they need |
-| `benches/` as separate package | Isolated benchmark deps; doesn't bloat the main package |
+| **`engines`/`sideEffects`/`files`/`publishConfig`** | Publishing best practices; missing from the 2025 draft (2026 audit). `packageManager` is root-only — it describes the repo, not the tarball |
+| Extension packages (`path-toml`, etc.) — *planned* | Tree-shakeable; users install only what they need |
 | Bun workspaces in the root `package.json` (no workspace yaml) | bun is the repo's only JS runtime — no Node anywhere; one root `bun.lock` resolves the whole JS toolchain |
+| **Workspace globs name only directories that exist** | A glob matching nothing makes `turbo run <task>` exit 0 having run nothing. `benches/*` was such a glob and was removed until task-4 |
+| **No pixi task uses `cwd = "<package>"`** | Package-scoped work goes through `turbo run <task> --filter=<package>`. A task that shells into a package bypasses the cache and diverges from the turbo task for the same verb — which is how the docs site came to be built twice in `pixi run ci` |
+| **`test` depends on `build:native`** | The addon must exist before the Bun suite runs. Encoding it in `turbo.json` rather than as `napi build && bun test` keeps the edge visible to the task graph and to the cache |
+| **`apps/docs/turbo.json` names `Cargo.toml` a build input** | The site quotes `[workspace.package] version`; without that input a version bump would serve a cached site with the old number |
 
 ---
 

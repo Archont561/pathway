@@ -57,11 +57,13 @@ pixi run skills
 
 ```sh
 pixi run docs-dev      # dev server
-pixi run docs-build    # production build (also part of `pixi run ci`)
+pixi run docs-build    # production build (also covered by `pixi run build`)
 pixi run docs-check    # type-check, frontmatter and routes included
 ```
 
-The version the site documents comes from the environment rather than being written into it: the pixi tasks export `PATHWAY_VERSION`, resolved from `[workspace.package] version` in the root `Cargo.toml` by `scripts/version.ts`. A test asserts `packages/path/package.json` agrees with Cargo, so the three published surfaces cannot drift.
+Each of these is a filter over the same turbo graph the repo-wide verbs use (`turbo run <task> --filter=pathway-docs`), so `pixi run build` and `pixi run docs-build` share one task and one cache entry rather than being two ways to build the same site.
+
+The version the site documents is read from `[workspace.package] version` in the root `Cargo.toml` — the one place it is written down — through `scripts/version.ts`. A test asserts `packages/path/package.json` agrees with Cargo, so the three published surfaces cannot drift. `apps/docs/turbo.json` declares that manifest as a build input, so a version bump invalidates the docs cache instead of serving a site that quotes the old number.
 
 ## Development workflow
 

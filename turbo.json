@@ -1,10 +1,19 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "ui": "stream",
-  "globalDependencies": ["biome.json", "pixi.toml"],
-  "globalEnv": ["PATHWAY_VERSION"],
+  "globalDependencies": ["biome.json", "pixi.toml", "pixi.lock"],
   "tasks": {
     "build:native": {
+      "dependsOn": [],
+      "inputs": [
+        "package.json",
+        "$TURBO_ROOT$/Cargo.toml",
+        "$TURBO_ROOT$/Cargo.lock",
+        "$TURBO_ROOT$/crates/**"
+      ],
+      "outputs": ["*.node", "native-engine.d.ts"]
+    },
+    "build:native:release": {
       "dependsOn": [],
       "inputs": [
         "package.json",
@@ -26,7 +35,7 @@
       "outputs": ["dist/**"]
     },
     "test": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "build:native"],
       "inputs": ["src/**", "test/**", "package.json", "tsconfig.json"],
       "outputs": []
     },
@@ -41,10 +50,14 @@
       ],
       "outputs": []
     },
-    "bench": {
-      "dependsOn": ["^build"],
-      "inputs": ["src/**", "fixtures/**", "package.json", "tsconfig.json"],
-      "outputs": ["results/**"]
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "preview": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "persistent": true
     }
   }
 }

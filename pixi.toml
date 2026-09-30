@@ -7,7 +7,7 @@
 #   crates/engine   cdylib, a thin NAPI-RS wrapper over core. npm-only, never
 #                   on crates.io.
 #   packages/*      the published TypeScript surface (`@archont561/pathway`).
-#   benches/*       the benchmark harness that has to prove the fused walk.
+#   apps/*          the Astro/Starlight documentation site.
 #
 # ONE environment, built from feature layers so a change to the Rust toolchain,
 # the JavaScript toolchain or the repo utilities stays reviewable on its own.
@@ -98,13 +98,28 @@ default = { features = [
 #
 # NOTE (pixi 0.81): `default-environment` is only accepted on tasks that have a
 # `cmd`. Pure aggregators (fmt / lint / gates / ci) omit it.
+#
+# RULE: a task here must never use `cwd = "<a workspace package>"`.
+#
+# Pixi owns environments, repo-wide verbs, and the tools that belong to no
+# package (cargo, convco, actionlint, pixi-sandbox). Anything scoped to a
+# workspace package goes through turbo — `turbo run <task> --filter=<package>`,
+# spelled once as a script in the root package.json and called from here as
+# `bun run <script>`.
+#
+# The reason is not tidiness. A task that shells into a package directory runs
+# the package's script with turbo nowhere in the chain, so it neither reads nor
+# writes the cache, and it silently diverges from the task turbo runs for the
+# same verb. That is how this repo ended up building the docs site twice in
+# `pixi run ci`, with different environments and two cache keys, for
+# byte-identical output. One verb, one path.
 # ---------------------------------------------------------------------------
 
 [tasks]
 
 # ── setup ────────────────────────────────────────────────────────────────────
 # One install for the whole Bun workspace: the root package.json declares
-# `workspaces: ["packages/*", "benches/*"]`, so members carry no lockfile of
+# `workspaces: ["packages/*", "apps/*"]`, so members carry no lockfile of
 # their own and the root bun.lock is the single resolution record. Every JS
 # task depends on this, so `pixi run test` works on a fresh clone.
 bun-install = { cmd = "bun install --frozen-lockfile", description = "Install the Bun workspace from the root lockfile" }
@@ -178,10 +193,14 @@ coverage-report = { cmd = "cargo llvm-cov report", description = "Print the Rust
 # crates/engine (all of it — cargo resolves core through the workspace) and
 # drops the platform-suffixed addon at the packages/path root, where
 # binding.ts looks for it. The command lives in the package's own
-# `build:native` script so turbo and these tasks cannot drift, and turbo
-# caches it under the `build:native` task (inputs: the whole Rust workspace;
-# outputs: the addon), which is what keeps a tsc-only change from paying for
-# a cargo rebuild. `--manifest-path`/`--output-dir` are what make the
+# `build:native` script and these tasks reach it *through turbo*
+# (`turbo run build:native --filter=@archont561/pathway`, spelled once in the
+# root package.json) rather than with `cwd = "packages/path"`. That is the
+# difference between a cached build and an uncached one: turbo keys the
+# `build:native` task on the whole Rust workspace and outputs the addon, which
+# is what keeps a tsc-only change from paying for a cargo rebuild — and a pixi
+# task that shelled into the package directly would have bypassed that cache
+# while looking identical. `--manifest-path`/`--output-dir` are what make the
 # three-crate layout work: the crate lives at crates/engine, the artifact
 # belongs to the JS package.
 #
@@ -190,10 +209,10 @@ coverage-report = { cmd = "cargo llvm-cov report", description = "Print the Rust
 # publish pipeline. `pixi run build` runs the debug addon first through
 # turbo's build → build:native dependency, so a full build produces a package
 # that actually loads.
-build-native = { cmd = "bun run build:native", cwd = "packages/path", depends-on = [
+build-native = { cmd = "bun run build:native", depends-on = [
   "bun-install",
 ], description = "Build the native addon (debug) into packages/path" }
-build-native-release = { cmd = "bun run build:native:release", cwd = "packages/path", depends-on = [
+build-native-release = { cmd = "bun run build:native:release", depends-on = [
   "bun-install",
 ], description = "Build the native addon (release, LTO) into packages/path" }
 
@@ -211,9 +230,12 @@ test = { cmd = "bun run test", depends-on = [
 typecheck = { cmd = "bun run typecheck", depends-on = [
   "bun-install",
 ], description = "Type-check every TypeScript workspace package (turbo)" }
-bench = { cmd = "bun run bench", depends-on = [
-  "bun-install",
-], description = "Run the fused-walk benchmark harness (turbo)" }
+# NOTE: there is deliberately no `bench` task yet. The benchmark harness is
+# backlog task-4; until a package actually implements a `bench` script, a task
+# here would run zero packages and exit 0, and a benchmark command that
+# silently passes is worse than one that does not exist. Re-add this task, the
+# `benches/*` workspace glob and the turbo `bench` task together with the
+# harness.
 
 # ── Biome ────────────────────────────────────────────────────────────────────
 # Resolved from the Bun workspace, not from conda-forge: biome.json's `$schema`
@@ -221,7 +243,7 @@ bench = { cmd = "bun run bench", depends-on = [
 # binary that reads it. `biome check` is format + lint + import sorting in one
 # pass; `check --write` is what the pre-commit hook runs, so a hook fixes what
 # it can instead of only reporting.
-lint-js = { cmd = "bun run lint", depends-on = [
+lint-js = { cmd = "bun run lint:js", depends-on = [
   "bun-install",
 ], description = "Format-check and lint the TypeScript workspace (biome)" }
 fix-js = { cmd = "bun run format", depends-on = [
@@ -246,32 +268,36 @@ lint-actions = { cmd = "actionlint", description = "Lint the GitHub Actions work
 lint-sandbox-plan = { cmd = "pixi-sandbox plan --config .pixi-sandbox.toml", description = "Validate the reviewed sandbox publish plan" }
 
 # ── docs site (apps/docs, Astro + Starlight) ─────────────────────────────────
-# PATHWAY_VERSION is exported by these tasks and read by the site, so the
-# documented version is decided by the environment that built it and never
-# written into the site. `scripts/version.ts` reads `[workspace.package] version`
-# from the root Cargo.toml — the one place the version exists — and turbo
-# forwards the variable (declared in turbo.json's globalEnv, since turbo runs
-# tasks in strict env mode). The site falls back to reading that same manifest if
-# the variable did not survive, so a build started outside pixi still shows the
-# real number; only a build that can reach neither throws.
+# These are filters over the same turbo graph the repo-wide verbs use, not a
+# second way to build the site. Each one is `turbo run <task>
+# --filter=pathway-docs`, spelled once in the root package.json, so
+# `pixi run build` and `pixi run docs-build` hit the *same* turbo task and the
+# same cache entry. The previous shape (`cwd = "apps/docs"` + a bare
+# `bun run build`) bypassed turbo entirely, which is why `pixi run ci` used to
+# build the site twice — once through turbo and once around it.
 #
-# `$PIXI_PROJECT_ROOT` rather than a relative path: these tasks run with
-# `cwd = "apps/docs"`, so the script lives two directories up and a relative
-# reference would resolve against the site, not the repository. PIXI_PROJECT_ROOT
-# is pixi's own export for exactly this.
-docs-dev = { cmd = "PATHWAY_VERSION=$(bun \"$PIXI_PROJECT_ROOT/scripts/version.ts\") bun run dev", cwd = "apps/docs", depends-on = [
+# There is no PATHWAY_VERSION here any more. It was redundant: apps/docs reads
+# `[workspace.package] version` from the root Cargo.toml directly (through
+# `scripts/version.ts`), which is the same single source the variable was
+# resolved from, so both paths produced identical output while hashing
+# differently. apps/docs/turbo.json names that manifest and that script as
+# build inputs, so a version bump invalidates the docs cache — which is the
+# guarantee the environment variable was standing in for.
+docs-dev = { cmd = "bun run docs:dev", depends-on = [
   "bun-install",
 ], description = "Run the docs site locally" }
-docs-build = { cmd = "PATHWAY_VERSION=$(bun \"$PIXI_PROJECT_ROOT/scripts/version.ts\") bun run build", cwd = "apps/docs", depends-on = [
+docs-build = { cmd = "bun run docs:build", depends-on = [
   "bun-install",
 ], description = "Build the docs site for deployment" }
-docs-preview = { cmd = "PATHWAY_VERSION=$(bun \"$PIXI_PROJECT_ROOT/scripts/version.ts\") bun run preview", cwd = "apps/docs", depends-on = [
-  "docs-build",
+docs-preview = { cmd = "bun run docs:preview", depends-on = [
+  "bun-install",
 ], description = "Serve the built docs site" }
 # `astro check` on its own: it type-checks the MDX frontmatter and the config,
 # which is where a docs site actually breaks (a renamed route is a broken link,
-# not a runtime error).
-docs-check = { cmd = "PATHWAY_VERSION=$(bun \"$PIXI_PROJECT_ROOT/scripts/version.ts\") bun run check", cwd = "apps/docs", depends-on = [
+# not a runtime error). It is the `typecheck` task of apps/docs, so the
+# repo-wide `pixi run typecheck` covers the site too; this task is the filtered
+# view of it for when you only care about the docs.
+docs-check = { cmd = "bun run docs:check", depends-on = [
   "bun-install",
 ], description = "Type-check the docs site, frontmatter included" }
 
@@ -345,13 +371,18 @@ gates = { description = "Every check that must pass before a commit lands", depe
   "test",
   "typecheck",
 ] }
-# The docs site is in `ci` and not in `gates`: an Astro production build is tens
-# of seconds and needs its own toolchain, which is a bad thing to make every
-# contributor wait on to find out whether a comment is well-formatted. A broken
-# site still fails CI, which is where it belongs.
+# `build` already covers the docs site: apps/docs is a workspace package with a
+# `build` script, so `turbo run build` builds it alongside packages/path. It is
+# listed here once, not twice — the old `docs-build` entry ran a second,
+# uncached Astro build because it went around turbo.
+#
+# The Astro *production build* is still out of `gates` and only in `ci`: it is
+# tens of seconds, and that is a bad thing to make every contributor wait on to
+# find out whether a comment is well-formatted. What `gates` does now cover is
+# `astro check`, via the docs site's `typecheck` task — cheap, cached, and the
+# check that actually catches a broken route.
 ci = { description = "`gates` plus the release-mode Rust build and the docs site", depends-on = [
   "gates",
   "build-rs",
   "build",
-  "docs-build",
 ] }
