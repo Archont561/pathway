@@ -1,0 +1,29 @@
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+# Everything pixi-sandbox writes on restore: relocated envs, the manifest-owned
+# tools tree, the cargo vendor dir, the restore work dir and the transport the
+# launcher unpacks. It is all reconstructible offline from the sandbox branch.
+.pixi-sandbox/
+.sandbox-out/
+
+# Rust
+target/
+# Cargo vendored crates, wired up by `pixi-sandbox restore`
+.cargo/
+# `pixi run coverage` output. Written next to the workspace root so the path is
+# stable for a viewer, a codecov upload and a PR diff.
+lcov.info
+
+# TypeScript / Bun
+node_modules/
+dist/
+.turbo/
+# Astro's generated types and content cache. Regenerated on every `astro dev`
+# and `astro build`, and its contents are derived from the config and the
+# content directory, so it is the definition of a build artefact.
+.astro/
+
+# Native addon built by `napi build`; it is a build artefact of crates/engine
+# and is produced per platform by the release pipeline.
+*.node

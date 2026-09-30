@@ -1,0 +1,333 @@
+# pathway — THE workspace manifest.
+#
+#   crates/core     rlib, ALL engine logic, zero napi deps (D7). Publishable to
+#                   crates.io as `myorg-path-core`; `cargo test` needs no Node.
+#   crates/path     rlib, the ergonomic pathlib-like Rust surface over core.
+#                   Publishable to crates.io as `myorg-path` (D7, v0.3 preview).
+#   crates/engine   cdylib, a thin NAPI-RS wrapper over core. npm-only, never
+#                   on crates.io.
+#   packages/*      the published TypeScript surface (`@myorg/path`).
+#   benches/*       the benchmark harness that has to prove the fused walk.
+#
+# ONE environment, built from feature layers so a change to the Rust toolchain,
+# the JavaScript toolchain or the repo utilities stays reviewable on its own.
+#
+# There is no Node.js anywhere in this manifest. `bun` is the only JavaScript
+# runtime, and it carries the JS toolchain (turbo, biome, backlog, skills) as
+# workspace packages rather than conda dependencies: conda-forge has no `turbo`
+# (verified against the channel), and `biome` is resolved from `package.json` so
+# one lockfile decides both the linter and the version its `biome.json` schema
+# names. Tasks therefore reach the JS toolchain through `bun x` / `bun run`,
+# never through a `node_modules/.bin` path — those entries carry a `node`
+# shebang, which no environment here provides.
+#
+# `convco`, `lefthook` and `actionlint` are conda dependencies, not npm ones:
+# the git hooks must work on a machine restored from the sandbox branch, and
+# `scripts/restore.sh` puts a restored `default` environment's `bin/` on PATH
+# but no `node_modules`.
+#
+# Pins (verified 2026-09-30): rust 1.98.x, bun 1.3.x, convco 0.7.x, lefthook
+# 2.1.x, actionlint 1.7.x (conda-forge). Adding a pin means one `pixi lock` to
+# refresh pixi.lock — `pixi install --locked` in CI and the devcontainer fails
+# until that lands. See .knowledge/ for the architecture these layers serve.
+
+[workspace]
+name = "pathway"
+version = "0.1.0"
+description = "A native, pathlib-inspired filesystem API for TypeScript, Bun, Node and Rust"
+authors = ["Archont561 <142521648+Archont561@users.noreply.github.com>"]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+requires-pixi = ">=0.81.0"
+
+# One place to bump a version; the tables below opt in with { workspace = true }.
+[workspace.dependencies]
+rust = ">=1.98.1,<1.99"
+bun = ">=1.3.11,<2"
+convco = ">=0.7.2,<0.8"
+lefthook = ">=2.1.15,<3"
+actionlint = ">=1.7.12,<2"
+
+# ── feature layers ────────────────────────────────────────────────────────────
+# `default` carries all three; the layers exist so each toolchain's version bump
+# is its own diff, and so a future `rust`-only environment (the crates.io
+# consumer path in D7) does not drag the JS toolchain along.
+
+[feature.rust.dependencies]
+rust = { workspace = true }
+cargo-nextest = ">=0.9.144,<0.10"
+cargo-llvm-cov = ">=0.9.1,<0.10"
+cargo-deny = ">=0.20.2,<0.21"
+
+[feature.js.dependencies]
+# The only JavaScript runtime in the project. `napi build` shells out to `cargo`
+# (it runs `cargo metadata` before anything else, and fails with
+# `cargo: Permission denied` without it on PATH), so the JS environment also
+# carries the Rust toolchain.
+bun = { workspace = true }
+rust = { workspace = true }
+
+[feature.utils.dependencies]
+# Repo utilities shared by the git hooks and CI, so the two cannot drift.
+#   convco     — conventional-commit check (commit-msg hook) + CHANGELOG.md
+#   lefthook   — the hooks themselves; every hook delegates to a task below
+#   actionlint — the GitHub Actions linter
+convco = { workspace = true }
+lefthook = { workspace = true }
+actionlint = { workspace = true }
+
+[environments]
+# `default` is pixi's implicit environment, so a task runs as `pixi run <task>`:
+# no `-e` flag in a shell, a git hook or a workflow step. It is also the
+# environment `.pixi-sandbox.toml` publishes to `sandbox/developer-linux-64`.
+default = { features = [
+  "rust",
+  "js",
+  "utils",
+] }
+
+# ---------------------------------------------------------------------------
+# Tasks. Everything a human, a git hook or a CI job does is one of these, so a
+# GitHub Actions step can be a single line: `pixi run <task>`. Logic lives here
+# (reviewable, runnable locally), not in workflow YAML.
+#
+# There is one environment, so unlike the sibling repos there is no `-e` to
+# disambiguate: a task name says which side it is on. `*-rs` is Rust,
+# `*-js` is the TypeScript workspace, and the unadorned verbs are the ones a
+# contributor reaches for most often.
+#
+# NOTE (pixi 0.81): `default-environment` is only accepted on tasks that have a
+# `cmd`. Pure aggregators (fmt / lint / gates / ci) omit it.
+# ---------------------------------------------------------------------------
+
+[tasks]
+
+# ── setup ────────────────────────────────────────────────────────────────────
+# One install for the whole Bun workspace: the root package.json declares
+# `workspaces: ["packages/*", "benches/*"]`, so members carry no lockfile of
+# their own and the root bun.lock is the single resolution record. Every JS
+# task depends on this, so `pixi run test` works on a fresh clone.
+bun-install = { cmd = "bun install --frozen-lockfile", description = "Install the Bun workspace from the root lockfile" }
+# Install the git hooks. Run once per clone; `lefthook install` is idempotent
+# and writes .git/hooks/*, which is not tracked.
+hooks-install = { cmd = "lefthook install", description = "Install the lefthook git hooks into .git/hooks" }
+
+# ── Rust ─────────────────────────────────────────────────────────────────────
+# `cargo-nextest` and `cargo-llvm-cov` and `cargo-deny` are conda-forge packages
+# rather than `cargo install` invocations: a `cargo install` binary is built from
+# source into ~/.cargo/bin on every fresh clone and on every devcontainer, and it
+# is absent from the published sandbox branch, so the restored airlock could not
+# run the same test gate the developer ran. As conda dependencies they travel with
+# `pixi.lock` in the `default` environment that `.pixi-sandbox.toml` packs.
+build-rs = { cmd = "cargo build --workspace --release", description = "Build every Rust crate in release mode" }
+# The core crate is napi-free by construction (D7), so this suite is the whole
+# engine's logic under test and it needs no Node and no built addon.
+#
+# nextest rather than `cargo test` for two reasons, both of which matter more as
+# the suite grows: it runs each test in its own process, so one test that aborts
+# (a segfault in a future FFI path, or a stack overflow in a deep walk) takes
+# down one test rather than the whole binary and reporting a "0 tests run"; and
+# per-test process isolation is what lets the suite run in parallel by default,
+# which is the difference between a 20-second gate and a 3-second one.
+test-rs = { cmd = "cargo nextest run --workspace", description = "Run the Rust test suite (core and path; no Node needed)" }
+# Doctests only. Separate from `test-rs` because nextest does not run them, and
+# folded in because a public Rust API (D7, two crates.io artefacts) is only as
+# documented as its examples compile.
+doc-rs = { cmd = "cargo doc --workspace --no-deps", description = "Build the Rust API documentation" }
+# Scoped to the two rlib crates: `cargo test --doc --workspace` warns that
+# doctests are not supported for a `cdylib`, and the engine crate is glue with
+# nothing to document in prose anyway. Naming the crates also makes the intent
+# explicit — the doctest story belongs to the crates that will be on crates.io.
+test-doc-rs = { cmd = "cargo test --doc -p myorg-path-core -p myorg-path", description = "Run the Rust doctests" }
+fmt-rs = { cmd = "cargo fmt --all", description = "Format the Rust sources" }
+fmt-check-rs = { cmd = "cargo fmt --all --check", description = "Check Rust formatting without writing" }
+clippy = { cmd = "cargo clippy --workspace --all-targets -- -D warnings", description = "Lint the Rust sources with clippy" }
+# Licence, ban and source policy for the whole dependency graph. This is the
+# gate for the D7 distribution decision: two of the three crates are published
+# to crates.io, and publishing a crate whose transitive graph contains a
+# non-permissive or unmaintained licence is a legal and reputational problem
+# that is invisible until someone runs `cargo package`. `deny.toml` carries the
+# policy; a new dependency is a policy question, not just a solve.
+#
+# The three checks are named explicitly rather than a bare `cargo deny check`
+# because the default `all` includes `advisories`, which unconditionally fetches
+# the RustSec database from GitHub (cargo-deny 0.20 has no offline flag) and so
+# would break the airlocked sandbox for no reason. See `deny-advisories`.
+deny = { cmd = "cargo deny check bans licenses sources", description = "Check dependency licences, bans and sources (offline)" }
+# Deliberately outside the gate. This is the check that would catch a vulnerable
+# transitive dependency before it shipped in a crates.io release, so it is not
+# optional in spirit — it needs the network, so CI runs it as its own step where
+# a fetch is free, and the airlocked sandbox cannot run it at all.
+deny-advisories = { cmd = "cargo deny check advisories", description = "Check the dependency graph against the RustSec advisory database (needs network)" }
+# Coverage via llvm-cov, not the built-in tarpaulin backend: llvm-cov
+# instruments at the LLVM level, so it sees code that never appears in a profile-
+# guided inlining decision and does not perturb the build the way a patched rustc
+# does. It also needs no extra installation step here: the conda-forge `rust`
+# package ships llvm-tools in its sysroot, so there is no `rustup component add`
+# and no hidden network fetch waiting behind a coverage run. lcov output so the
+# same artefact feeds a local viewer, codecov and a PR diff. llvm-cov rebuilds
+# with instrumentation and cleans up after itself, so this is never a source of
+# surprising test failures in a later `cargo test`.
+coverage = { cmd = "cargo llvm-cov nextest --workspace --lcov --output-path lcov.info", description = "Generate Rust code coverage (lcov)" }
+# Text summary of the same data, for an agent or a terminal that wants the
+# headline number without opening a viewer.
+coverage-report = { cmd = "cargo llvm-cov report", description = "Print the Rust coverage summary" }
+
+# ── TypeScript workspace (turbo) ──────────────────────────────────────────────
+# `turbo run <task>` is the orchestrator: it topologically orders the workspace
+# from `dependsOn` in turbo.json and caches by input hash. The root
+# package.json owns these verbs, so `bun run build` at the root and
+# `pixi run build` are the same command.
+build = { cmd = "bun run build", depends-on = [
+  "bun-install",
+], description = "Build every TypeScript workspace package (turbo)" }
+test = { cmd = "bun run test", depends-on = [
+  "bun-install",
+], description = "Run the TypeScript test suites (turbo)" }
+typecheck = { cmd = "bun run typecheck", depends-on = [
+  "bun-install",
+], description = "Type-check every TypeScript workspace package (turbo)" }
+bench = { cmd = "bun run bench", depends-on = [
+  "bun-install",
+], description = "Run the fused-walk benchmark harness (turbo)" }
+
+# ── Biome ────────────────────────────────────────────────────────────────────
+# Resolved from the Bun workspace, not from conda-forge: biome.json's `$schema`
+# names the exact version, and one lockfile then decides both the config and the
+# binary that reads it. `biome check` is format + lint + import sorting in one
+# pass; `check --write` is what the pre-commit hook runs, so a hook fixes what
+# it can instead of only reporting.
+lint-js = { cmd = "bun run lint", depends-on = [
+  "bun-install",
+], description = "Format-check and lint the TypeScript workspace (biome)" }
+fix-js = { cmd = "bun run format", depends-on = [
+  "bun-install",
+], description = "Rewrite the TypeScript workspace with biome" }
+
+# ── repo utilities (lefthook + CI share these) ───────────────────────────────
+# Conventional-commit check for the `commit-msg` hook; reads the proposed
+# message from stdin (git passes it via {1} in lefthook.yml).
+lint-commit = { cmd = "convco check --from-stdin", description = "Validate a commit message against the conventional-commit spec" }
+# Changelog from the same commit history, so the two cannot disagree.
+changelog = { cmd = "convco changelog > CHANGELOG.md", description = "Regenerate CHANGELOG.md from conventional commits" }
+changelog-preview = { cmd = "convco changelog", description = "Print the changelog convco would write, without writing it" }
+# Scans .github/workflows/*.yml by default.
+lint-actions = { cmd = "actionlint", description = "Lint the GitHub Actions workflows" }
+# The sandbox publish plan is a wire format shared with the publisher, so a
+# malformed bundle must fail a gate rather than a push to the orphan branch.
+# NOT part of the `lint` aggregator: `pixi-sandbox` is not a conda dependency
+# (see the sandbox block below), so a local `pixi run lint` would fail on a
+# missing binary rather than on a real finding. CI installs it with the
+# SHA-pinned setup action and calls this task as its own step.
+lint-sandbox-plan = { cmd = "pixi-sandbox plan --config .pixi-sandbox.toml", description = "Validate the reviewed sandbox publish plan" }
+
+# ── docs site (apps/docs, Astro + Starlight) ─────────────────────────────────
+# PATHWAY_VERSION is exported by these tasks and read by the site, so the
+# documented version is decided by the environment that built it and never
+# written into the site. `scripts/version.ts` reads `[workspace.package] version`
+# from the root Cargo.toml — the one place the version exists — and turbo
+# forwards the variable (declared in turbo.json's globalEnv, since turbo runs
+# tasks in strict env mode). The site falls back to reading that same manifest if
+# the variable did not survive, so a build started outside pixi still shows the
+# real number; only a build that can reach neither throws.
+#
+# `$PIXI_PROJECT_ROOT` rather than a relative path: these tasks run with
+# `cwd = "apps/docs"`, so the script lives two directories up and a relative
+# reference would resolve against the site, not the repository. PIXI_PROJECT_ROOT
+# is pixi's own export for exactly this.
+docs-dev = { cmd = "PATHWAY_VERSION=$(bun \"$PIXI_PROJECT_ROOT/scripts/version.ts\") bun run dev", cwd = "apps/docs", depends-on = [
+  "bun-install",
+], description = "Run the docs site locally" }
+docs-build = { cmd = "PATHWAY_VERSION=$(bun \"$PIXI_PROJECT_ROOT/scripts/version.ts\") bun run build", cwd = "apps/docs", depends-on = [
+  "bun-install",
+], description = "Build the docs site for deployment" }
+docs-preview = { cmd = "PATHWAY_VERSION=$(bun \"$PIXI_PROJECT_ROOT/scripts/version.ts\") bun run preview", cwd = "apps/docs", depends-on = [
+  "docs-build",
+], description = "Serve the built docs site" }
+# `astro check` on its own: it type-checks the MDX frontmatter and the config,
+# which is where a docs site actually breaks (a renamed route is a broken link,
+# not a runtime error).
+docs-check = { cmd = "PATHWAY_VERSION=$(bun \"$PIXI_PROJECT_ROOT/scripts/version.ts\") bun run check", cwd = "apps/docs", depends-on = [
+  "bun-install",
+], description = "Type-check the docs site, frontmatter included" }
+
+# ── agent tooling ────────────────────────────────────────────────────────────
+# opencode is installed globally with bun, not as a conda dependency, so it is
+# on PATH outside a task too and the published sandbox branch stays free of a
+# ~185 MB blob it would only carry for a developer tool. `bun pm bin -g` follows
+# $BUN_INSTALL rather than a hardcoded path, and that directory is on nobody's
+# PATH, so the binary is linked into one that is — /usr/local/bin first (the
+# devcontainer user may write it), ~/.local/bin second. When neither is
+# writable the install still succeeded, so report where it landed rather than
+# failing a container over a $PATH detail.
+opencode-install = 'BUN_BIN="$(bun pm bin -g)" && bun add -g opencode-ai@latest && (ln -sfn "$BUN_BIN/opencode" /usr/local/bin/opencode 2>/dev/null || (mkdir -p "$HOME/.local/bin" 2>/dev/null && ln -sfn "$BUN_BIN/opencode" "$HOME/.local/bin/opencode" 2>/dev/null) || echo "opencode installed to $BUN_BIN, which is not on PATH: neither /usr/local/bin nor ~/.local/bin is writable")'
+# The model catalogue is a separate cache (~/.cache/opencode/models.json, rebuilt
+# from models.dev) and a binary upgrade does not invalidate it, so refreshing is
+# a separate step. The absolute path stands: the task shell resolves `opencode`
+# only if the link above landed on a PATH entry this shell has.
+setup-opencode = { depends-on = [
+  "opencode-install",
+], cmd = "\"$(bun pm bin -g)/opencode\" models --refresh" }
+# `bun x`, not the `bunx` spelling: the conda `bun` package ships no `bunx` shim,
+# so in this environment the subcommand is the only form that resolves. It
+# prefers the workspace install over the registry, so the lockfile still decides
+# what runs, and it runs the package under bun rather than through its `node`
+# shebang, which nothing here provides.
+backlog = { cmd = "bun x backlog", depends-on = [
+  "bun-install",
+], description = "Manage the Markdown project backlog" }
+skills = { cmd = "bun x skills", depends-on = [
+  "bun-install",
+], description = "Manage the agent skills vendored under .agents/skills" }
+
+# ── sandbox transport (pixi-sandbox) ─────────────────────────────────────────
+# pack → doctor → publish, locally. These exercise the installed pixi-sandbox
+# binary directly, so a local run and the generated CI workflow share the exact
+# command surface. The branch name must match the reviewed plan
+# (`pixi run lint-sandbox-plan`) or this publishes a transport that
+# `scripts/restore.sh` will never look for.
+#
+# `pixi-sandbox` is not a conda dependency: it is a static release binary,
+# installed by the one-liner in the pixi-sandbox README, which also runs
+# `init github`. Pixi tasks have no `${VAR:-default}` — a plain `$VAR` expands
+# and a missing value expands to an empty string — so `SANDBOX_SELF_BIN` is
+# the caller's to set, pointing at that binary:
+#
+#   SANDBOX_SELF_BIN=~/pixi-sandbox-x86_64-unknown-linux-musl pixi run sandbox-pack
+sandbox-pack = { cmd = "pixi-sandbox pack --repo-root . --envs default --output-dir .sandbox-out --platform linux-64 --cargo-vendor --fetch-tools --self-bin $SANDBOX_SELF_BIN", description = "Pack the offline sandbox transport" }
+sandbox-doctor = { cmd = "pixi-sandbox doctor --branch-location .sandbox-out --verify", description = "Verify a packed transport without writing anything" }
+sandbox-publish = { cmd = "pixi-sandbox publish --input-dir .sandbox-out --branch-name sandbox/developer-linux-64 --remote origin", description = "Publish the transport to its orphan branch" }
+# One-liner offline reconstruction from the orphan branch, with PATH aliases.
+# It lives outside pixi on purpose: the point is that pixi need not be installed
+# on the airlocked machine that runs it.
+sandbox-restore = { cmd = "bash scripts/restore.sh", description = "Restore the offline sandbox from its orphan branch" }
+
+# ── gates ────────────────────────────────────────────────────────────────────
+# One command for "what CI will run". Aggregators resolve their environment
+# through the tasks they depend on (pixi 0.81: `default-environment` needs a
+# `cmd`, and these have none).
+fmt = { depends-on = ["fmt-rs", "fix-js"] }
+lint = { depends-on = [
+  "fmt-check-rs",
+  "clippy",
+  "deny",
+  "lint-js",
+  "lint-actions",
+] }
+gates = { description = "Every check that must pass before a commit lands", depends-on = [
+  "lint",
+  "test-rs",
+  "test-doc-rs",
+  "test",
+  "typecheck",
+] }
+# The docs site is in `ci` and not in `gates`: an Astro production build is tens
+# of seconds and needs its own toolchain, which is a bad thing to make every
+# contributor wait on to find out whether a comment is well-formatted. A broken
+# site still fails CI, which is where it belongs.
+ci = { description = "`gates` plus the release-mode Rust build and the docs site", depends-on = [
+  "gates",
+  "build-rs",
+  "build",
+  "docs-build",
+] }

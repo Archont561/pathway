@@ -1,0 +1,59 @@
+name: publish sandbox
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - id: sandbox
+        uses: Archont561/pixi-sandbox/setup@da230c2db2dff8a242c40a89c3a4c66de7777518
+        with:
+          version: v0.3.2
+      - id: plan
+        shell: bash
+        run: echo "matrix=$(pixi-sandbox plan --config .pixi-sandbox.toml --json)" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: plan
+    strategy:
+      fail-fast: false
+      # `include:` nested under `matrix:`, not `matrix:` itself. `plan --json` emits
+      # {"schema":1,"include":[...]}, and Actions requires strategy.matrix to be an object:
+      # handing it the array directly type-checks at parse time, so the plan job goes green
+      # and the publish job is never instantiated (issue #37, task-12).
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix).include }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: prefix-dev/setup-pixi@v0.10.2
+        with:
+          cache: true
+          environments: ${{ matrix.environments }}
+      - id: sandbox
+        uses: Archont561/pixi-sandbox/setup@da230c2db2dff8a242c40a89c3a4c66de7777518
+        with:
+          version: v0.3.2
+      - uses: Archont561/pixi-sandbox/publish@da230c2db2dff8a242c40a89c3a4c66de7777518
+        with:
+          project: .
+          environments: ${{ matrix.environments }}
+          platform: ${{ matrix.platform }}
+          branch: ${{ matrix.branch }}
+          cargo-vendor: ${{ matrix.cargo_vendor }}
+          self-bin: ${{ steps.sandbox.outputs.path }}
+          remote: ${{ github.server_url }}/${{ github.repository }}.git
+          output-dir: ${{ runner.temp }}/pixi-sandbox-transport
+          push-token: ${{ github.token }}
