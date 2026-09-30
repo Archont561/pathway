@@ -36,9 +36,22 @@ concurrency:
 jobs:
   build:
     name: build documentation site
-    # The gate. `workflow_run` fires on failure and cancellation too, so
-    # without this a red ci would still publish.
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # Two gates, and both are load-bearing.
+    #
+    # The conclusion check is the one this rewrite is for: `workflow_run` fires
+    # on failure and cancellation too, so without it a red ci would publish.
+    #
+    # The branch check is not redundant with the `branches: [main]` filter
+    # above, because that filter constrains `workflow_run` only —
+    # `workflow_dispatch` ignores it entirely, so without this a dispatch from
+    # a topic branch would push that branch's docs to production Pages. The
+    # deploy job inherits both through `needs`, since a skipped dependency
+    # skips its dependents.
+    if: >-
+      (github.event_name == 'workflow_run'
+        && github.event.workflow_run.conclusion == 'success'
+        && github.event.workflow_run.head_branch == 'main')
+      || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
