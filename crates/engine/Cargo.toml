@@ -1,6 +1,6 @@
 [package]
-name = "myorg-path-engine"
-description = "NAPI-RS bridge over myorg-path-core; the native half of @myorg/path"
+name = "pathway-fs-engine"
+description = "NAPI-RS bridge over pathway-fs-core; the native half of @archont561/pathway"
 # npm-only by construction. A cdylib is not a usable Rust dependency, so
 # publishing it to crates.io would be an artefact nobody could depend on.
 # `cargo publish` would reject it anyway; saying so here makes the intent
@@ -20,7 +20,7 @@ crate-type = ["cdylib"]
 # The engine. All logic lives there; this crate translates between N-API types
 # and core types and nothing else (D1 layer 2: coarse-grained, no per-`join()`
 # boundary crossings).
-myorg-path-core = { workspace = true }
+pathway-fs-core = { workspace = true }
 napi = { workspace = true }
 napi-derive = { workspace = true }
 # `AsyncTask<T>` runs blocking work on the libuv thread pool, which is how the
@@ -31,6 +31,7 @@ tokio = { workspace = true }
 serde_json = { workspace = true }
 
 [build-dependencies]
-# Emits the platform suffix (`myorg_path_engine.linux-x64-gnu.node`) that
-# `@napi-rs/cli` and the generated TypeScript binding loader both look for.
+# Emits the platform suffix that `@napi-rs/cli` uses to rename the cdylib to
+# `<napi.name>.<triple>.node` (`pathway.linux-x64-gnu.node`, from the
+# `napi.name` field of `packages/path/package.json`).
 napi-build = { workspace = true }

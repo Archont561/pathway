@@ -23,8 +23,8 @@
 //!
 //! ## Planned layout
 //!
-//! - `toml.rs` — `toml-rs` + `serde`, for `@myorg/path-toml`.
-//! - `yaml.rs` — `serde_yaml`, for `@myorg/path-yaml`.
+//! - `toml.rs` — `toml-rs` + `serde`, for `@archont561/pathway-toml`.
+//! - `yaml.rs` — `serde_yaml`, for `@archont561/pathway-yaml`.
 //!
 //! JSON is a built-in TypeScript serializer (`packages/path/src/serializers/json.ts`),
 //! not a native codec — that is the decision, not an omission.

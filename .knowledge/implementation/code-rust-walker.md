@@ -66,7 +66,7 @@ Results are returned in **batches** to minimize N-API boundary crossings.
 > `crates/engine` as thin wrappers that delegate to core types. The
 > logic in this reference is unchanged; only where the `#[napi]`
 > attribute lives moves. Core's plain-Rust API is re-used directly by
-> the `myorg-path` crate.
+> the `pathway-fs` crate.
 
 ---
 

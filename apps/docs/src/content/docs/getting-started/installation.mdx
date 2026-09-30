@@ -33,11 +33,11 @@ has not been built, so importing the package in a fresh clone is always safe.
 ```toml
 # Cargo.toml
 [dependencies]
-myorg-path = "0.1"
+pathway-fs = "0.1"
 ```
 
-The ergonomic surface is `myorg-path`; the engine core is `myorg-path-core`;
-`myorg-path-engine` is the N-API bridge and is **not** published, because a
+The ergonomic surface is `pathway-fs`; the engine core is `pathway-fs-core`;
+`pathway-fs-engine` is the N-API bridge and is **not** published, because a
 `cdylib` is not something you can depend on from Rust.
 
 Neither crate is publishable yet — the public names are still an open decision.

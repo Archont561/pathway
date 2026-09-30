@@ -1,12 +1,12 @@
 # pathway — THE workspace manifest.
 #
 #   crates/core     rlib, ALL engine logic, zero napi deps (D7). Publishable to
-#                   crates.io as `myorg-path-core`; `cargo test` needs no Node.
+#                   crates.io as `pathway-fs-core`; `cargo test` needs no Node.
 #   crates/path     rlib, the ergonomic pathlib-like Rust surface over core.
-#                   Publishable to crates.io as `myorg-path` (D7, v0.3 preview).
+#                   Publishable to crates.io as `pathway-fs` (D7, v0.3 preview).
 #   crates/engine   cdylib, a thin NAPI-RS wrapper over core. npm-only, never
 #                   on crates.io.
-#   packages/*      the published TypeScript surface (`@myorg/path`).
+#   packages/*      the published TypeScript surface (`@archont561/pathway`).
 #   benches/*       the benchmark harness that has to prove the fused walk.
 #
 # ONE environment, built from feature layers so a change to the Rust toolchain,
@@ -138,7 +138,7 @@ doc-rs = { cmd = "cargo doc --workspace --no-deps", description = "Build the Rus
 # doctests are not supported for a `cdylib`, and the engine crate is glue with
 # nothing to document in prose anyway. Naming the crates also makes the intent
 # explicit — the doctest story belongs to the crates that will be on crates.io.
-test-doc-rs = { cmd = "cargo test --doc -p myorg-path-core -p myorg-path", description = "Run the Rust doctests" }
+test-doc-rs = { cmd = "cargo test --doc -p pathway-fs-core -p pathway-fs", description = "Run the Rust doctests" }
 fmt-rs = { cmd = "cargo fmt --all", description = "Format the Rust sources" }
 fmt-check-rs = { cmd = "cargo fmt --all --check", description = "Check Rust formatting without writing" }
 clippy = { cmd = "cargo clippy --workspace --all-targets -- -D warnings", description = "Lint the Rust sources with clippy" }
@@ -172,6 +172,30 @@ coverage = { cmd = "cargo llvm-cov nextest --workspace --lcov --output-path lcov
 # Text summary of the same data, for an agent or a terminal that wants the
 # headline number without opening a viewer.
 coverage-report = { cmd = "cargo llvm-cov report", description = "Print the Rust coverage summary" }
+
+# ── native addon (napi build) ────────────────────────────────────────────────
+# The bridge step between the two sections below: `napi build` compiles
+# crates/engine (all of it — cargo resolves core through the workspace) and
+# drops the platform-suffixed addon at the packages/path root, where
+# binding.ts looks for it. The command lives in the package's own
+# `build:native` script so turbo and these tasks cannot drift, and turbo
+# caches it under the `build:native` task (inputs: the whole Rust workspace;
+# outputs: the addon), which is what keeps a tsc-only change from paying for
+# a cargo rebuild. `--manifest-path`/`--output-dir` are what make the
+# three-crate layout work: the crate lives at crates/engine, the artifact
+# belongs to the JS package.
+#
+# Debug is the default because the dev loop is its whole job (~40s cold,
+# seconds warm); the release variant (LTO, minutes) is for benchmarks and the
+# publish pipeline. `pixi run build` runs the debug addon first through
+# turbo's build → build:native dependency, so a full build produces a package
+# that actually loads.
+build-native = { cmd = "bun run build:native", cwd = "packages/path", depends-on = [
+  "bun-install",
+], description = "Build the native addon (debug) into packages/path" }
+build-native-release = { cmd = "bun run build:native:release", cwd = "packages/path", depends-on = [
+  "bun-install",
+], description = "Build the native addon (release, LTO) into packages/path" }
 
 # ── TypeScript workspace (turbo) ──────────────────────────────────────────────
 # `turbo run <task>` is the orchestrator: it topologically orders the workspace

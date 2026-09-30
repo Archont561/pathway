@@ -26,7 +26,7 @@ depends_on:
 
 ## Overview
 
-`walkFiles()` is the **flagship feature** of `@myorg/path`. It is the primary
+`walkFiles()` is the **flagship feature** of `@archont561/pathway`. It is the primary
 justification for the native Rust dependency and the core of the fused-walk
 architecture (see [fused-walk.md](/architecture/fused-walk.md)).
 

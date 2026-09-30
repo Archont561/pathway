@@ -25,7 +25,7 @@ depends_on:
 
 ## Overview
 
-The serializer system is where `@myorg/path` becomes **unusually interesting**
+The serializer system is where `@archont561/pathway` becomes **unusually interesting**
 compared to every other filesystem library. No existing JS filesystem library
 offers typed, pluggable serialization as a first-class API.
 
@@ -59,7 +59,7 @@ object** that can be implemented in JS or backed by native Rust.
 ### Built-in: JSON
 
 ```ts
-import { json } from "@myorg/path";
+import { json } from "@archont561/pathway";
 
 const data = await file.read(json);
 await file.write(json, { name: "myapp", version: "1.0.0" });
@@ -84,7 +84,7 @@ parser.
 ### Extension: TOML
 
 ```ts
-import { toml } from "@myorg/path-toml";
+import { toml } from "@archont561/pathway-toml";
 
 const config = await file.read(toml);
 await file.write(toml, config);
@@ -108,12 +108,12 @@ pub fn parse_toml(input: String) -> Result<napi::JsUnknown> {
 Each follows the same pattern as separate packages:
 
 ```
-@myorg/path-json      ← Built into core (JS JSON.parse)
-@myorg/path-toml      ← Native Serde (toml-rs)
-@myorg/path-yaml      ← Native Serde (serde_yaml)
-@myorg/path-cbor      ← Native Serde (ciborium)
-@myorg/path-msgpack   ← Native Serde (rmp-serde)
-@myorg/path-json5     ← JS (json5 package, no native benefit)
+@archont561/pathway-json      ← Built into core (JS JSON.parse)
+@archont561/pathway-toml      ← Native Serde (toml-rs)
+@archont561/pathway-yaml      ← Native Serde (serde_yaml)
+@archont561/pathway-cbor      ← Native Serde (ciborium)
+@archont561/pathway-msgpack   ← Native Serde (rmp-serde)
+@archont561/pathway-json5     ← JS (json5 package, no native benefit)
 ```
 
 ---
@@ -269,12 +269,12 @@ class SerializerRegistry {
 
 | Extension | Serializer | Package |
 |-----------|-----------|---------|
-| `.json` | `json` | `@myorg/path` (built-in) |
-| `.toml` | `toml` | `@myorg/path-toml` |
-| `.yaml`, `.yml` | `yaml` | `@myorg/path-yaml` |
-| `.json5` | `json5` | `@myorg/path-json5` |
-| `.cbor` | `cbor` | `@myorg/path-cbor` |
-| `.msgpack` | `msgpack` | `@myorg/path-msgpack` |
+| `.json` | `json` | `@archont561/pathway` (built-in) |
+| `.toml` | `toml` | `@archont561/pathway-toml` |
+| `.yaml`, `.yml` | `yaml` | `@archont561/pathway-yaml` |
+| `.json5` | `json5` | `@archont561/pathway-json5` |
+| `.cbor` | `cbor` | `@archont561/pathway-cbor` |
+| `.msgpack` | `msgpack` | `@archont561/pathway-msgpack` |
 
 ---
 
@@ -332,7 +332,7 @@ const data = await Path.cwd().join("config.toml").read();       // Throws: no se
 To enable automatic resolution on the default `Path`, users opt in:
 
 ```ts
-import { toml } from "@myorg/path-toml";
+import { toml } from "@archont561/pathway-toml";
 Path.configure({ serializers: [toml] });  // Explicit opt-in, documented warning
 ```
 

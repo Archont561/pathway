@@ -1,5 +1,5 @@
 [package]
-name = "myorg-path"
+name = "pathway-fs"
 description = "pathlib's convenience + ripgrep's walker: ergonomic paths, fused walk, hashing, typed serde I/O"
 # Phase 1 Step 0 owner sign-off is open on the public name (the license is
 # settled: MIT), so this crate is not publishable yet. Ships as a preview at
@@ -18,6 +18,6 @@ crate-type = ["rlib"]
 [dependencies]
 # The whole engine. Nothing here re-implements anything in core, which is the
 # rule that keeps the two public surfaces from drifting.
-myorg-path-core = { workspace = true }
+pathway-fs-core = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }

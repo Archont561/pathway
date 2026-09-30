@@ -1,5 +1,5 @@
 /**
- * `@myorg/path` — a native, pathlib-inspired filesystem API.
+ * `@archont561/pathway` — a native, pathlib-inspired filesystem API.
  *
  * Two layers, and the split is the project's central architectural claim:
  *

@@ -1,7 +1,7 @@
 //! The N-API bridge. Glue only.
 //!
 //! Everything a caller can do through this crate is implemented in
-//! [`myorg_path_core`]. If logic appears here it is in the wrong crate: the core
+//! [`pathway_fs_core`]. If logic appears here it is in the wrong crate: the core
 //! is what `cargo test` runs without Node, and logic in the bridge is logic no
 //! Rust-only test can reach.
 //!
@@ -30,7 +30,7 @@ use napi_derive::napi;
 /// stale `.node` file left over from an earlier build.
 #[napi]
 pub fn engine_version() -> String {
-    myorg_path_core::VERSION.to_owned()
+    pathway_fs_core::VERSION.to_owned()
 }
 
 /// The Node-API version this addon was compiled against.
@@ -41,5 +41,5 @@ pub fn engine_version() -> String {
 /// call rather than as a clear message at import.
 #[napi]
 pub fn napi_version() -> u32 {
-    myorg_path_core::NAPI_VERSION
+    pathway_fs_core::NAPI_VERSION
 }

@@ -46,14 +46,15 @@ Rust walker + TypeScript `Path` class + JSON serializer + benchmark proof.
 
 Gates from the gap analysis; Phase 1 does not start until these are done:
 
-- [ ] **Owner sign-off: license + public package name.** MIT or
-      Apache-2.0 dual (NAPI-RS ecosystem convention) and a public name —
-      the private `@myorg` scope is incompatible with the public adoption
-      targets (1M downloads / "default FS library").
-- [ ] **Reserve crates.io names** for the Rust surface (D7): the
-      `myorg-path` and `myorg-path-core` equivalents of whatever public
-      name is chosen — decided together with the npm name so the two
-      ecosystems match. See
+- [x] **Owner sign-off: license + public package name.** MIT (single licence,
+      one LICENSE file) and **`@archont561/pathway`** on npm — decided
+      2026-09-30. npm forbids uppercase in package names, so the scope is
+      lowercase even though the GitHub owner is `Archont561`.
+- [ ] **Reserve crates.io names** for the Rust surface (D7). Decided:
+      `pathway-fs` and `pathway-fs-core` — `pathway` itself is taken on
+      crates.io (a 2022 placeholder, v0.0.0), hence the `-fs` suffix; the
+      engine glue stays `pathway-fs-engine`, `publish = false` forever. The
+      reservation on crates.io is still outstanding. See
       [rust-crate-surface.md](/architecture/rust-crate-surface.md).
 - [ ] **Fix the reference-code defects** now documented in
       [code-rust-walker.md](/implementation/code-rust-walker.md) /
@@ -74,7 +75,7 @@ Gates from the gap analysis; Phase 1 does not start until these are done:
       `crates/core` (rlib, all logic, zero napi deps), `crates/engine`
       (cdylib NAPI wrapper, `publish = false`), `crates/path` (stub for
       the v0.3 Rust API crate)
-- [ ] Verify `cargo test -p myorg-path-core` runs green **without Node**
+- [ ] Verify `cargo test -p pathway-fs-core` runs green **without Node**
 - [ ] Initialize pnpm workspace with `packages/path`
 - [ ] Configure NAPI-RS v3 with `tokio` async support
 - [ ] Set up TypeScript build (tsc, vitest)
@@ -194,7 +195,7 @@ Sandbox, file locking, parallel bulk ops, transformers.
 - [ ] Atomic-write hardening shipped: `O_EXCL` temp creation +
       best-effort directory fsync after rename
 - [ ] `ContainmentError` with type-level `SandboxedPath` brand
-- [ ] **`myorg-path` Rust crate preview on crates.io (D7):** fluent
+- [ ] **`pathway-fs` Rust crate preview on crates.io (D7):** fluent
       walk builder, glob-on-a-path, hashing, typed serde read/write
       (atomic), temp/lock sugar over `crates/core`; docs.rs docs +
       README quickstart. Independent semver; a gap here never blocks
@@ -217,8 +218,8 @@ Transactions, native codecs, detection, resolution, watching.
 
 ### Deliverables
 - [ ] `Path.transaction(callback)` — Best-effort transactional operations
-- [ ] `@myorg/path-toml` — Native TOML serializer via `toml-rs`
-- [ ] `@myorg/path-yaml` — Native YAML serializer via `serde_yaml`
+- [ ] `@archont561/pathway-toml` — Native TOML serializer via `toml-rs`
+- [ ] `@archont561/pathway-yaml` — Native YAML serializer via `serde_yaml`
 - [ ] `Detector` interface with `mime`, `encoding` implementations
 - [ ] `Validator` interface with Zod/Valibot integration examples
 - [ ] **`Resolver` interface backed by `unrs-resolver`** (Rust crate in
@@ -235,7 +236,7 @@ Transactions, native codecs, detection, resolution, watching.
 ### v1.0 Success Criteria
 - [ ] All features from [killer-features.md](/features/killer-features.md) shipped
 - [ ] All pluggable patterns from [pluggable-patterns.md](/features/pluggable-patterns.md) implemented
-- [ ] **Rust surface stabilized (D7):** `myorg-path` 1.0 on crates.io,
+- [ ] **Rust surface stabilized (D7):** `pathway-fs` 1.0 on crates.io,
       MSRV CI-enforced, docs.rs coverage for the full walk/hash/serde
       surface
 - [ ] 10k+ GitHub stars
@@ -279,7 +280,7 @@ async function generateTree(root: string, fileCount: number): Promise<void> {
 ```ts
 // benches/fused-walk.bench.ts
 import { bench, group, run } from "mitata";
-import { Path } from "@myorg/path";
+import { Path } from "@archont561/pathway";
 import { fdir } from "fdir";
 import { glob } from "tinyglobby";
 import { glob as nodeGlob, readFile } from "node:fs/promises";
@@ -304,7 +305,7 @@ group("Raw Traversal (paths only)", () => {
     return glob("**/*.ts", { cwd: ROOT });
   });
 
-  bench("@myorg/path (native)", async () => {
+  bench("@archont561/pathway (native)", async () => {
     const results: string[] = [];
     for await (const f of new Path(ROOT).walkFiles({ glob: "**/*.ts" })) {
       results.push(f.value);
@@ -332,7 +333,7 @@ group("Fused Walk (traverse + stat + hash)", () => {
     }));
   });
 
-  bench("@myorg/path fused (native)", async () => {
+  bench("@archont561/pathway fused (native)", async () => {
     const results: any[] = [];
     for await (const f of new Path(ROOT).walkFiles({
       glob: "**/*.ts",

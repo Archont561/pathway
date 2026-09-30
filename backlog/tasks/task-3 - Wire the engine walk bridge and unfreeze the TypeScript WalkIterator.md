@@ -20,7 +20,7 @@ Bridge the task-2 scanner over N-API using the transport frozen in task-1, and r
 
 ## Acceptance Criteria
 
-- [ ] `crates/engine` exposes the walk over the task-1 decision (`#[napi(async_iterator)]` or chunked paging via `AsyncTask`); the crate stays glue-only, with all logic in `myorg-path-core`.
+- [ ] `crates/engine` exposes the walk over the task-1 decision (`#[napi(async_iterator)]` or chunked paging via `AsyncTask`); the crate stays glue-only, with all logic in `pathway-fs-core`.
 - [ ] The version guards keep their semantics: `engine_version()` and the Node-API floor, so a stale `.node` file is refused at load time.
 - [ ] `walk()` in `packages/path/src/walk.ts` yields `WalkBatch`es; `walkFiles()` and `walkDirs()` delegate to it.
 - [ ] `AbortSignal` (the `signal` option) wires through to the native `cancel()`.

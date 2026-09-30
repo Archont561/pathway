@@ -30,7 +30,7 @@ Phase 1 Step 1.2: the whole traversal engine in `crates/core` — napi-free by c
 - [ ] Content hashing (BLAKE3, xxhash, SHA-256) reads in **chunked 64 KB blocks — never whole-file loads**.
 - [ ] Traversal and hash errors are collected (`errors()` plus per-entry `error`) instead of aborting the walk.
 - [ ] `cancel()` is an `AtomicBool` check, ready to be wired to a JS `AbortSignal` in task-3.
-- [ ] `crates/core` gains no `napi`/`napi-derive` dependency: `cargo test -p myorg-path-core` passes in an environment with no Node.
+- [ ] `crates/core` gains no `napi`/`napi-derive` dependency: `cargo test -p pathway-fs-core` passes in an environment with no Node.
 
 ## Definition of Done
 

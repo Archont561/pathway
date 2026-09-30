@@ -33,12 +33,12 @@ the TypeScript API in a single repository with unified CI.
 Per **D7** ([rust-crate-surface.md](/architecture/rust-crate-surface.md)),
 the workspace has **three crates** (added 2026-09-30): all engine logic
 lives in `crates/core` (an `rlib` with zero napi deps, published to
-crates.io as `myorg-path-core`); `crates/engine` is a thin `cdylib`
+crates.io as `pathway-fs-core`); `crates/engine` is a thin `cdylib`
 NAPI-RS wrapper for npm distribution; and `crates/path` is the ergonomic
-pathlib-like Rust API published to crates.io as `myorg-path`.
+pathlib-like Rust API published to crates.io as `pathway-fs`.
 
 ```
-@myorg/path/
+@archont561/pathway/
 │
 ├── Cargo.toml                    # Cargo workspace root
 ├── package.json                  # Root package.json (scripts, devDeps)
@@ -48,7 +48,7 @@ pathlib-like Rust API published to crates.io as `myorg-path`.
 │   └── config.toml               # Rust build config (linker, target dirs)
 │
 ├── crates/
-│   ├── core/                     # myorg-path-core — rlib, ALL engine logic, zero napi deps (D7)
+│   ├── core/                     # pathway-fs-core — rlib, ALL engine logic, zero napi deps (D7)
 │   │   ├── Cargo.toml            # crates.io-publishable; `cargo test` needs no Node
 │   │   └── src/
 │   │       ├── lib.rs            # Public Rust API of the core (curated, low-level)
@@ -78,7 +78,7 @@ pathlib-like Rust API published to crates.io as `myorg-path`.
 │   │       │   └── mod.rs        #   (NOT a from-scratch resolver — Sept 2026)
 │   │       └── error.rs          # Unified error types (thiserror)
 │   │
-│   ├── path/                     # myorg-path — ergonomic pathlib-like Rust API (D7, v0.3 preview)
+│   ├── path/                     # pathway-fs — ergonomic pathlib-like Rust API (D7, v0.3 preview)
 │   │   ├── Cargo.toml            # rlib over core; published to crates.io
 │   │   └── src/
 │   │       ├── lib.rs            # Public exports (Path, WalkBuilder, Hash, ...)
@@ -86,7 +86,7 @@ pathlib-like Rust API published to crates.io as `myorg-path`.
 │   │       ├── walk.rs           # Fluent walk builder → core scanner iterator
 │   │       └── serde_ext.rs      # read_json/read_toml/write_*_atomic via serde
 │   │
-│   └── engine/                   # myorg-path-engine — thin NAPI-RS wrapper, npm only
+│   └── engine/                   # pathway-fs-engine — thin NAPI-RS wrapper, npm only
 │       ├── Cargo.toml            # cdylib; never published to crates.io
 │       ├── build.rs              # napi-rs build script
 │       └── src/
@@ -97,7 +97,7 @@ pathlib-like Rust API published to crates.io as `myorg-path`.
 │           └── error.rs          # core errors → N-API errors
 │
 ├── packages/
-│   └── path/                     # Published npm package: @myorg/path
+│   └── path/                     # Published npm package: @archont561/pathway
 │       ├── package.json
 │       ├── tsconfig.json
 │       ├── src/
@@ -119,10 +119,10 @@ pathlib-like Rust API published to crates.io as `myorg-path`.
 │           └── fixtures/         # Test fixtures (small file trees)
 │
 ├── packages/
-│   ├── path-toml/                # Extension: @myorg/path-toml
+│   ├── path-toml/                # Extension: @archont561/pathway-toml
 │   │   ├── package.json
 │   │   └── src/index.ts
-│   └── path-yaml/                # Extension: @myorg/path-yaml
+│   └── path-yaml/                # Extension: @archont561/pathway-yaml
 │       ├── package.json
 │       └── src/index.ts
 │
@@ -198,7 +198,7 @@ published to crates.io.
 
 ```toml
 [package]
-name = "myorg-path-core"
+name = "pathway-fs-core"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.85"          # MSRV: latest stable minus 2, CI-enforced
@@ -235,7 +235,7 @@ Phase 1; published as a preview at v0.3.
 
 ```toml
 [package]
-name = "myorg-path"
+name = "pathway-fs"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.85"
@@ -246,7 +246,7 @@ description = "pathlib's convenience + ripgrep's walker: ergonomic paths, fused 
 crate-type = ["rlib"]
 
 [dependencies]
-myorg-path-core = { path = "../core", version = "0.1" }
+pathway-fs-core = { path = "../core", version = "0.1" }
 serde = { workspace = true }
 thiserror = { workspace = true }
 
@@ -267,7 +267,7 @@ async plumbing only. **Never published to crates.io.**
 
 ```toml
 [package]
-name = "myorg-path-engine"
+name = "pathway-fs-engine"
 version = "0.1.0"
 edition = "2021"
 publish = false                # npm-only artifact (D7)
@@ -276,7 +276,7 @@ publish = false                # npm-only artifact (D7)
 crate-type = ["cdylib"]
 
 [dependencies]
-myorg-path-core = { path = "../core" }
+pathway-fs-core = { path = "../core" }
 napi = { workspace = true }
 napi-derive = { workspace = true }
 tokio = { workspace = true }
@@ -294,7 +294,7 @@ napi-build = "2"
 
 ```json
 {
-  "name": "@myorg/path",
+  "name": "@archont561/pathway",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -308,11 +308,11 @@ napi-build = "2"
   "engines": { "node": ">=24" },
   "packageManager": "pnpm@10.0.0",
   "sideEffects": false,
-  "files": ["dist", "index.js", "index.d.ts", "myorg-path.*.node"],
+  "files": ["dist", "index.js", "index.d.ts", "pathway-fs.*.node"],
   "publishConfig": { "access": "public" },
   "repository": { "type": "git", "url": "TODO: public repo URL (see naming/license decision)" },
   "napi": {
-    "name": "myorg-path",
+    "name": "pathway-fs",
     "triples": {
       "defaults": true,
       "additional": [
@@ -337,13 +337,13 @@ napi-build = "2"
     "vitest": "^3.0.0"
   },
   "optionalDependencies": {
-    "@myorg/path-linux-x64-gnu": "0.1.0",
-    "@myorg/path-linux-x64-musl": "0.1.0",
-    "@myorg/path-linux-arm64-gnu": "0.1.0",
-    "@myorg/path-darwin-x64": "0.1.0",
-    "@myorg/path-darwin-arm64": "0.1.0",
-    "@myorg/path-win32-x64-msvc": "0.1.0",
-    "@myorg/path-win32-arm64-msvc": "0.1.0"
+    "@archont561/pathway-linux-x64-gnu": "0.1.0",
+    "@archont561/pathway-linux-x64-musl": "0.1.0",
+    "@archont561/pathway-linux-arm64-gnu": "0.1.0",
+    "@archont561/pathway-darwin-x64": "0.1.0",
+    "@archont561/pathway-darwin-arm64": "0.1.0",
+    "@archont561/pathway-win32-x64-msvc": "0.1.0",
+    "@archont561/pathway-win32-arm64-msvc": "0.1.0"
   }
 }
 ```
@@ -355,7 +355,7 @@ napi-build = "2"
 The JS entry that loads the `.node` binary is **generated by `napi build`**
 (platform detection + readable error), per
 [code-ts-path.md](/implementation/code-ts-path.md). The 2025 draft had a hand-written
-`require("@myorg/path")` (a circular self-require): the binary lives in the
+`require("@archont561/pathway")` (a circular self-require): the binary lives in the
 **platform** packages, not the root package. Hand-written platform require
 lists are forbidden in this repo.
 
@@ -390,8 +390,8 @@ is written.
 |----------|-----------|
 | Monorepo (Cargo + pnpm) | Unified CI, single source of truth |
 | Engine as cdylib | Required by NAPI-RS for native addon output |
-| Core as rlib on crates.io (`myorg-path-core`) | D7: reusable from Rust; Node-free unit tests for all engine logic |
-| `myorg-path` crate as the Rust Layer 1 | D7: pathlib-like ergonomics for Rust projects, same core as the TS surface |
+| Core as rlib on crates.io (`pathway-fs-core`) | D7: reusable from Rust; Node-free unit tests for all engine logic |
+| `pathway-fs` crate as the Rust Layer 1 | D7: pathlib-like ergonomics for Rust projects, same core as the TS surface |
 | `publish = false` on engine | cdylib napi glue is not a usable Rust dependency |
 | Release profile with LTO (workspace root) | Maximum performance for the native binary |
 | Optional platform deps | Users only download their platform's binary |

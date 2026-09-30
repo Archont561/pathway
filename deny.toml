@@ -1,7 +1,7 @@
 # cargo-deny policy for the pathway dependency graph.
 #
 # Why this file exists at all: two of the three crates are published to
-# crates.io (D7 — `myorg-path-core` and `myorg-path`; `myorg-path-engine` is
+# crates.io (D7 — `pathway-fs-core` and `pathway-fs`; `pathway-fs-engine` is
 # npm-only and `publish = false`). Publishing ships the *whole* transitive
 # graph, not just the direct dependencies, and every consumer of the crate
 # inherits it. A licence or an advisory problem in a crate three levels down is
@@ -101,11 +101,11 @@ deny = [
   # which fails at `cargo publish` with a much less helpful message. The
   # workspace members are of course allowed to depend on each other, so
   # `allow-workspace` below exempts them from this list.
-  { name = "myorg-path" },
-  { name = "myorg-path-core" },
+  { name = "pathway-fs" },
+  { name = "pathway-fs-core" },
 ]
-# Without this the two entries above would also ban `myorg-path` from depending
-# on `myorg-path-core`, which is the entire point of the D7 split.
+# Without this the two entries above would also ban `pathway-fs` from depending
+# on `pathway-fs-core`, which is the entire point of the D7 split.
 allow-workspace = true
 
 [sources]
