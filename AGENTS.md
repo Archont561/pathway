@@ -17,13 +17,16 @@ The `.knowledge/` directory contains the OKF v0.2 bundle (architecture, features
 
 ## Layout
 
-`crates/core` (engine, napi-free) → `crates/path` (Rust API) → `crates/engine` (NAPI-RS bridge); `packages/path` (the TS surface); `apps/docs` (Astro/Starlight site). One version for everything: `[workspace.package] version` in the root `Cargo.toml`. `scripts/version.ts` resolves it for the docs site, which takes it from `PATHWAY_VERSION` and falls back to the manifest; a test in `packages/path/test` asserts `package.json` matches. Never bump a version anywhere else.
+`crates/core` (engine, napi-free) → `crates/path` (Rust API) → `crates/engine` (NAPI-RS bridge); `packages/path` (the TS surface); `apps/docs` (Astro/Starlight site). One version for everything: `[workspace.package] version` in the root `Cargo.toml`. `scripts/version.ts` reads it and the docs site imports that directly (no `PATHWAY_VERSION` environment variable — `apps/docs/turbo.json` declares the manifest a build input so the cache invalidates on a bump); a test in `packages/path/test` asserts `package.json` matches. Never bump a version anywhere else.
 
 ## Tooling
 
 - **pixi** manages environments/tasks (conda-forge). Run commands with `pixi run <task>`.
 - **bun** is the JS runtime/workspace manager (turbo, biome, backlog, skills).
 - **turbo** orchestrates workspace builds/tests.
+- **Orchestration rule — one verb, one path.** `pixi.toml` contains exactly two kinds of task: repo-wide verbs (`build`, `test`, `lint`, `fmt`, `typecheck`, `coverage`, `dev`, `build-release`), each one line of `bun run <verb>` into turbo; and repo management (changelog, backlog, sandbox transport, hooks) plus the two checks that cannot run offline. It must never use `cwd = "<a workspace package>"` and must never spell a cargo, tsc, astro or biome command. Commands live in the package that owns them: **`crates/package.json` owns every cargo command**, `packages/path` owns the addon, `apps/docs` owns the site. To reach one, filter — `turbo run lint --filter=@repo/rust`, `bun run docs:dev` — do not add a pixi task back. A task that shells into a package bypasses turbo's cache and silently diverges from the task turbo runs for the same verb.
+- **The Cargo workspace is one turbo package, not three.** `@repo/rust` (`crates/package.json`) is the single node that owns cargo. Cargo's unit of work is the workspace: it takes one lock on `target/`, so per-crate packages serialise on that lock and run *slower* — measured at 320-365 ms against 195 ms for `cargo clippy`. Do not split it.
+- **No phantom tasks.** Do not declare a turbo task, a pixi task or a `workspaces` glob that nothing implements — it exits 0 having done nothing, which is worse than not existing. (This is why there is no `bench` task yet; it returns with the harness in backlog task-4.)
 - **biome** formats + lints TS/JS.
 - **lefthook** hooks call pixi tasks (CI parity). `pixi run hooks-install` once per clone.
 - **convco** enforces conventional commits and generates CHANGELOG.
@@ -40,10 +43,10 @@ The `.knowledge/` directory contains the OKF v0.2 bundle (architecture, features
 
 ## Testing
 
-- Rust: core + path unit tests run without Node, under `cargo nextest` (`pixi run test-rs`). Doctests are a separate task (`pixi run test-doc-rs`) because nextest does not run them. Engine glue has no logic to test yet.
-- TS: Bun tests in `packages/path/test/`. Package must import without requiring a built `.node` file (`engineAvailable()` is safe). Build before runtime code paths that call native; the walk stub throws intentionally until implemented.
-- Coverage: `pixi run coverage` (lcov) then `pixi run coverage-report`.
-- Dependency policy: `deny.toml` is the gate for the crates.io decision. `pixi run deny` is offline and in the gate; `pixi run deny-advisories` needs the network and is CI-only, because cargo-deny 0.20 always fetches the RustSec database. Adding a dependency means editing `deny.toml` if its licence is new.
+- Rust: core + path unit tests run without Node, under `cargo nextest`. Both the unit tests and the doctests are behind `pixi run test` (the `@repo/rust` package runs `test:unit` then `test:doc`, because nextest does not run doctests). Engine glue has no logic to test yet.
+- TS: Bun tests in `packages/path/test/`. Package must import without requiring a built `.node` file (`engineAvailable()` is safe); the walk stub throws intentionally until implemented. The `test` task depends on `build:native`, so turbo builds the addon before the suite runs — never put `napi build` inside a test script, which would hide that edge from the task graph.
+- Coverage: `pixi run coverage` writes `crates/lcov.info`; `bun run --cwd crates coverage:report` prints the same numbers as a table.
+- Dependency policy: `deny.toml` is the gate for the crates.io decision. The offline subset (bans, licences, sources) is inside `pixi run lint`; `pixi run lint-advisories` needs the network and is CI-only, because cargo-deny 0.20 always fetches the RustSec database. Adding a dependency means editing `deny.toml` if its licence is new.
 
 ## Commits
 
@@ -51,7 +54,7 @@ Conventional Commits (enforced by lefthook + convco): `type(scope): description`
 
 ## Gates
 
-Run `pixi run gates` before pushing: fmt-check-rs, clippy, deny, lint-js, lint-actions, test-rs, test-doc-rs, test, typecheck. (sandbox-plan and deny-advisories are not in `gates` by design; CI runs them where the extra binaries and the network exist.) `pixi run ci` adds the release build and the docs site — an Astro build is too slow to make every commit wait on, but a broken site still fails CI.
+Run `pixi run gates` before pushing. It is three verbs — `lint`, `typecheck`, `test` — because every check now lives behind one of them: `lint` carries rustfmt, clippy, cargo-deny, biome and actionlint; `test` carries the Rust unit tests, the Rust doctests and the Bun suites; `typecheck` carries `tsc --noEmit` and `astro check`. Adding a check means adding a script to the package that owns it, not a line in `pixi.toml`. Turbo caches all of it, so a commit that does not touch docs pays nothing for the docs. (`lint-sandbox-plan` and `lint-advisories` are outside `gates` by design; CI runs them where the release binary and the network exist.) `pixi run ci` adds coverage, the release-mode Rust build and the production build — which covers the TypeScript package *and* the Astro site in one turbo graph, so there is no separate docs step.
 
 ## Rule: Core is NAPI-free
 

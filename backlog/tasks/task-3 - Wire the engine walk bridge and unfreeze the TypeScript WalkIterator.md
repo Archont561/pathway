@@ -27,6 +27,7 @@ Bridge the task-2 scanner over N-API using the transport frozen in task-1, and r
 - [ ] `packages/path` still imports without a built addon (`engineAvailable()` stays safe); runtime paths that need native fail with the existing `BUILD_HINT`.
 - [ ] The package version test (`package.json` matches the workspace version) still passes.
 - [ ] `pixi run typecheck` and `pixi run test` are green with the addon built.
+- [ ] **If `src/binding.ts` starts importing the generated `native-engine.d.ts`** (i.e. the generated loader replaces the hand-written diagnostic front end), add `"build:native"` to `typecheck.dependsOn` in `turbo.json`. It is deliberately absent today: `typecheck` would otherwise make every `tsc --noEmit` wait on a cargo build, and nothing in `src/` references the generated dts yet. `test` already depends on `build:native`, so the addon itself is covered — this is only about the *types*. (turbo.json holds no comments, so this note lives here.)
 
 ## Definition of Done
 

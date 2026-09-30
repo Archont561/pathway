@@ -72,18 +72,5 @@
     "formatter": {
       "trailingCommas": "none"
     }
-  },
-  "overrides": [
-    {
-      "includes": ["benches/**"],
-      "linter": {
-        "rules": {
-          "suspicious": {
-            "noExplicitAny": "off",
-            "noConsole": "off"
-          }
-        }
-      }
-    }
-  ]
+  }
 }

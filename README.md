@@ -23,14 +23,14 @@ pathway/
 # Install hooks once per clone
 pixi run hooks-install
 
-# Build everything (TS workspace via turbo + Rust crates)
+# Build everything: the native addon, the TypeScript packages, the docs site
 pixi run build
 
-# Run tests (Rust via cargo-nextest + TS via turbo)
+# Everything that must pass before a push
 pixi run gates
 
-# The documentation site
-pixi run docs-dev
+# The documentation site, live
+pixi run dev
 
 # Inspect backlog/tasks
 pixi run backlog
@@ -41,27 +41,37 @@ pixi run skills
 
 ## Checks
 
+Pixi exposes repo-wide verbs only. Each one is `turbo run <verb>` over every package that implements it, so a verb covers both languages at once and you never have to think about which half of the repo a check belongs to.
+
 | Command | What it does |
 |---------|--------------|
-| `pixi run gates` | Everything that must pass before a push: `cargo fmt --check`, `clippy -D warnings`, `cargo deny` (licences/bans/sources), biome, actionlint, `cargo nextest`, doctests, Bun tests, `tsc --noEmit` |
-| `pixi run deny` | Dependency policy from `deny.toml`. Offline, so it also runs in the airlocked sandbox |
-| `pixi run deny-advisories` | The RustSec advisory check. Needs the network — CI only |
-| `pixi run coverage` / `pixi run coverage-report` | Rust coverage via `cargo-llvm-cov`, written to `lcov.info` |
-| `pixi run test-doc-rs` | Doctests, which nextest does not run |
+| `pixi run lint` | `cargo fmt --check`, `clippy -D warnings`, `cargo deny` (licences/bans/sources), biome, actionlint |
+| `pixi run test` | `cargo nextest` over the workspace, the Rust doctests, and the Bun suites |
+| `pixi run typecheck` | `tsc --noEmit` and `astro check` |
+| `pixi run gates` | The three above — everything that must pass before a push |
+| `pixi run coverage` | Rust coverage via `cargo-llvm-cov`, written to `crates/lcov.info` |
+| `pixi run ci` | `gates` plus coverage and the release and production builds: exactly what CI runs |
+| `pixi run lint-advisories` | The RustSec advisory check. Needs the network, so it is CI-only and outside `lint` |
 
 `deny.toml` is the gate for the crates.io decision: two of the three crates are published, so a dependency with a non-permissive or unmaintained licence has to fail a gate rather than be discovered by a consumer.
 
-## Documentation
+### Reaching one package
 
-`apps/docs` is an [Astro](https://astro.build) + [Starlight](https://starlight.astro.build) site:
+The commands themselves live in the package that owns them — `crates/package.json` owns every cargo command, `packages/path` the native addon, `apps/docs` the site. Pixi does not re-export them. To run one directly, filter the same turbo graph:
 
 ```sh
-pixi run docs-dev      # dev server
-pixi run docs-build    # production build (also part of `pixi run ci`)
-pixi run docs-check    # type-check, frontmatter and routes included
+turbo run lint --filter=@repo/rust     # just the Rust gate
+bun run docs:dev                       # just the docs site
+bun run --cwd crates coverage:report   # just the coverage summary
 ```
 
-The version the site documents comes from the environment rather than being written into it: the pixi tasks export `PATHWAY_VERSION`, resolved from `[workspace.package] version` in the root `Cargo.toml` by `scripts/version.ts`. A test asserts `packages/path/package.json` agrees with Cargo, so the three published surfaces cannot drift.
+Because it is one graph, `pixi run build` and `bun run docs:build` share a task and a cache entry rather than being two ways to build the same site.
+
+## Documentation
+
+`apps/docs` is an [Astro](https://astro.build) + [Starlight](https://starlight.astro.build) site. `pixi run dev` serves it locally; `pixi run build` and `pixi run typecheck` cover it as part of the repo-wide verbs, so it needs no workflow or task of its own.
+
+The version the site documents is read from `[workspace.package] version` in the root `Cargo.toml` — the one place it is written down — through `scripts/version.ts`. A test asserts `packages/path/package.json` agrees with Cargo, so the three published surfaces cannot drift. `apps/docs/turbo.json` declares that manifest and that script as the docs build's inputs, so the site's cache turns over on a version bump and *not* on every unrelated Rust change.
 
 ## Development workflow
 

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "src/**",
+        "astro.config.mjs",
+        "package.json",
+        "tsconfig.json",
+        "$TURBO_ROOT$/scripts/version.ts",
+        "$TURBO_ROOT$/Cargo.toml"
+      ],
+      "outputs": ["dist/**", ".astro/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "src/**",
+        "astro.config.mjs",
+        "package.json",
+        "tsconfig.json",
+        "$TURBO_ROOT$/scripts/version.ts",
+        "$TURBO_ROOT$/Cargo.toml"
+      ],
+      "outputs": [".astro/**"]
+    }
+  }
+}

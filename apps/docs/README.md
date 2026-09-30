@@ -6,16 +6,29 @@ The documentation site: [Astro](https://astro.build) with
 Run it through pixi, so it gets the same locked environment as everything else:
 
 ```sh
-pixi run docs-dev      # dev server
-pixi run docs-build    # production build into dist/
-pixi run docs-preview  # serve the built site
+pixi run dev           # dev server (the only package with a `dev` script)
+bun run docs:build     # production build into dist/
+bun run docs:preview   # serve the built site
 ```
 
-The version quoted throughout the site is **read from the environment**, not
-written into the site: the pixi tasks export `PATHWAY_VERSION` (resolved from
-`[workspace.package] version` in the root `Cargo.toml` by `scripts/version.ts`),
-and `src/version.ts` falls back to reading that same manifest when the variable
-did not survive the trip — for example when turbo runs the build directly.
+The version quoted throughout the site is **read from the workspace manifest**,
+not written into the site: `src/version.ts` imports `scripts/version.ts` (as
+`@workspace/version`, aliased in `astro.config.mjs`), which reads
+`[workspace.package] version` from the root `Cargo.toml` — the single place the
+version exists.
+
+There is no `PATHWAY_VERSION` environment variable any more. It resolved from
+that same manifest, so it could only ever produce the same string, while making
+the build hash differently depending on whether the task that ran it happened to
+set it.
+
+`turbo.json` in this directory declares the manifest and the script as build
+inputs. That is not what makes a version bump rebuild the site — that already
+happened, by accident: the root `build` task depends on `build:native`, and a
+package without a `build:native` script still gets a phantom one whose inputs
+are the whole Rust workspace, so **any** edit under `crates/` invalidated the
+docs cache. The Package Configuration replaces that accident with the real
+dependency: `Cargo.toml` and `scripts/version.ts` in, `crates/**` out.
 
 ## Known build warnings
 

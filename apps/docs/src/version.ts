@@ -1,34 +1,44 @@
 /**
  * The version these docs describe.
  *
- * Two sources, in order:
+ * One source: `[workspace.package] version` in the root `Cargo.toml`, read
+ * through `scripts/version.ts`. That is the single place the version is
+ * written down — every crate inherits it, and a test in `packages/path`
+ * asserts the npm manifest agrees.
  *
- * 1. `PATHWAY_VERSION` from the environment. This is the path the pixi tasks
- *    use (`pixi run docs-build`), and it exists because the version of what you
- *    are reading about should be decided by the environment you built in, not
- *    restated in the site. `apps/docs` never computes it: it is handed it.
- * 2. The root `Cargo.toml`. The fallback is not laziness, it is the reason the
- *    first source can be trusted: `bun run build` from the workspace root goes
- *    through turbo, and nothing would otherwise guarantee the variable survived
- *    that trip. Reading the same single source of truth directly means a build
- *    started outside pixi shows the real version instead of a placeholder.
+ * There used to be a `PATHWAY_VERSION` environment variable in front of this,
+ * exported by the pixi docs tasks. It was removed because it was redundant and
+ * actively harmful: it resolved from *this same manifest*, so it could only
+ * ever produce the same string, while making the build hash differently
+ * depending on whether it happened to be set. Reading the manifest directly is
+ * what the fallback already did on every build that went through turbo.
  *
- * If neither resolves, this throws. A docs site that quietly says `0.0.0` is
- * worse than one that refuses to build.
+ * Cache correctness lives in `apps/docs/turbo.json`, which declares the root
+ * `Cargo.toml` and `scripts/version.ts` as build inputs — the two files this
+ * module's output actually depends on.
+ *
+ * Measured, so the reasoning is not folklore: without that Package
+ * Configuration the site *is* still rebuilt on a version bump, but only by
+ * accident. The root `build` task depends on `build:native`, and a package
+ * with no `build:native` script still gets a phantom one in the graph whose
+ * inputs are the entire Rust workspace — so the docs cache was busted by every
+ * edit under `crates/` (verified: touching `crates/core/src/lib.rs` changed the
+ * docs build hash), while the dependency that matters was never declared.
+ * Declaring it drops the spurious invalidation and keeps the real one.
+ *
+ * If the manifest cannot be read, this throws. A docs site that quietly says
+ * `0.0.0` is worse than one that refuses to build.
  */
 import { workspaceVersion } from "@workspace/version";
 
 function resolveVersion(): string {
-  const fromEnv = process.env.PATHWAY_VERSION?.trim();
-  if (fromEnv) {
-    return fromEnv;
-  }
   try {
     return workspaceVersion();
-  } catch {
+  } catch (cause) {
     throw new Error(
-      "pathway version unresolved: PATHWAY_VERSION is unset and the workspace " +
-        "Cargo.toml could not be read. Run the docs through `pixi run docs-build`."
+      "pathway version unresolved: the workspace Cargo.toml could not be read. " +
+        "Build the site from inside the repository (`pixi run docs-build`).",
+      { cause }
     );
   }
 }

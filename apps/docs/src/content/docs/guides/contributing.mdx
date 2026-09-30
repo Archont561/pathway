@@ -14,26 +14,34 @@ pixi run gates       # what CI runs before a commit lands
 
 ## Gates
 
+`pixi run gates` is three verbs, and every check lives behind one of them. You
+should rarely need to run anything narrower.
+
 | Task | What it checks |
 | --- | --- |
-| `pixi run fmt-check-rs` | `cargo fmt --check` |
-| `pixi run clippy` | clippy with `-D warnings` |
-| `pixi run deny` | dependency licences, bans and sources (offline) |
-| `pixi run lint-js` | biome format + lint |
-| `pixi run lint-actions` | actionlint over the workflows |
-| `pixi run test-rs` | `cargo nextest` over the workspace |
-| `pixi run test-doc-rs` | doctests, which nextest does not run |
-| `pixi run test` | the Bun suites through turbo |
-| `pixi run typecheck` | `tsc --noEmit` |
+| `pixi run lint` | `cargo fmt --check`, clippy with `-D warnings`, dependency licences/bans/sources, biome, actionlint |
+| `pixi run typecheck` | `tsc --noEmit` and `astro check`, this site included |
+| `pixi run test` | `cargo nextest` over the workspace, the doctests nextest does not run, and the Bun suites |
+
+Pixi exposes repo-wide verbs only. The commands themselves belong to the
+package that owns them — `crates/package.json` owns every cargo command,
+`packages/path` owns the native addon, `apps/docs` owns this site — and turbo
+runs, caches and orders them. That is why a commit touching only Rust still
+gets biome for free: turbo serves a cache hit for every task whose inputs did
+not change.
 
 ## Beyond the gates
 
 ```sh
-pixi run coverage          # cargo-llvm-cov -> lcov.info
-pixi run coverage-report   # the same numbers as a table
-pixi run deny-advisories   # RustSec; needs the network, so CI-only
-pixi run docs-dev          # this site, locally
-pixi run docs-build        # this site, production build
+pixi run coverage                      # cargo-llvm-cov -> crates/lcov.info
+pixi run lint-advisories               # RustSec; needs the network, so CI-only
+pixi run ci                            # gates + coverage + the release build
+pixi run dev                           # this site, locally
+
+# Reaching one package directly, without adding a task back to pixi.toml:
+turbo run lint --filter=@repo/rust     # just the Rust gate
+bun run docs:build                     # this site, production build
+bun run --cwd crates coverage:report   # the coverage numbers as a table
 ```
 
 ## Dependencies are a policy decision
@@ -50,8 +58,8 @@ locked `default` environment and the vendored cargo registry onto an orphan
 branch; `scripts/restore.sh` (and `scripts/restore.ps1` on Windows) rebuilds it
 from that branch alone. The `linux-64` bundle is the one that is published.
 
-Because the sandbox has no network, `pixi run deny` covers only the checks that
-can run offline. The advisory check is CI's job.
+Because the sandbox has no network, the dependency check inside `pixi run lint`
+covers only the parts that run offline. The advisory check is CI's job.
 
 ## Commits
 

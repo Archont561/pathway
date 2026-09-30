@@ -47,12 +47,13 @@ See `publish = false` in the workspace manifest.
 
 ```sh
 pixi install            # all environments, from the lockfile
-pixi run build          # turbo: TypeScript workspace, including these docs
-pixi run build-rs       # cargo: every crate, release mode
+pixi run build          # the native addon, the TypeScript packages, these docs
+pixi run build-release  # every Rust crate, release mode
 ```
 
 ## Versions
 
-These docs describe v{version}. The number comes from the build environment
-(`PATHWAY_VERSION`, set by the pixi task), falling back to the workspace
-manifest, so the site cannot drift from the code it documents.
+These docs describe v{version}. The number is read at build time from
+`[workspace.package] version` in the repository's root `Cargo.toml` — the one
+place the version is written down — so the site cannot drift from the code it
+documents.

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "lint": {
+      "dependsOn": [],
+      "inputs": [
+        "*/src/**",
+        "*/Cargo.toml",
+        "*/build.rs",
+        "package.json",
+        "$TURBO_ROOT$/Cargo.toml",
+        "$TURBO_ROOT$/Cargo.lock",
+        "$TURBO_ROOT$/deny.toml"
+      ],
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": [],
+      "inputs": [
+        "*/src/**",
+        "*/tests/**",
+        "*/Cargo.toml",
+        "*/build.rs",
+        "package.json",
+        "$TURBO_ROOT$/Cargo.toml",
+        "$TURBO_ROOT$/Cargo.lock"
+      ],
+      "outputs": []
+    },
+    "coverage": {
+      "dependsOn": [],
+      "inputs": [
+        "*/src/**",
+        "*/tests/**",
+        "*/Cargo.toml",
+        "*/build.rs",
+        "package.json",
+        "$TURBO_ROOT$/Cargo.toml",
+        "$TURBO_ROOT$/Cargo.lock"
+      ],
+      "outputs": ["lcov.info"]
+    },
+    "build:release": {
+      "dependsOn": [],
+      "cache": false
+    }
+  }
+}

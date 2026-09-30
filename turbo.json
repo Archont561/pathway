@@ -1,10 +1,19 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "ui": "stream",
-  "globalDependencies": ["biome.json", "pixi.toml"],
-  "globalEnv": ["PATHWAY_VERSION"],
+  "globalDependencies": ["biome.json", "pixi.toml", "pixi.lock"],
   "tasks": {
     "build:native": {
+      "dependsOn": [],
+      "inputs": [
+        "package.json",
+        "$TURBO_ROOT$/Cargo.toml",
+        "$TURBO_ROOT$/Cargo.lock",
+        "$TURBO_ROOT$/crates/**"
+      ],
+      "outputs": ["*.node", "native-engine.d.ts"]
+    },
+    "build:native:release": {
       "dependsOn": [],
       "inputs": [
         "package.json",
@@ -25,8 +34,13 @@
       ],
       "outputs": ["dist/**"]
     },
+    "build:release": {
+      "dependsOn": ["^build:release"],
+      "inputs": ["package.json"],
+      "outputs": []
+    },
     "test": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "build:native"],
       "inputs": ["src/**", "test/**", "package.json", "tsconfig.json"],
       "outputs": []
     },
@@ -41,10 +55,41 @@
       ],
       "outputs": []
     },
-    "bench": {
-      "dependsOn": ["^build"],
-      "inputs": ["src/**", "fixtures/**", "package.json", "tsconfig.json"],
-      "outputs": ["results/**"]
+    "lint": {
+      "dependsOn": [],
+      "inputs": ["src/**", "package.json"],
+      "outputs": []
+    },
+    "coverage": {
+      "dependsOn": [],
+      "inputs": ["src/**", "test/**", "package.json"],
+      "outputs": []
+    },
+    "fmt": {
+      "cache": false
+    },
+    "doc": {
+      "cache": false
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "preview": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "persistent": true
+    },
+    "//#lint:biome": {
+      "inputs": ["biome.json", "**/*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc}"],
+      "outputs": []
+    },
+    "//#lint:actions": {
+      "inputs": [".github/workflows/*.yml", ".github/workflows/*.yaml"],
+      "outputs": []
+    },
+    "//#fmt:biome": {
+      "cache": false
     }
   }
 }
