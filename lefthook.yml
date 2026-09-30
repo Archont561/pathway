@@ -1,12 +1,23 @@
-# lefthook — local git hooks. Every hook calls a pixi task so hooks and CI
-# cannot drift: the task definitions in pixi.toml are the single source of
-# truth for what the check commands are.
+# lefthook — local git hooks.
 # https://lefthook.dev
 #
-# Only *staged* files are considered: the `glob` filters which files wake a
-# hook, and `{staged_files}` expands to the staged paths pixi passes through to
-# the task (biome rewrites the files it can fix, so `stage_fixed: true`
-# re-stages them and the commit contains what was checked).
+# Hooks and CI cannot drift because neither spells a command. Every check is a
+# script in the package that owns it (`crates/package.json` for cargo,
+# `packages/path` for the addon, `apps/docs` for the site) and both a hook and
+# a CI step reach it through the same turbo task. Change the command in one
+# place and everything that runs it follows.
+#
+# Scoping is turbo's job now, not a glob's. `pixi run lint` and
+# `pixi run typecheck` run the whole repo, and turbo serves a cache hit for
+# every task whose inputs did not change — so a commit that touches only Rust
+# pays clippy and gets biome for free, and the reverse. That is both faster
+# and more correct than the hand-maintained glob list this file used to carry,
+# which had to be edited every time a directory was added and had already gone
+# stale once (it still named `benches/**`, which does not exist).
+#
+# The two formatting jobs keep their globs, because they rewrite files: the
+# glob decides whether the job wakes at all, and `stage_fixed: true` re-stages
+# what it fixed so the commit contains what was checked.
 #
 # Tasks default to the `default` environment, which is the only one; hooks
 # still spell it out with `-e default` so a future extra environment cannot
@@ -17,29 +28,24 @@ min_version: "2.0.0"
 pre-commit:
   parallel: true
   jobs:
-    - name: rust-fmt
+    - name: fmt-rust
       glob: "*.rs"
-      run: pixi run -e default fmt-rs
+      run: pixi run -e default -- bun run --cwd crates fmt
       stage_fixed: true
 
-    - name: rust-clippy
-      # Cargo.toml changes the feature graph or the MSRV, which is exactly what
-      # clippy and fmt need to re-check.
-      glob: "{**/*.rs,Cargo.toml,crates/**/Cargo.toml}"
-      run: pixi run -e default clippy
-
-    - name: js-biome
+    - name: fmt-js
       glob: "{**/*.{js,jsx,ts,tsx,mjs,cjs,json,jsonc},biome.json,turbo.json,package.json}"
-      run: pixi run -e default -- fix-js
+      run: pixi run -e default -- bun run fmt:biome
       stage_fixed: true
 
-    - name: js-typecheck
-      glob: "{packages/**,apps/**,turbo.json}"
-      run: pixi run -e default typecheck
+    # No glob on purpose. `lint` is rustfmt + clippy + cargo-deny + biome +
+    # actionlint, all behind turbo's cache, so the cost is proportional to what
+    # actually changed rather than to what the glob guessed.
+    - name: lint
+      run: pixi run -e default lint
 
-    - name: workflows
-      glob: ".github/workflows/*.{yml,yaml}"
-      run: pixi run -e default lint-actions
+    - name: typecheck
+      run: pixi run -e default typecheck
 
     - name: sandbox-plan
       # The publish plan is a wire format shared with the publisher, so a

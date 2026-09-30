@@ -53,6 +53,12 @@ pathlib-like Rust API published to crates.io as `pathway-fs`.
 │   └── config.toml               # gitignored — written by `pixi-sandbox restore` (crates.io → vendored tree)
 │
 ├── crates/
+│   ├── package.json              # @repo/rust — the Cargo workspace AS a turbo package. Owns every
+│   │                             #   cargo command as a script (lint/test/coverage/build:release).
+│   │                             #   ONE package, not three: cargo locks target/, so per-crate
+│   │                             #   packages serialise on it (measured 320-365ms vs 195ms)
+│   ├── turbo.json                # Package Configuration: rust inputs, and cache:false on the
+│   │                             #   builds whose outputs land in target/, outside the package
 │   ├── core/                     # pathway-fs-core — rlib, ALL engine logic, zero napi deps (D7)
 │   │   ├── Cargo.toml            # crates.io-publishable; `cargo test` needs no Node
 │   │   └── src/
@@ -369,9 +375,10 @@ Notes:
   variant (LTO) is for benchmarks and the publish pipeline. turbo runs these
   same scripts as its `build:native` / `build:native:release` tasks with
   `$TURBO_ROOT$/crates/**` inputs, so a tsc-only change never pays for a cargo
-  rebuild. `pixi run build-native` reaches them **through** turbo
-  (`--filter=@archont561/pathway`) rather than with `cwd`, so the pixi task and
-  the turbo task share one cache entry.
+  rebuild. There is no `build-native` pixi task any more: `pixi run build`
+  covers it through the graph, and `bun run build:native`
+  (`--filter=@archont561/pathway`) is the direct entry point — the same turbo
+  task and the same cache entry either way.
 - `packageManager` is deliberately **absent**: it is a corepack field that
   says which package manager runs *the repository*, so it belongs to the root
   `package.json` only. Restating it here was a second bun version to bump and
@@ -418,6 +425,9 @@ is written.
 | Bun workspaces in the root `package.json` (no workspace yaml) | bun is the repo's only JS runtime — no Node anywhere; one root `bun.lock` resolves the whole JS toolchain |
 | **Workspace globs name only directories that exist** | A glob matching nothing makes `turbo run <task>` exit 0 having run nothing. `benches/*` was such a glob and was removed until task-4 |
 | **No pixi task uses `cwd = "<package>"`** | Package-scoped work goes through `turbo run <task> --filter=<package>`. A task that shells into a package bypasses the cache and diverges from the turbo task for the same verb — which is how the docs site came to be built twice in `pixi run ci` |
+| **`pixi.toml` exposes repo-wide verbs and repo management, nothing else** (2026-09-30) | Every package-scoped command moved into the package that owns it, so `pixi.toml` went from 41 tasks to 25 and contains no cargo, tsc, astro or biome invocation. A verb (`lint`, `test`, `build`, `typecheck`, `coverage`, `fmt`, `dev`, `build-release`) is one line of `bun run <verb>` into turbo and covers both languages at once; `gates` is three of them. To reach one package, filter — `turbo run lint --filter=@repo/rust` — rather than adding a task back |
+| **The Cargo workspace is ONE turbo package (`@repo/rust`), not three** (2026-09-30) | Cargo's unit of work is the workspace: it holds a single lock on `target/`, so three per-crate packages would serialise on that lock. Measured: three parallel `cargo clippy -p …` took 320-365 ms against 195 ms for one `cargo clippy --workspace`, with `Blocking waiting for file lock on build directory` in the logs. Splitting would cost ~1.8x and buy nothing, because cargo's own incremental compilation is already finer-grained than turbo's |
+| **Rust builds are `cache: false` in `crates/turbo.json`** | `lint`, `test` and `coverage` are cacheable — their only output is "it passed", plus `lcov.info` which lands inside the package. `build:release` writes to `$TURBO_ROOT$/target`, *outside* the package, so turbo cannot capture it; a cache hit would skip a build whose artefacts may have been evicted. Caching only what turbo can actually restore |
 | **`test` depends on `build:native`** | The addon must exist before the Bun suite runs. Encoding it in `turbo.json` rather than as `napi build && bun test` keeps the edge visible to the task graph and to the cache |
 | **`apps/docs/turbo.json` names `Cargo.toml` + `scripts/version.ts` its build inputs** | The site quotes `[workspace.package] version`. Measured 2026-09-30: without the Package Configuration the bump *was* caught, but only because the root `build` task depends on `build:native` and a package with no such script still gets a phantom one whose inputs are the whole Rust workspace — so every `crates/**` edit rebuilt the site, and the real dependency was undeclared. This replaces the accident with the actual edge |
 

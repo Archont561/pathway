@@ -10,11 +10,12 @@
 # a gate: adding a dependency becomes a reviewable policy decision rather than
 # a silent consequence of a `cargo add`.
 #
-# Run the offline subset with `pixi run deny` (in the `lint` gate). The
-# advisory check needs to fetch the RustSec database from GitHub, so it is a
-# separate task: `pixi run deny-advisories`. That split is not an accident of
-# convenience — the airlocked sandbox has no network, and a gate that fails
-# there for want of a database tells you nothing about the code.
+# The offline subset (bans, licences, sources) runs inside `pixi run lint`, as
+# the `lint:deps` script of the @repo/rust package. The advisory check needs to
+# fetch the RustSec database from GitHub, so it is a separate task:
+# `pixi run lint-advisories`. That split is not an accident of convenience —
+# the airlocked sandbox has no network, and a gate that fails there for want of
+# a database tells you nothing about the code.
 
 [graph]
 # all-features: the shipped default and the experimental native TOML/YAML codec

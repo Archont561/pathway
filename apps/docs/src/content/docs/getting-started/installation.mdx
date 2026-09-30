@@ -47,8 +47,8 @@ See `publish = false` in the workspace manifest.
 
 ```sh
 pixi install            # all environments, from the lockfile
-pixi run build          # turbo: TypeScript workspace, including these docs
-pixi run build-rs       # cargo: every crate, release mode
+pixi run build          # the native addon, the TypeScript packages, these docs
+pixi run build-release  # every Rust crate, release mode
 ```
 
 ## Versions

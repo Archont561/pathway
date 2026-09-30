@@ -6,9 +6,9 @@ The documentation site: [Astro](https://astro.build) with
 Run it through pixi, so it gets the same locked environment as everything else:
 
 ```sh
-pixi run docs-dev      # dev server
-pixi run docs-build    # production build into dist/
-pixi run docs-preview  # serve the built site
+pixi run dev           # dev server (the only package with a `dev` script)
+bun run docs:build     # production build into dist/
+bun run docs:preview   # serve the built site
 ```
 
 The version quoted throughout the site is **read from the workspace manifest**,

@@ -1,9 +1,10 @@
 ---
 id: TASK-8
-title: 'Make test-doc-rs a real gate: the workspace has zero doctests'
+title: 'Make the Rust doctest gate real: the workspace has zero doctests'
 status: To Do
 assignee: []
 created_date: '2026-09-30 13:01'
+updated_date: '2026-09-30 13:29'
 labels:
   - rust
   - testing
@@ -16,7 +17,7 @@ type: chore
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-`pixi run test-doc-rs` (`cargo test --doc -p pathway-fs-core -p pathway-fs`) reports `0 passed; 0 failed; 0 ignored` for **both** crates. There is not a single doctest in the workspace, so the gate runs in CI and in `pixi run gates` but cannot fail.
+The Rust doctest step (`cargo test --doc -p pathway-fs-core -p pathway-fs`, the `test:doc` script of `@repo/rust`) reports `0 passed; 0 failed; 0 ignored` for **both** crates. There is not a single doctest in the workspace, so the gate runs in CI and in `pixi run gates` but cannot fail.
 
 This was measured on 2026-09-30 while verifying task-5 on a restored full toolchain.
 
@@ -30,7 +31,7 @@ Two ways to close this, and the choice is the point of the task: write doctests 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Every public item in `pathway-fs-core` and `pathway-fs` either carries a rustdoc example or has a recorded reason it does not
-- [ ] #2 `pixi run test-doc-rs` reports a non-zero number of doctests run
-- [ ] #3 A deliberately broken example in a doc comment makes `pixi run test-doc-rs` fail (verify by temporarily breaking one)
-- [ ] #4 If the decision is instead to remove the gate, `pixi.toml` and `.github/workflows/ci.yml` drop it and the comment in `pixi.toml` records why and when it should return
+- [ ] #2 `bun run --cwd crates test:doc` reports a non-zero number of doctests run
+- [ ] #3 A deliberately broken example in a doc comment makes `pixi run test` fail (verify by temporarily breaking one)
+- [ ] #4 If the decision is instead to remove the gate, `crates/package.json` drops `test:doc` from its `test` script and records in a comment why and when it should return
 <!-- AC:END -->

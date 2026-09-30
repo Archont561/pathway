@@ -1,43 +1,26 @@
 name: docs
 
-# Build the Astro/Starlight site for pull requests and publish it to GitHub
-# Pages after changes land on main. The site is configured as a project site
-# (base: /pathway), so the deploy target is
-# https://archont561.github.io/pathway/.
+# Publish the Astro/Starlight site to GitHub Pages, but only after ci is green.
 #
-# ci.yml already proves the site builds on every change — its `build` step is
-# `turbo run build`, and apps/docs is a workspace package, so the site is in
-# that graph. This workflow owns the site itself: the Pages deploy happens
-# only from main, so no pull request can publish. `docs-check` is also run by
-# ci.yml (as part of `typecheck`, and so of `gates`); it is repeated here
-# because a renamed route is a broken link rather than a runtime error and
-# this is the workflow that publishes. With the shared turbo cache below that
-# repetition is a cache hit rather than a second `astro check`. The paths
-# filter keeps an unrelated change from paying for a docs job at all.
+# This workflow no longer proves anything about the site — `pixi run ci` builds
+# apps/docs as part of `turbo run build`, and type-checks it through
+# `typecheck`, so a broken route or a bad frontmatter already fails ci. What is
+# left here is the publish, and a publish should never race the thing that
+# validates it.
+#
+# So the trigger is `workflow_run` on ci rather than `push`: GitHub starts this
+# workflow when ci *finishes*, and the `if` below drops every run where ci did
+# not finish green. That also removes the paths filter this file used to carry
+# — there is nothing to decide, because ci already ran for this commit.
+#
+# The site is a project site (base: /pathway), so the deploy target is
+# https://archont561.github.io/pathway/.
 
 on:
-  pull_request:
+  workflow_run:
+    workflows: ["ci"]
+    types: [completed]
     branches: [main]
-    paths:
-      - "apps/docs/**"
-      - "scripts/version.ts"
-      - "Cargo.toml"
-      - "package.json"
-      - "bun.lock"
-      - "pixi.toml"
-      - "pixi.lock"
-      - ".github/workflows/docs.yml"
-  push:
-    branches: [main]
-    paths:
-      - "apps/docs/**"
-      - "scripts/version.ts"
-      - "Cargo.toml"
-      - "package.json"
-      - "bun.lock"
-      - "pixi.toml"
-      - "pixi.lock"
-      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 permissions:
@@ -53,24 +36,30 @@ concurrency:
 jobs:
   build:
     name: build documentation site
+    # The gate. `workflow_run` fires on failure and cancellation too, so
+    # without this a red ci would still publish.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          # A workflow_run run checks out the default branch's tip by default,
+          # which may already have moved past the commit ci validated. Pin to
+          # the exact sha that went green so what publishes is what passed.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: prefix-dev/setup-pixi@v0.10.2
         with:
           cache: true
           environments: default
 
-      # Both steps below are turbo tasks (`docs-build` is
-      # `turbo run build --filter=pathway-docs`, `docs-check` is
-      # `turbo run typecheck --filter=pathway-docs`), so this workflow pays
-      # the same cold-cache cost ci.yml did. The key prefix is shared with
-      # ci.yml on purpose: a docs-only pull request can restore the Astro
-      # build that the ci workflow already produced for the same inputs.
-      # See ci.yml for why the restore-keys, not the key, are what hit.
+      # Same key prefix as ci, so the Astro build ci already produced for this
+      # commit is restored rather than repeated. The docs build declares the
+      # root Cargo.toml and scripts/version.ts as inputs (apps/docs/turbo.json),
+      # so the restored entry is only used when the documented version and the
+      # site sources both match.
       - uses: actions/cache@v6.1.0
         with:
           path: .turbo/cache
@@ -79,34 +68,21 @@ jobs:
             turbo-${{ runner.os }}-${{ github.ref_name }}-
             turbo-${{ runner.os }}-
 
-      # The site takes its version from `[workspace.package] version` in the
-      # root Cargo.toml: apps/docs imports scripts/version.ts directly, so the
-      # documented version is resolved at build time and never written into
-      # the site nor passed in from the environment. There was a
-      # PATHWAY_VERSION variable in front of this once; it read that same
-      # manifest field, so it was removed, and apps/docs/turbo.json now
-      # declares the manifest a build input instead — that is what invalidates
-      # the cache on a version bump. docs-check type-checks the frontmatter
-      # and the config, which is where a docs site actually breaks.
-      - run: pixi run docs-build
-      - run: pixi run docs-check
+      # The filtered turbo entry point, not a pixi task: apps/docs owns its own
+      # build, and pixi only exposes repo-wide verbs. `pathway-docs#build` has
+      # no workspace dependencies, so this needs no cargo and no addon.
+      - run: pixi run -e default -- bun run docs:build
 
-      # Only main publishes: a PR build stops at proving the site compiles.
-      - name: Configure GitHub Pages
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        uses: actions/configure-pages@v6.0.0
+      - uses: actions/configure-pages@v6.0.0
         with:
           enablement: true
 
-      - name: Upload Pages artifact
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v5.0.0
+      - uses: actions/upload-pages-artifact@v5.0.0
         with:
           path: apps/docs/dist
 
   deploy:
     name: publish to GitHub Pages
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     needs: build
     timeout-minutes: 10

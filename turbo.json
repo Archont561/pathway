@@ -34,6 +34,11 @@
       ],
       "outputs": ["dist/**"]
     },
+    "build:release": {
+      "dependsOn": ["^build:release"],
+      "inputs": ["package.json"],
+      "outputs": []
+    },
     "test": {
       "dependsOn": ["^build", "build:native"],
       "inputs": ["src/**", "test/**", "package.json", "tsconfig.json"],
@@ -50,6 +55,22 @@
       ],
       "outputs": []
     },
+    "lint": {
+      "dependsOn": [],
+      "inputs": ["src/**", "package.json"],
+      "outputs": []
+    },
+    "coverage": {
+      "dependsOn": [],
+      "inputs": ["src/**", "test/**", "package.json"],
+      "outputs": []
+    },
+    "fmt": {
+      "cache": false
+    },
+    "doc": {
+      "cache": false
+    },
     "dev": {
       "cache": false,
       "persistent": true
@@ -58,6 +79,17 @@
       "dependsOn": ["build"],
       "cache": false,
       "persistent": true
+    },
+    "//#lint:biome": {
+      "inputs": ["biome.json", "**/*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc}"],
+      "outputs": []
+    },
+    "//#lint:actions": {
+      "inputs": [".github/workflows/*.yml", ".github/workflows/*.yaml"],
+      "outputs": []
+    },
+    "//#fmt:biome": {
+      "cache": false
     }
   }
 }
