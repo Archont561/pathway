@@ -1,0 +1,68 @@
+# lefthook — local git hooks. Every hook calls a pixi task so hooks and CI
+# cannot drift: the task definitions in pixi.toml are the single source of
+# truth for what the check commands are.
+# https://lefthook.dev
+#
+# Only *staged* files are considered: the `glob` filters which files wake a
+# hook, and `{staged_files}` expands to the staged paths pixi passes through to
+# the task (biome rewrites the files it can fix, so `stage_fixed: true`
+# re-stages them and the commit contains what was checked).
+#
+# Tasks default to the `default` environment, which is the only one; hooks
+# still spell it out with `-e default` so a future extra environment cannot
+# silently change what a hook runs.
+
+min_version: "2.0.0"
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: rust-fmt
+      glob: "*.rs"
+      run: pixi run -e default fmt-rs
+      stage_fixed: true
+
+    - name: rust-clippy
+      # Cargo.toml changes the feature graph or the MSRV, which is exactly what
+      # clippy and fmt need to re-check.
+      glob: "{**/*.rs,Cargo.toml,crates/**/Cargo.toml}"
+      run: pixi run -e default clippy
+
+    - name: js-biome
+      glob: "{**/*.{js,jsx,ts,tsx,mjs,cjs,json,jsonc},biome.json,turbo.json,package.json}"
+      run: pixi run -e default -- fix-js
+      stage_fixed: true
+
+    - name: js-typecheck
+      glob: "{packages/**,benches/**,turbo.json,tsconfig.base.json}"
+      run: pixi run -e default typecheck
+
+    - name: workflows
+      glob: ".github/workflows/*.{yml,yaml}"
+      run: pixi run -e default lint-actions
+
+    - name: sandbox-plan
+      # The publish plan is a wire format shared with the publisher, so a
+      # malformed bundle must fail here rather than as a push to the orphan
+      # branch. It needs the pixi-sandbox binary, which is a release download
+      # rather than a conda dependency — if it is not on PATH the job reports
+      # that and skips, instead of blocking the commit on an unrelated setup
+      # step. CI always runs it, where the binary is installed.
+      glob: "{pixi.toml,.pixi-sandbox.toml}"
+      run: |
+        if command -v pixi-sandbox >/dev/null 2>&1; then
+          pixi run -e default lint-sandbox-plan
+        else
+          echo "pixi-sandbox is not on PATH; skipping the publish-plan check (CI always runs it)"
+        fi
+
+commit-msg:
+  jobs:
+    - name: convco
+      # `{1}` is the file holding the proposed message (git commit-msg hook argument)
+      run: pixi run -e default lint-commit < {1}
+
+pre-push:
+  jobs:
+    - name: gates
+      run: pixi run -e default gates
