@@ -1,15 +1,18 @@
 ---
 id: task-1
-title: Run the Step 0 NAPI-RS async-iterator spike and freeze the streaming architecture
+title: >-
+  Run the Step 0 NAPI-RS async-iterator spike and freeze the streaming
+  architecture
 status: To Do
-priority: high
 assignee: []
 created_date: '2026-09-30'
-updated_date: '2026-09-30'
+updated_date: '2026-09-30 20:24'
 labels:
   - engine
   - spike
+milestone: m-0
 dependencies: []
+priority: high
 ---
 
 ## Description

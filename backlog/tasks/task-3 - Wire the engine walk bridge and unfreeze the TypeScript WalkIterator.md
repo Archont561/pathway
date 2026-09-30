@@ -4,10 +4,11 @@ title: Wire the engine walk bridge and unfreeze the TypeScript WalkIterator
 status: To Do
 assignee: []
 created_date: '2026-09-30'
-updated_date: '2026-09-30 10:02'
+updated_date: '2026-09-30 20:24'
 labels:
   - engine
   - typescript
+milestone: m-0
 dependencies:
   - TASK-1
   - TASK-2

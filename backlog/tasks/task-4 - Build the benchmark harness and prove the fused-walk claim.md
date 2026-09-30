@@ -4,9 +4,10 @@ title: Build the benchmark harness and prove the fused-walk claim
 status: To Do
 assignee: []
 created_date: '2026-09-30'
-updated_date: '2026-09-30 10:02'
+updated_date: '2026-09-30 20:24'
 labels:
   - bench
+milestone: m-0
 dependencies:
   - TASK-3
 priority: medium
