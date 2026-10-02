@@ -94,7 +94,7 @@ export function walk(_root: string, _options: WalkOptions = {}): AsyncGenerator<
   void loadEngine();
   throw new Error(
     "walk() is not implemented yet. The scanner lives in crates/core/src/walk/scanner.rs " +
-      "(see .knowledge/implementation/phase-plan.md, Phase 1 Step 1.2); this stub exists so the " +
+      "(see backlog/docs/phase-plan.md, Phase 1 Step 1.2); this stub exists so the " +
       "public signature is frozen before the Step 0 NAPI-RS iterator spike."
   );
 }

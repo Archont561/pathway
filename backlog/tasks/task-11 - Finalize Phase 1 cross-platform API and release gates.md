@@ -31,7 +31,7 @@ This task is derived from the project knowledge base and scheduled in m-0. It is
 
 ## References
 
-- [.knowledge/implementation/ci-distribution.md](.knowledge/implementation/ci-distribution.md)
+- [.knowledge/implementation/ci-distribution.md](../../.knowledge/implementation/ci-distribution.md)
 
 ## Definition of Done
 

@@ -26,7 +26,6 @@ implementation milestone that owns it.
 
 | Knowledge-base area | Backlog tasks |
 | --- | --- |
-| `implementation/phase-plan.md` | Tasks 1–6, 9, 11–12, 14, 17–19, 25, 27 |
 | `features/walk-traversal.md` | Tasks 1–4, 9, 11, 17–19, 25 |
 | `features/serializers.md` | Tasks 10, 21, 22, 23 |
 | `features/killer-features.md` | Tasks 12, 14–18, 21 |
@@ -36,6 +35,17 @@ implementation milestone that owns it.
 | `architecture/rust-crate-surface.md` | Tasks 9, 19, 27 |
 | `implementation/ci-distribution.md` | Tasks 5, 6, 11, 27 |
 | `competitive/landscape.md` and `positioning.md` | Tasks 4, 11, 24–27 |
+
+## Delivery documents
+
+These were extracted from `.knowledge/` on 2026-10-02 because they are tracking
+rather than design truth. They are backlog documents, not knowledge-base concepts.
+
+| Document | Was | Drives |
+| --- | --- | --- |
+| [phase-plan.md](phase-plan.md) | `.knowledge/implementation/phase-plan.md` | Tasks 1–6, 9, 11–12, 14, 17–19, 25, 27 |
+| [release-roadmap.md](release-roadmap.md) | `.knowledge/CONTEXT.md` § Phase Roadmap | Milestones m-0 – m-3 |
+| [success-metrics.md](success-metrics.md) | `.knowledge/competitive/positioning.md` § Success Metrics | m-0 acceptance; v0.5/v1.0 adoption |
 
 ## Dependency spine
 

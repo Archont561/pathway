@@ -29,7 +29,7 @@ This task is derived from the project knowledge base and scheduled in m-1. It is
 
 ## References
 
-- [.knowledge/features/killer-features.md](.knowledge/features/killer-features.md)
+- [.knowledge/features/killer-features.md](../../.knowledge/features/killer-features.md)
 
 ## Definition of Done
 

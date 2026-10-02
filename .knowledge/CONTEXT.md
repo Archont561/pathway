@@ -45,7 +45,7 @@ fixes, benchmark re-baseline), and on 2026-09-30 to add **D7** (publishable
 Rust core + ergonomic `pathway-fs` crate; three-crate workspace — see
 [rust-crate-surface.md](/architecture/rust-crate-surface.md)). No code written yet.
 
-**Next action:** Begin Phase 1 per [phase-plan.md](/implementation/phase-plan.md)
+**Next action:** Begin Phase 1 per [phase-plan.md](../backlog/docs/phase-plan.md)
 — **Step 0 pre-flight first**: owner sign-off on license + public name
 (npm **and** crates.io names, per D7), NAPI-RS `async_iterator`/`AsyncTask`
 spike, CI matrix refresh (Node 24/26, Bun 1.3/1.4), then scaffolding
@@ -148,13 +148,9 @@ internal Rust filesystem engines but don't publish them as libraries.
 
 ## Phase Roadmap
 
-| Phase | Scope | Key Deliverable |
-|-------|-------|-----------------|
-| **v0.1** | `Path`, `walk`, `read/write`, `json` serializer, `exclude` | Prove architecture. Benchmark vs fdir/Bun. |
-| **v0.2** | `temp`, `hash`, `snapshot/diff`, `blake3`/`xxhash` | Build system adoption. |
-| **v0.3** | `sandbox` (openat-based), `withLock`, `copyTo`/`moveTo`, `transform`, symlink controls, **`pathway-fs` Rust crate preview on crates.io (D7)** | Server & infra adoption; first Rust consumers. |
-| **v0.4** | `transaction`, `detect`, `watch` (notify), CAS, native TOML/YAML serializers | Power users, monorepos. |
-| **v1.0** | `resolve` (unrs-resolver adapter), streaming transforms, full CI matrix, **Rust crate stabilized (1.0 on crates.io)** | Ecosystem replacement. |
+Moved to [`backlog/docs/release-roadmap.md`](../backlog/docs/release-roadmap.md).
+The per-release scope table is delivery tracking, not design truth; step-level
+detail is in [`backlog/docs/phase-plan.md`](../backlog/docs/phase-plan.md).
 
 ---
 

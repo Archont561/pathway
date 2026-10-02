@@ -254,7 +254,7 @@ tier and the one where our fused-walk architecture must prove its value.
 Because it is C++-native, the honest benchmark is "our fused pipeline vs.
 `node:fs.glob` + `fs.stat` + `crypto` post-processing." The fusion delta
 survives (it still returns paths only), and the pitch must say exactly
-that. Added to the benchmark harness in [phase-plan.md](/implementation/phase-plan.md).
+that. Added to the benchmark harness in [phase-plan.md](../../backlog/docs/phase-plan.md).
 
 ---
 

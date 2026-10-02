@@ -38,7 +38,17 @@ foundational decisions. Change history: [update log](/log.md).
 # Implementation
 
 * [Repo Structure](/implementation/repo-structure.md) - Cargo workspace, npm/TypeScript package tree, directory layout.
-* [Phase Plan](/implementation/phase-plan.md) - Phase 1–4 steps, v0.1–v1.0 roadmap, benchmark gates.
 * [CI & Distribution](/implementation/ci-distribution.md) - NAPI-RS targets, platform matrix, Bun CI, provenance hardening.
 * [Rust Walker (Reference)](/implementation/code-rust-walker.md) - NativeScanner over the `ignore` crate; chunked fused batches.
 * [TypeScript Path (Reference)](/implementation/code-ts-path.md) - `Path` class, `Serializer<T>`, `WalkIterator`, `FileSystem`.
+
+# Delivery Tracking
+
+Not part of this bundle. Plans, checkboxes and release gates live in `backlog/`,
+because they are tracking rather than design truth and they change on a
+different clock to the concepts above.
+
+* [Phase Plan](../backlog/docs/phase-plan.md) - Phase 1–4 steps and benchmark gates (was `/implementation/phase-plan.md`).
+* [Release Roadmap](../backlog/docs/release-roadmap.md) - v0.1–v1.0 scope per release (was a section of `/CONTEXT.md`).
+* [Success Metrics](../backlog/docs/success-metrics.md) - v0.1/v0.5/v1.0 release gates (was a section of `/competitive/positioning.md`).
+* [KB → Backlog Feature Map](../backlog/docs/knowledge-base-feature-map.md) - which tasks implement which concept.

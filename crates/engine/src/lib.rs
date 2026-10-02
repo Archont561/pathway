@@ -19,7 +19,7 @@
 //! on the libuv thread pool rather than on the JavaScript thread. Whether that
 //! stays the mechanism or is replaced by the experimental
 //! `#[napi(async_iterator)]` is the open question in
-//! `.knowledge/implementation/phase-plan.md` Step 0; both are behind the same
+//! `backlog/docs/phase-plan.md` Step 0; both are behind the same
 //! TypeScript API, which is the point of freezing the API before the spike.
 
 #![deny(missing_docs)]

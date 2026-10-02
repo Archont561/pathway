@@ -30,7 +30,7 @@ This task is derived from the project knowledge base and scheduled in m-3. It is
 
 ## References
 
-- [.knowledge/features/pluggable-patterns.md](.knowledge/features/pluggable-patterns.md)
+- [.knowledge/features/pluggable-patterns.md](../../.knowledge/features/pluggable-patterns.md)
 
 ## Definition of Done
 
