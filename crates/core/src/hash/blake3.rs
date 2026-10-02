@@ -14,6 +14,39 @@
 /// The identifier this hasher is selected by.
 pub const NAME: &str = "blake3";
 
+/// BLAKE3 over a stream of chunks.
+///
+/// `::blake3` rather than `blake3`: this module *is* `crate::hash::blake3`, so
+/// the bare name resolves here and not to the crate. Naming the module after
+/// the algorithm is worth that one leading `::`.
+#[derive(Debug)]
+pub struct Hasher(::blake3::Hasher);
+
+impl Hasher {
+    /// Starts a new digest.
+    #[must_use]
+    pub fn new() -> Self {
+        Self(::blake3::Hasher::new())
+    }
+
+    /// Absorbs one chunk.
+    pub fn update(&mut self, chunk: &[u8]) {
+        self.0.update(chunk);
+    }
+
+    /// Finalises the digest as lowercase hex.
+    #[must_use]
+    pub fn finish(self) -> String {
+        self.0.finalize().to_hex().to_string()
+    }
+}
+
+impl Default for Hasher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

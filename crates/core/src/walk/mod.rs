@@ -36,7 +36,5 @@ pub mod matcher;
 pub mod scanner;
 
 pub use entry::FusedEntry;
-// `Matcher`, `ScanOptions` and `Scanner` are re-exported here when their
-// implementations land. Declaring the re-exports ahead of the types would make
-// the module tree depend on code that does not exist, which is the same
-// mistake as a stub `pub use` for a module that was never written.
+pub use matcher::Matcher;
+pub use scanner::{NativeScanner, ScanOptions, DEFAULT_BATCH_SIZE, MAX_REPORTED_ERRORS};
