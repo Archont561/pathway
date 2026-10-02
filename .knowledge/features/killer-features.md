@@ -37,7 +37,7 @@ of the Phase 1 implementation. They are included here to ensure the v0.1
 architecture does not accidentally foreclose on them.
 
 > **Scope note (Sept 2026):** `watch()` is delivered in **Phase 4 (v0.4)**
-> via the `notify` crate per [phase-plan.md](/implementation/phase-plan.md)
+> via the `notify` crate per [phase-plan.md](../../backlog/docs/phase-plan.md)
 > — the "uninstall chokidar" claim above holds at v0.4, not v0.2.
 > Incumbent context: chokidar 5.0.0 (Nov 2025) is ESM-only / Node ≥20.19;
 > `@parcel/watcher` is the native watcher used by Parcel, VS Code, and

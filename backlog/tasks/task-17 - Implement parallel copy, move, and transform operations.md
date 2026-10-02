@@ -28,7 +28,7 @@ This task is derived from the project knowledge base and scheduled in m-2. It is
 
 ## References
 
-- [.knowledge/implementation/phase-plan.md](.knowledge/implementation/phase-plan.md)
+- [backlog/docs/phase-plan.md](../docs/phase-plan.md)
 
 ## Definition of Done
 

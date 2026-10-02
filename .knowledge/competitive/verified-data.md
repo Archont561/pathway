@@ -62,7 +62,7 @@ Consequence: CI matrix is Node 24 + 26 (+22 optional); `engines` is
 This is now the traversal baseline on Node. It returns paths/Dirents only —
 no stat+hash fusion, no metadata, no composition. The fused-walk moat
 survives; the benchmark must include it (done in fused-walk.md and
-phase-plan.md).
+`backlog/docs/phase-plan.md`).
 
 ### Bun 1.3 (Jan 2026) and Bun 1.4 (Aug 20, 2026)
 

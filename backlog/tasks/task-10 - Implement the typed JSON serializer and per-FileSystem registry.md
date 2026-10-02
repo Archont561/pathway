@@ -28,7 +28,7 @@ This task is derived from the project knowledge base and scheduled in m-0. It is
 
 ## References
 
-- [.knowledge/features/serializers.md](.knowledge/features/serializers.md)
+- [.knowledge/features/serializers.md](../../.knowledge/features/serializers.md)
 
 ## Definition of Done
 

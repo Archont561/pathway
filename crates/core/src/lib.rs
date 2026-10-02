@@ -35,7 +35,7 @@
 //!
 //! Scaffold. The module tree below is the intended shape; the modules are
 //! declared empty and each carries the spec it will be built from. The phase
-//! plan is `.knowledge/implementation/phase-plan.md`.
+//! plan is `backlog/docs/phase-plan.md`.
 
 #![deny(missing_docs)]
 #![warn(clippy::pedantic)]

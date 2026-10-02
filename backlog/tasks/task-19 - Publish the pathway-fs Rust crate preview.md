@@ -29,7 +29,7 @@ This task is derived from the project knowledge base and scheduled in m-2. It is
 
 ## References
 
-- [.knowledge/architecture/rust-crate-surface.md](.knowledge/architecture/rust-crate-surface.md)
+- [.knowledge/architecture/rust-crate-surface.md](../../.knowledge/architecture/rust-crate-surface.md)
 
 ## Definition of Done
 

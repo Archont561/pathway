@@ -23,7 +23,7 @@
 //! A preview at v0.3, 1.0 at v1.0 with docs.rs coverage and an MSRV enforced in
 //! CI. Nothing here is written yet — see
 //! `.knowledge/architecture/rust-crate-surface.md` for the full surface and
-//! `.knowledge/implementation/phase-plan.md` for the phase it lands in.
+//! `backlog/docs/phase-plan.md` for the phase it lands in.
 
 #![deny(missing_docs)]
 #![warn(clippy::pedantic)]

@@ -17,7 +17,7 @@ priority: high
 
 ## Description
 
-Phase 1 Step 0 (see `.knowledge/implementation/phase-plan.md`): before the walker lands, a 1–2 day spike must decide how walk results cross the N-API boundary — the experimental `#[napi(async_iterator)]` or the chunked-paging fallback over `AsyncTask`. The public TypeScript signature is already frozen in `packages/path/src/walk.ts` (batched `WalkBatch`), so the spike decides only the transport, never how entries are consumed.
+Phase 1 Step 0 (see `backlog/docs/phase-plan.md`): before the walker lands, a 1–2 day spike must decide how walk results cross the N-API boundary — the experimental `#[napi(async_iterator)]` or the chunked-paging fallback over `AsyncTask`. The public TypeScript signature is already frozen in `packages/path/src/walk.ts` (batched `WalkBatch`), so the spike decides only the transport, never how entries are consumed.
 
 ## Acceptance Criteria
 
