@@ -33,6 +33,12 @@ pixi install --locked --all
 pixi run bun-install
 
 # ── 4. opencode ─────────────────────────────────────────────────────────────
+# This is the ONLY place opencode is installed. It is deliberately not a pixi
+# task: `pixi.toml` describes what the repository is built, tested and released
+# with, and a ~185 MB agent CLI is none of those. Keeping it out of the manifest
+# also keeps it out of the packed sandbox branch, which would otherwise carry
+# the blob to an airlock that has no use for it.
+#
 # OpenCode is an npm package and the devcontainer has no Node.js, so it is
 # installed with bun. Installing into BUN_INSTALL rather than the pixi prefix
 # keeps `opencode` on PATH for ordinary shells, not just `pixi run` ones.
