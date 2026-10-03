@@ -65,6 +65,11 @@
       "inputs": ["src/**", "test/**", "package.json"],
       "outputs": []
     },
+    "bench": {
+      "dependsOn": ["^build", "build:native"],
+      "inputs": ["src/**", "package.json", "tsconfig.json"],
+      "outputs": ["results/**"]
+    },
     "fmt": {
       "cache": false
     },

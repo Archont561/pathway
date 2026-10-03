@@ -1,0 +1,14 @@
+{
+  "extends": "@repo/typescript-config/base.json",
+  "compilerOptions": {
+    // The harness emits no declarations and nothing imports it, so it type-checks
+    // in place rather than compiling to `dist/`. That is why this extends
+    // `base.json` and not `library.json` — the declaration emit a publishable
+    // package wants is exactly what a benchmark harness must not do.
+    // `types: ["bun"]` is what puts `Bun.Glob`, `Bun.gc` and `Bun.version` in
+    // scope for the Bun-only probes.
+    "noEmit": true,
+    "types": ["bun"]
+  },
+  "include": ["src/**/*.ts"]
+}

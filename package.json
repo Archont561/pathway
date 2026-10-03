@@ -8,6 +8,7 @@
   "workspaces": [
     "packages/*",
     "apps/*",
+    "benches/*",
     "crates"
   ],
   "scripts": {
@@ -19,6 +20,7 @@
     "lint": "turbo run lint lint:biome lint:actions",
     "fmt": "turbo run fmt fmt:biome",
     "dev": "turbo run dev",
+    "bench": "turbo run bench",
     "lint:biome": "biome check .",
     "lint:actions": "actionlint",
     "fmt:biome": "biome format --write .",

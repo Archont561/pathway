@@ -177,12 +177,14 @@ coverage = { cmd = "bun run coverage", depends-on = [
 dev = { cmd = "bun run dev", depends-on = [
   "bun-install",
 ], description = "Run every package's dev server (currently the docs site)" }
-# NOTE: there is deliberately no `bench` verb yet. The benchmark harness is
-# backlog task-4; until a package implements a `bench` script, `turbo run
-# bench` would match zero packages and exit 0, and a benchmark command that
-# silently passes is worse than one that does not exist. Re-add this task, the
-# `benches/*` workspace glob and the turbo `bench` task together with the
-# harness.
+# Restored with the harness (backlog task-4). It stays a repo-wide verb for the
+# same reason `test` is: a second benchmark package needs no new task here.
+# `benches/walk` generates up to a million files and measures, so it is not part
+# of `gates` or `ci` — a number that depends on the machine it ran on does not
+# belong in a pass/fail gate.
+bench = { cmd = "bun run bench", depends-on = [
+  "bun-install",
+], description = "Run the benchmark harness and write the per-configuration tables (turbo)" }
 
 # ── checks that belong to no package ─────────────────────────────────────────
 # These three stay in pixi because nothing in the workspace owns them.

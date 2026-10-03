@@ -1,0 +1,18 @@
+{
+  "name": "@repo/bench-walk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The fused-walk benchmark harness. Measures pathway's walk against the best alternatives and records the verdict, so the >=5x claim in the README and the phase plan is a measurement rather than an assertion. Internal to the workspace (the @repo/* convention), never published.",
+  "type": "module",
+  "scripts": {
+    "bench": "bun src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@archont561/pathway": "workspace:*",
+    "fdir": "^6.5.0",
+    "mitata": "^1.0.34",
+    "tinyglobby": "^0.2.17"
+  }
+}

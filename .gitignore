@@ -31,3 +31,10 @@ dist/
 # every build:native, consumed when the generated loader replaces the
 # hand-written front-end in binding.ts.
 packages/path/native-engine.d.ts
+
+# Benchmark harness output. `benches/**/results/` holds both the generated trees
+# (up to a million files) and the JSON/Markdown tables, and it is declared as the
+# turbo `bench` task's `outputs` so it is restored from cache rather than
+# regenerated. The committed copy of the numbers is
+# `.knowledge/competitive/verified-data.md`, not this.
+benches/**/results/
