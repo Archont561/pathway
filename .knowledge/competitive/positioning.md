@@ -1,17 +1,19 @@
 ---
 type: Market Intelligence
 title: "Strategic Conclusions, Target Audience, Pitch, Bun-as-Ally"
-description: "Strategic conclusions: target audience, one-line pitch, Bun-as-ally posture, and messaging guardrails."
-tags: [positioning, strategy, pitch, audience, bun, marketing]
+description: "Strategic conclusions: target audience, one-line pitch, Bun-as-ally posture, messaging guardrails; benchmark story corrected to the measured 1.85x."
+tags: [positioning, strategy, pitch, audience, bun, marketing, benchmark]
 status: stable
 generated:
   by: pathway_kb/1.0
-  at: 2026-09-16T00:00:00Z
+  at: 2026-10-03T00:00:00Z
 verified:
   - by: human:archont561
     at: 2025-07-11T00:00:00Z
   - by: process:gap-analysis-2026-09
     at: 2026-09-16T00:00:00Z
+  - by: process:benchmark-task-4
+    at: 2026-10-03T00:00:00Z
 domain: competitive
 decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
@@ -251,12 +253,30 @@ interface. Similar to how `express` middleware became a standard.
 
 ### Moat 4: The Benchmark Story (Marketing)
 
-If our benchmarks show 10–20x speedup on real-world pipelines (walk+stat+hash
-on 100k+ files), the numbers speak for themselves. Build tool authors are
-performance-sensitive and will switch for measurable gains.
+**Measured 2026-10-03: 1.85x, not 10–20x.** On 100k files the fused pipeline is
+1,380 ms against 2,552 ms for the strongest baseline (`fdir` + a 32-wide
+stat/hash pool) — 3.8x against the serial `node:fs.glob` + `node:fs` +
+`node:crypto` pipeline. The original projection of 10–20x was off by roughly 6x.
+
+This moat is **weaker than assumed but not empty**, and the honest version is
+narrower and more specific:
+
+- Peak heap **14.3 MiB vs 39.3 MiB** and GC **2.8 ms vs 20.6 ms** per sample.
+  The memory and GC-pressure claims survived measurement intact, and they are
+  what the native engine actually buys.
+- Fusion removes JS↔native round trips. It does not remove round trips to the
+  kernel, which is why the wall-clock margin is ~2x rather than ~10x.
+- The case rests on **memory, GC and latency-sensitivity**, not on a headline
+  multiple. Build-tool authors with large trees and constrained heap care about
+  exactly that.
+
+**Do not publish 5x or 10–20x.** The measured numbers are in
+[verified-data.md](/competitive/verified-data.md), and the gap analysis and
+re-baselining options are in [fused-walk.md](/architecture/fused-walk.md).
 
 **Defensibility:** Low (anyone can benchmark), but the **results** are
-defensible because they flow from the architectural advantage.
+defensible because they flow from the architectural advantage — and now they
+have been checked rather than asserted.
 
 ---
 
@@ -266,7 +286,7 @@ defensible because they flow from the architectural advantage.
 |------|-----------|--------|-----------|
 | NAPI-RS distribution pain | Medium | High | Use `napi-rs/cli` tooling; proven by SWC/lightningcss |
 | Bun N-API breakage | Medium | Medium | CI matrix includes Bun; **test both 1.3.x and 1.4.x (Rust-rewrite release, Aug 2026)** |
-| Fused walk not fast enough vs `node:fs.glob` | Low | Critical | Benchmark before committing; ≥5x threshold measured against the native C++ baseline, not just JS |
+| ~~Fused walk not fast enough vs `node:fs.glob`~~ | **Materialised** (2026-10-03) | Critical | 1.85x vs the strongest baseline, not ≥5x. **This risk has landed.** Response: withdraw the speed claim, re-baseline on incremental batching, and lead with memory/GC (14.3 MiB vs 39.3 MiB peak) rather than a multiple |
 | `tinyglobby` adds native backend | Low | High | Unlikely (JS ecosystem); our composition layer remains |
 | Node core ships stat/hash fusion in `fs.glob` | Low | High | Watch Node tracking issues; composition layer + ecosystem remain the fallback |
 | Bun ships compositional FS API | Low | Medium | Would take years; we establish ecosystem first |

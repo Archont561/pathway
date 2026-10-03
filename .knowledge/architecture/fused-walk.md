@@ -1,7 +1,7 @@
 ---
 type: Architecture Decision
 title: "Fused Walk: Single-Pass Stat + Hash + Filter"
-description: "Single-pass Rust traversal fusing stat + hash + filter — the performance moat versus fdir, tinyglobby, Bun.Glob, and node:fs.glob."
+description: "Single-pass Rust traversal fusing stat + hash + filter — measured at 1.85x vs the best alternative on 100k files, not the projected 10-20x."
 tags: [walk, traversal, fused, performance, fdir, tinyglobby, benchmark]
 status: stable
 generated:
@@ -12,6 +12,8 @@ verified:
     at: 2025-07-11T00:00:00Z
   - by: process:gap-analysis-2026-09
     at: 2026-09-16T00:00:00Z
+  - by: process:benchmark-task-4
+    at: 2026-10-03T00:00:00Z
 domain: architecture
 decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
@@ -45,7 +47,7 @@ But real applications never stop at the path. The typical pipeline is:
 ```ts
 // Using fdir or tinyglobby
 const paths = await fdir().glob("**/*.ts").crawl(root);
-// ✅ Fast: ~30ms for 100k files
+// ✅ Fast: ~71ms for 100k files (measured, 2026-10-03)
 
 // But then...
 const entries = await Promise.all(
@@ -57,7 +59,8 @@ const entries = await Promise.all(
     return { path: p, stat, hash };
   })
 );
-// ❌ Slow: 1,200–3,000ms + massive GC pressure
+// ❌ Slow: 4,857ms serial / 2,552ms pooled, +39 MiB peak heap
+//    (measured 2026-10-03 at 100k files)
 ```
 
 The traversal was fast. The **post-traversal pipeline** is the bottleneck,
@@ -111,19 +114,39 @@ Everything was computed natively during the single traversal pass.
 
 ## Why This Is the Defensible Moat
 
-### Against `fdir` / `tinyglobby`
+### Against `fdir` / `tinyglobby` — MEASURED (2026-10-03)
 
-| Metric | fdir + JS post-processing | @archont561/pathway fused walk |
-|--------|--------------------------|----------------------|
-| Traversal (100k files) | ~30ms | ~25ms (ignore crate) |
-| Stat all files | ~800ms (100k libuv hops) | ~0ms (dirent d_type) |
-| Hash all files (BLAKE3) | ~2000ms (JS crypto) | ~150ms (rayon + mmap) |
-| Total pipeline | ~2,830ms | ~175ms |
-| Memory peak | ~200MB (JS strings + Buffers) | ~30MB (Rust, streaming prefetch window; the v0.1 paging fallback scales linearly with tree size until the async-iterator spike lands) |
-| GC pressure | Severe | None (Rust memory) |
+> **The table below replaced a projection.** The figures previously here
+> (~2,830ms vs ~175ms, "10–20x faster") were estimated before any harness
+> existed and were wrong by an order of magnitude. These are measured, from
+> `benches/walk` at 100k files with a release addon and a warm page cache. Full
+> tables and methodology: [verified-data.md](/competitive/verified-data.md).
 
-The traversal itself is comparable. The **fused pipeline** is **10–20x faster**
-because it eliminates the JS↔libuv boundary for every post-traversal operation.
+| Metric (100k files) | `fdir` + JS post-processing | pathway fused walk |
+|---|---:|---:|
+| Traversal (paths only) | **70.8 ms** | 404.2 ms |
+| Total pipeline (traverse + stat + hash) | 2,551.7 ms | **1,380.1 ms** |
+| Peak heap | 39.3 MiB | **14.3 MiB** |
+| GC per sample | 20.6 ms | **2.8 ms** |
+| Time to first entry | 115.4 ms | 1,093.2 ms |
+
+**Fused pipeline: 1.85x, not 10–20x.** Peak heap and GC pressure do behave as
+designed — the memory claim holds, and holds clearly.
+
+Two of these numbers are worse than the projection and both are real:
+
+- **Pathway loses raw traversal to `fdir` by 5.7x.** `fdir` reads
+  `readdir(withFileTypes: true)` and never stats; the `ignore` crate carries
+  gitignore support, pruning and parallel workers that this configuration does
+  not use. The projection assumed traversal parity.
+- **Time-to-first-entry is 1,093 ms against `fdir`'s 115 ms** — 79% of total,
+  because `scan()` completes the whole traversal before JavaScript can pull the
+  first batch. The "streaming" API does not stream yet. On latency pathway is
+  currently the *worst* option, which matters for a build tool reacting to a
+  large tree.
+
+The honest summary: **fusion works, and it is worth ~1.85x against a pooled
+baseline** — not 5x, and not 10–20x.
 
 ### Against `Bun.Glob.scan()`
 
@@ -306,16 +329,45 @@ Wall time is not enough. Every benchmark run records:
 - Time to first entry (streaming latency)
 - Cancellation cost (abort at 50% — was work actually stopped?)
 
-### Success Threshold
+### Success Threshold — and how the first run landed
 
 The fused walk must be **≥5x faster** than the best alternative on the full
 pipeline (walk + stat + hash) for 100k+ files — the baseline on Node 24 is
-now `node:fs.glob` + `node:fs` + `node:crypto` (native C++), not just pure
-JS. If the improvement is only 5–10%, the Rust complexity is not justified
-and we should reconsider the architecture.
+`node:fs.glob` + `node:fs` + `node:crypto` (native C++), not just pure JS.
 
-If it is **10–20x faster** with significantly lower memory usage, that is
-the foundation of the project and the core of the marketing pitch.
+**Measured 2026-10-03 at 100k files: 1.85x.** The threshold **fails.**
+
+| Baseline | pathway | Speedup |
+|---|---:|---:|
+| `fdir` + 32-wide stat/hash pool (**the strongest**) | 1,380 ms | **1.85x** |
+| `fdir`, serial post-processing | 1,380 ms | 3.5x |
+| `tinyglobby`, serial | 1,380 ms | 3.6x |
+| `node:fs.glob`, serial | 1,380 ms | 3.8x |
+
+Against the serial baseline the threshold originally assumed, the measured
+result is 3.8x — still short of 5x. So the miss is not an artefact of a
+weakly-chosen comparator.
+
+What the first run changed about how this document should be read:
+
+1. **The comparator has to pool its I/O.** A `for (const p of paths) await
+   stat(p)` loop serialises 100k round trips. Measuring against it reports
+   ~3.7x and measures *parallelism*, not fusion. The pooled baseline is the
+   honest one.
+2. **Harness methodology is not optional.** A debug addon and an unsettled page
+   cache each moved the numbers by more than the claim does — the cache alone
+   produced a 29.2 s reading and a 1.3 s reading for identical work.
+3. **1.85x with 2.7x lower peak heap and 7x lower GC is a real result**, just
+   not the one that justifies the architecture on speed alone. The case for the
+   native engine now rests on memory and GC, and on fusion removing
+   JS↔native hops — which is a narrower claim than "5x faster".
+
+Re-baselining options, in the order they are worth trying: true incremental
+batching (so the traversal overlaps the consumer, which also fixes the
+time-to-first-entry regression); a faster hash than BLAKE3 for small files; and
+dropping `ignore` for a leaner walker when gitignore support is not requested.
+Until one of those is measured, **the ≥5x and 10–20x figures are not available
+to marketing.**
 
 ---
 
