@@ -6,12 +6,14 @@ tags: [temp, snapshot, diff, sandbox, transaction, lock, parallel, security]
 status: draft
 generated:
   by: pathway_kb/1.0
-  at: 2026-09-16T00:00:00Z
+  at: 2026-10-03T00:00:00Z
 verified:
   - by: human:archont561
     at: 2025-07-11T00:00:00Z
   - by: process:gap-analysis-2026-09
     at: 2026-09-16T00:00:00Z
+  - by: process:benchmark-task-4
+    at: 2026-10-03T00:00:00Z
 domain: features
 decision: proposed  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
@@ -219,7 +221,11 @@ Rust does it with:
 - Memory-mapped I/O for large files
 - Zero JS allocations until the final batch yield
 
-**Expected speedup: 10–20x on 100k+ file trees.**
+**Measured speedup (2026-10-03, 100k files): 1.85x** on the full pipeline
+against the strongest baseline (`fdir` + a 32-wide stat/hash pool), with peak
+heap **14.3 MiB vs 39.3 MiB** and GC **2.8 ms vs 20.6 ms** per sample. The
+originally projected 10–20x was off by ~6x. See
+[verified-data.md](/competitive/verified-data.md).
 
 ### Persistence
 

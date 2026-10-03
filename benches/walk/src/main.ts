@@ -22,7 +22,7 @@
  * renders the report. See `probe.ts` for why the split is there.
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { walkFiles } from "@archont561/pathway";
 import { measure } from "mitata";
@@ -38,6 +38,31 @@ import { buildTree, TREE_SIZES } from "./tree.js";
 
 /** Where the trees live. Under `results/`, which is the turbo `bench` task's declared output. */
 const WORK_ROOT = join(import.meta.dir, "..", "results");
+
+/**
+ * Read every file under `root` once and return the byte count.
+ *
+ * Deliberately built on `node:fs` rather than on any subject under test: it
+ * runs before the measurements, so it can only affect the page cache, never a
+ * number. Using `pathway` here would mean the thing being measured warms the
+ * cache for the thing being compared against.
+ */
+async function readWholeTree(root: string): Promise<number> {
+  const stack: string[] = [root];
+  let bytes = 0;
+  while (stack.length > 0) {
+    const dir = stack.pop() as string;
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(full);
+      } else if (entry.isFile()) {
+        bytes += (await readFile(full)).byteLength;
+      }
+    }
+  }
+  return bytes;
+}
 const RESULTS_DIR = join(WORK_ROOT, "results");
 
 interface Row {
@@ -286,6 +311,24 @@ async function main(): Promise<void> {
     if (written !== size) {
       throw new Error(`the generator wrote ${written} files, asked for ${size}`);
     }
+    // Read the whole tree once before measuring anything.
+    //
+    // Without this the harness is a coin flip. Generating 100k files leaves
+    // hundreds of megabytes of dirty pages, and the first subject that reads
+    // *content* then pays for the generator's writeback — which is how one run
+    // put the fused walk at 29.2 s and the next at 1.3 s for identical work.
+    // Scenarios A and B only read directory entries, so they looked stable
+    // throughout and hid the cause.
+    //
+    // This defines the measurement as warm-cache steady state, which is the
+    // regime the claim is about: a build tool walking a tree it has just
+    // written, or re-walking one it has walked before.
+    process.stdout.write("▸ settling the page cache…\n");
+    const settleStart = performance.now();
+    const settledBytes = await readWholeTree(treeRoot);
+    process.stdout.write(
+      `  read ${settledBytes.toLocaleString("en-US")} bytes in ${fmtMs(performance.now() - settleStart)} ms\n`
+    );
 
     for (const scenario of scenarios) {
       setRoot(treeRoot);
