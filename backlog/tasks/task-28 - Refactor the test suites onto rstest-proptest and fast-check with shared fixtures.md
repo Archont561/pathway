@@ -1,26 +1,30 @@
 ---
 id: task-28
-title: "Refactor the test suites onto rstest/proptest and fast-check with shared fixtures"
+title: >-
+  Refactor the test suites onto rstest/proptest and fast-check with shared
+  fixtures
 status: To Do
-priority: High
 assignee: []
 created_date: '2026-10-02'
-updated_date: '2026-10-02'
+updated_date: '2026-10-03 10:43'
 labels:
   - rust
   - typescript
   - testing
   - tooling
   - dx
+milestone: m-0
 dependencies:
   - TASK-2
-milestone: m-0
+references:
+  - backlog/docs/test-refactor-plan.md
+priority: high
 type: chore
 ---
-# Refactor the test suites onto rstest/proptest and fast-check with shared fixtures
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 The suite that landed with task-2 is 54 unit tests and 2 doctests, all of them
 example-based and all of their setup hand-rolled. That was the right shape for
 proving the scanner works; it is the wrong shape for proving it works *for every
@@ -96,6 +100,9 @@ too. In Rust they go under `[dev-dependencies]` of the crates that use them,
 with the version stated once in `[workspace.dependencies]`.
 
 ---
+<!-- SECTION:DESCRIPTION:END -->
+
+# Refactor the test suites onto rstest/proptest and fast-check with shared fixtures
 
 ## Acceptance Criteria
 
@@ -252,3 +259,15 @@ left to judgement. Each is either a `#[case]` or a generator constraint:
       from a clean restore.
 - [ ] Implementation, tests, and documentation are complete.
 - [ ] Related knowledge-base design remains accurate after implementation.
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Sequenced in backlog/docs/test-refactor-plan.md (2026-10-03). Summary:
+
+- Phase A (no new deps, offline-safe): A1 Rust fixture kit extraction (AC #1-#3 groundwork, #20 skip pattern); A2 @repo/test-utils with createFixture + tempTree (AC #22-#25); A3 path.test.ts onto fixtures (AC #26); A4 conventions + agent rule with task-29 (AC #29-#30).
+- Phase B (new dev-deps): B1 fast-check properties (AC #27-#28) — npm IS reachable from the current restored sandbox, verified 2026-10-03; B2 rstest adoption (AC #3-#4, #16-#19); B3 proptest invariants (AC #5-#15, #16-#21).
+- Phase C: budgets, cargo-deny, dev-only proof via cargo tree, connected-side transport repack.
+
+Constraint update (2026-10-03, restored sandbox with partial egress): registry.npmjs.org and index.crates.io reachable; static.crates.io blocked, so cargo can resolve but not download rstest/proptest — the connected-side prerequisite stands for the Rust half only. Decision gate on the Rust route (prescribed connected-side vs interim fastrand-based properties) is section 6 of the plan.
+<!-- SECTION:PLAN:END -->

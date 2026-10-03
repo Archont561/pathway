@@ -144,18 +144,128 @@ iteration. The pull-based model is "easier to cancel and bound than pushing
 every item through an unbounded ThreadsafeFunction queue" (napi.rs docs),
 and `return()` — invoked on early `break` — is the cancellation hook.
 
-**Decision:** Phase 1 Step 0 runs a 1–2 day spike on `#[napi(async_iterator)]`
-+ `AsyncTask` across Node 24/26 + Bun 1.3/1.4 before freezing the walker
-architecture. If it passes the napi.rs test checklist (forced GC, early
-break, overlapping `next()`, worker shutdown), the fused walk yields batches
-lazily as Rust traverses — eliminating eager full-scan latency, bounding
-memory to a prefetch window, and making `AbortSignal` cancellation native.
-Chunked paging (above) remains the fallback if the spike fails.
+**Decision (frozen 2026-10-03, task-1): chunked paging over `AsyncTask`.**
+The spike ran; the record below is the evidence. The iterator was not
+disqualified — it passed every checklist item on every runtime available —
+it was *unnecessary*: at the default batch size the two transports are
+within 8% of each other, and paging maps 1:1 onto the core's pull model
+(`scan` / `next_batch` / `cancel`) without taking a dependency on a surface
+napi-rs itself labels "experimental … not yet stable" in its rustdoc.
 
-Spike design constraints (from the docs): `Yield` must be `Send + 'static`
-owned values (our `FusedEntry` qualifies — no scoped JS values); overlapping
-`next()` calls are **not** serialized for us, so keep the cursor state
-machine.
+Spike design constraints (from the docs, confirmed in practice): `Yield`
+must be `Send + 'static` owned values (our `FusedEntry` qualifies — no
+scoped JS values); overlapping `next()` calls are **not** serialized for us,
+so the cursor state machine stays.
+
+---
+
+## Phase 1 Step 0 Spike Record (2026-10-03, task-1)
+
+A throwaway cdylib (napi 3.13.0 / napi-derive 3.6.9, the locked workspace
+versions) exposed the same payload — batches of `{value, isDir, size}`
+objects, the realistic marshaling shape — over both transports:
+`#[napi(async_iterator)]` (`AsyncGenerator` with `next`/`complete`/`catch`)
+and a `BatchPager` class paging through `AsyncTask`, mirroring
+`NativeScanner`. The crate was deleted after the measurements; this section
+is its surviving output.
+
+### Runtime matrix
+
+| Runtime | Checklist | Worker shutdown | Source |
+|---------|-----------|-----------------|--------|
+| Node 22.22.3 | 11/11 pass | survives | pixi env (conda-forge) |
+| Bun 1.3.11 | 11/11 pass | **segfault** (see below) | pixi env |
+| Bun 1.4.2 | 11/11 pass | survives | npm (`bun@1.4.2`) |
+| Node 24 / Node 26 | **not run** | **not run** | unavailable: the sandbox egress proxy blocks `nodejs.org`, and the conda env pins Node 22 |
+
+The Node 24/26 legs are a recorded gap, not a waiver: they must run in CI
+(`ci-distribution.md` matrix) before the first publish. The gap is also an
+argument *for* the frozen decision — `AsyncTask` is the decade-old Node-API
+mechanism, so the untested legs carry less unknown risk than they would
+under an experimental surface.
+
+### The napi.rs iterator checklist (all three runtimes)
+
+`next()` with and without its argument (undefined arrives as `None`, a value
+as `Some`); natural completion and `next()` after completion (stays
+`{done: true}`); early `break` (invokes `complete()` exactly once); explicit
+`return(value)`; cleanup failure (`complete()` erroring rejects the
+`return()` without crashing); default `throw(error)` (rejects with the
+thrown value) and recovered `throw` (a `catch()` that yields resumes
+iteration); two overlapping `next()` calls (both resolve, no duplicated
+cursor); dropping the original class while retaining only its iterator
+(napi-rs pins the instance via `[[InstanceRef]]`, napi-rs#3119); forced GC
+mid-iteration. 11/11 on Node 22.22.3, Bun 1.3.11 and Bun 1.4.2.
+
+### Worker-environment shutdown: the Bun 1.3 segfault
+
+Terminating a `worker_threads` Worker crashes **Bun 1.3.11** with
+`panic: Segmentation fault` — and the controls show it is not the
+iterator's fault: the same crash reproduces with the `AsyncTask` pager
+in flight, and with the addon merely `dlopen`ed and idle. Any napi addon
+loaded in a terminated worker brings the Bun 1.3.11 process down. Bun 1.4.2
+and Node 22 survive all three variants.
+
+Consequence: this is a **platform note, not a transport discriminator** —
+it changes nothing about the decision but it does mean "Bun 1.3/1.4
+supported through the same ABI" (README) needs a caveat for addon-in-worker
+use on 1.3, and the CI matrix must keep the worker-shutdown case.
+
+### Measurements (100 000 entries, median of 5)
+
+| Transport | Batch | Node 22.22.3 | Bun 1.3.11 | Bun 1.4.2 |
+|-----------|------:|-------------:|-----------:|----------:|
+| `async_iterator` | 64 | 184.6 ms | 161.3 ms | 152.6 ms |
+| `AsyncTask` page | 64 | 207.4 ms | 161.3 ms | 170.3 ms |
+| `async_iterator` | 512 | 105.3 ms | 92.3 ms | 79.0 ms |
+| `AsyncTask` page | 512 | 110.0 ms | 90.2 ms | 82.9 ms |
+| `async_iterator` | 4096 | 84.7 ms | 80.6 ms | 65.0 ms |
+| `AsyncTask` page | 4096 | 89.3 ms | 78.8 ms | 75.8 ms |
+
+What the numbers say: **batch size dominates, transport does not.** Going
+from 64 to 4096 entries per crossing roughly halves wall time on every
+runtime; swapping transport at a fixed batch size moves it by -2% to +12%,
+and at the default 512 the gap is ≤4.5% everywhere. The iterator's only
+consistent win (Bun 1.4.2 at 4096, 14%) is at a batch size large enough
+that the crossing count (26) stopped mattering.
+
+### `ThreadsafeFunction` scheduling, Bun 1.3 vs 1.4
+
+50 000 nonblocking calls fired from a plain OS thread, drained on the JS
+thread (the streaming-iterator path's push mechanism):
+
+| Runtime | Drain | Rate | Out-of-order | Max 1k-gap |
+|---------|------:|-----:|-------------:|-----------:|
+| Node 22.22.3 | 34.2 ms | 1.46 M/s | 0 | 1.4 ms |
+| Bun 1.3.11 | 26.5 ms | 1.88 M/s | 0 | 1.1 ms |
+| Bun 1.4.2 | 24.1 ms | 2.07 M/s | 0 | 1.7 ms |
+
+No reordering, no starvation, no coalescing anomalies on either Bun line;
+the 1.4 Rust rewrite is slightly faster with marginally burstier gaps.
+Nothing here blocks a TSFN-based path, but nothing demands one either.
+
+### The frozen decision
+
+**Chunked paging over `AsyncTask`**, because:
+
+1. **The performance difference does not pay for the risk.** ≤4.5% at the
+   batch size that ships; the knob that matters (batch size) exists in both
+   designs.
+2. **Stability asymmetry.** napi-rs's own rustdoc calls `AsyncGenerator`
+   "experimental … not yet stable"; `AsyncTask` is the mechanism Node-API
+   has had for years, and the untested Node 24/26 legs inherit that
+   asymmetry.
+3. **Shape match.** `NativeScanner` already is a pager (`scan`,
+   `next_batch`, `cancel`); paging keeps `crates/engine` glue-only (D7),
+   while the iterator would add a second state machine (`complete`/`catch`
+   semantics) the TypeScript surface never exposes — `walk()` yields
+   `WalkBatch`es either way, which is exactly why the API was frozen before
+   the spike.
+
+**Revisit when** napi-rs stabilizes `async_iterator` (drops the
+experimental label) *and* a measured workload shows per-entry streaming —
+not batch paging — is the bottleneck. The checklist above is the regression
+suite for that future spike.
 
 ---
 
@@ -226,7 +336,7 @@ binary distribution is mature. No reason to evaluate alternatives.
 |----------|-----------|
 | `pathe` for all string ops | 10–40x faster than FFI round-trip for pure string work |
 | Coarse-grained FFI only | Bulk ops, native codecs, OS primitives — nothing else |
-| Batched yields (512) / native async iterator (spike) | Minimize N-API crossings; pull-based native iterators (experimental, Sept 2026) enable true streaming + cancellation if the Phase-1 spike passes |
+| Batched yields (512) over `AsyncTask` chunked paging | Spike-measured (2026-10-03): transport moves ≤4.5% at batch 512 while batch size dominates; `async_iterator` stays experimental upstream — revisit on stabilization |
 | Blocking work via `AsyncTask` | Per NAPI-RS decision table: libuv pool for blocking/CPU; avoids occupying a Tokio worker |
 | No WASM | Filesystem needs real OS access; WASM sandbox is wrong model |
 | No `bun:ffi` | Experimental; Node-API is stable and works on Bun |
