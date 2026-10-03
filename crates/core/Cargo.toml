@@ -36,3 +36,12 @@ tempfile = { workspace = true }
 fs2 = { workspace = true }
 rayon = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+# Test frameworks only (task-28). `[dev-dependencies]` and not
+# `[dependencies]` is the whole point: a test framework in `[dependencies]`
+# becomes something every consumer of pathway-fs-core must resolve and link
+# against in order to build, to serve tests nobody downstream asked for. Dev
+# deps stop at this crate's own test run.
+rstest = { workspace = true }
+proptest = { workspace = true }

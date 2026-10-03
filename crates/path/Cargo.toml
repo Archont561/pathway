@@ -21,3 +21,9 @@ crate-type = ["rlib"]
 pathway-fs-core = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+# Test frameworks only (task-28), same rule as core: dev-only, so the published
+# crate's own graph stays free of a test framework.
+rstest = { workspace = true }
+proptest = { workspace = true }

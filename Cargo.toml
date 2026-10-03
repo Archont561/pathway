@@ -72,6 +72,47 @@ fs2 = "0.4"
 rayon = "1"
 thiserror = "2"
 
+# The Phase 3/4 engine crates, pinned here so a version bump is one edit. They
+# are *declared, not installed*: the member that consumes each opts in with
+# `{ workspace = true }` when its task lands, and until then the crate is
+# absent from Cargo.lock and from the airlock transport. Add one at the moment
+# its task writes the code that uses it, not before.
+#
+# Codecs (task-22): CBOR and MessagePack go native because the JS decoders are
+# the slow path in `.knowledge/features/serializers.md`. JSON5 deliberately
+# stays in JS — the native saving there is not worth an FFI hop.
+ciborium = "0.2"
+rmp-serde = "1"
+
+# Transformers (task-20). brotli is a separate crate rather than an flate2
+# backend because it is a different codec, not a different container.
+flate2 = "1"
+brotli = "9"
+
+# Detectors (task-23): magic-byte MIME and character encoding. encoding_rs is
+# licensed `(Apache-2.0 OR MIT) AND BSD-3-Clause`, all three of which are
+# already on the deny.toml allow list, so it adds no licence policy.
+infer = "0.22"
+encoding_rs = "0.8"
+
+# Native project watching (task-25). notify, not chokidar — "uninstall
+# chokidar" is the pitch, so a JS watcher cannot be the answer. CC0-1.0, which
+# deny.toml already allows.
+notify = "8"
+
+# Path/module resolution (task-24): unrs-resolver behind the TypeScript
+# `Resolver` interface. It is enhanced-resolve + tsconfig paths + tsconfck + PnP
+# with an LRU cache, which is why this integrates instead of reimplementing
+# (`.knowledge/features/pluggable-patterns.md`).
+unrs-resolver = "1"
+
+# Test frameworks (task-28), and the only entries here that are dev-only. The
+# bounds are the ones task-28 pins. Nothing in `src/` may reach for either: a
+# crate that needs proptest to build is a crate whose consumers need proptest
+# too. Members opt in under `[dev-dependencies]`, never `[dependencies]`.
+rstest = ">=0.27,<0.28"
+proptest = ">=1.6,<2"
+
 # The N-API bridge (D1 layer 2). `async` pulls in `tokio_rt`, which is what the
 # experimental `#[napi(async_iterator)]` / `AsyncTask` spike in Step 0
 # evaluated — the spike froze chunked `AsyncTask` paging (task-1, see

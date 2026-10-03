@@ -63,36 +63,46 @@ the same tree-building code.
 
 ---
 
-## ⚠️ Prerequisite: none of these dependencies exist offline
+## ⚠️ Prerequisite: the dependencies are declared, the transport is not
 
-**Read this before picking the task up in a restored sandbox.** Verified
-2026-10-02:
+**Read this before picking the task up in a restored sandbox.** Originally
+verified 2026-10-02, when none of the three existed anywhere; re-verified
+2026-10-03 on a connected machine, where steps 1–3 have since landed:
 
-| Dependency | State | Checked by |
+| Dependency | Resolved | Declared at |
 | --- | --- | --- |
-| `rstest` | **not vendored** | absent from `.pixi-sandbox/vendor` (100 crates) |
-| `proptest` | **not vendored** | absent from `.pixi-sandbox/vendor` |
-| `fast-check` | **not in the lockfile** | `grep -c fast-check bun.lock` → `0` |
+| `rstest` | `0.27.0` | root `Cargo.toml` `[workspace.dependencies]`, `crates/core` + `crates/path` `[dev-dependencies]` |
+| `proptest` | `1.11.0` | same two manifests, same sections |
+| `fast-check` | `4.10.2` | `packages/path` `devDependencies` |
 
-An airlocked machine cannot add any of them: `pixi add` and `cargo add` both
-solve before they write, and prefix.dev and the crates.io index are precisely
-what the airlock cannot reach. So the first step is a **connected-side** one,
-and it is not optional:
+Both lockfiles carry them (`Cargo.lock`, `bun.lock`), and
+`cargo deny check bans licenses sources` is green with them in the graph — all
+three are MIT/Apache-2.0, so `deny.toml` needed no edit.
 
-1. Add `rstest` and `proptest` to `[workspace.dependencies]` in the root
-   `Cargo.toml` and `fast-check` to the consuming package's
-   `devDependencies`; push with the locks left stale.
-2. Let the connected side refresh `Cargo.lock` and `bun.lock`.
-3. Check the new licences against `deny.toml` — `pixi run lint` runs
-   `cargo deny check bans licenses sources`, and a new licence fails it.
+An airlocked machine still cannot use them. `pixi add` and `cargo add` both solve
+before they write, and prefix.dev and the crates.io index are precisely what the
+airlock cannot reach, so this was a **connected-side** step and it is only
+partly done:
+
+1. ~~Add `rstest` and `proptest` to `[workspace.dependencies]` in the root
+   `Cargo.toml` and `fast-check` to the consuming package's `devDependencies`.~~
+   **Done.**
+2. ~~Let the connected side refresh `Cargo.lock` and `bun.lock`.~~ **Done.**
+3. ~~Check the new licences against `deny.toml`.~~ **Done** — green, no edits
+   needed.
 4. **Repack and republish the sandbox transport**
    (`sandbox-pack` → `sandbox-doctor` → `sandbox-publish`). A merged lockfile
    does not make a crate usable in the airlock; only a transport carrying it
-   does.
+   does. **Still outstanding.**
 
 Until step 4 lands, `cargo build --offline` in a restored environment will fail
-on the new crates. Suggested bounds, matching geoquery: `rstest >=0.24,<0.26`,
-`proptest >=1.6,<2`, `fast-check ^4.10.2`.
+on the new crates. Bounds, as declared: `rstest >=0.27,<0.28`, `proptest >=1.6,<2`,
+`fast-check ^4.10.2`.
+
+`rstest` was bumped off the `>=0.24,<0.26` bound this task originally suggested:
+0.26 and 0.27 are additive (0.27 raises MSRV to 1.85.0, still under the
+workspace's 1.98), and 0.26 drops the default `async-std` dependency and adds
+folder support to `#[files(...)]`, both of which this task benefits from.
 
 All three are **dev-only**. Nothing in `src/` may depend on a test framework: a
 crate that needs `proptest` to build is a crate whose consumers need `proptest`
