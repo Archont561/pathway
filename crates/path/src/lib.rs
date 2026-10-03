@@ -29,6 +29,14 @@
 #![warn(clippy::pedantic)]
 
 /// The version of this crate, as a string.
+///
+/// # Examples
+///
+/// ```
+/// // Phase 1 releases everything in lockstep from the workspace version;
+/// // independent semver begins when the preview ships (see the timeline).
+/// assert_eq!(pathway_fs::VERSION, pathway_fs::core::VERSION);
+/// ```
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// The core engine this surface is a view over.
@@ -36,6 +44,16 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Re-exported so a consumer that depends only on `pathway-fs` can still reach
 /// the low-level API — the curated core surface is the escape hatch from the
 /// ergonomic one, and hiding it would make the ergonomic surface the only door.
+///
+/// # Examples
+///
+/// ```
+/// use pathway_fs::core::hash::Algorithm;
+///
+/// // The whole engine is reachable through the re-export.
+/// assert_eq!(Algorithm::from_name("blake3")?.name(), "blake3");
+/// # Ok::<(), pathway_fs::core::error::Error>(())
+/// ```
 pub use pathway_fs_core as core;
 
 #[cfg(test)]

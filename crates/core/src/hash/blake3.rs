@@ -12,6 +12,12 @@
 //! branch, where it builds nothing an airlock restores.
 
 /// The identifier this hasher is selected by.
+///
+/// # Examples
+///
+/// ```
+/// assert_eq!(pathway_fs_core::hash::blake3::NAME, "blake3");
+/// ```
 pub const NAME: &str = "blake3";
 
 /// BLAKE3 over a stream of chunks.
@@ -19,6 +25,26 @@ pub const NAME: &str = "blake3";
 /// `::blake3` rather than `blake3`: this module *is* `crate::hash::blake3`, so
 /// the bare name resolves here and not to the crate. Naming the module after
 /// the algorithm is worth that one leading `::`.
+///
+/// # Examples
+///
+/// The example is on the type rather than repeated on `new`/`update`/`finish`
+/// deliberately: it exercises the whole lifecycle, and the invariant it shows
+/// — the digest is independent of how the input was chunked — is the property
+/// the fused walk relies on.
+///
+/// ```
+/// use pathway_fs_core::hash::blake3::Hasher;
+///
+/// let mut chunked = Hasher::new();
+/// chunked.update(b"he");
+/// chunked.update(b"llo");
+///
+/// let mut whole = Hasher::new();
+/// whole.update(b"hello");
+///
+/// assert_eq!(chunked.finish(), whole.finish());
+/// ```
 #[derive(Debug)]
 pub struct Hasher(::blake3::Hasher);
 

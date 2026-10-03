@@ -22,6 +22,32 @@
 /// value that is cloned and compared, so the fields a caller actually branches
 /// on are the cheap ones (`is_dir`, `size`) and the expensive one (`hash`) is
 /// already an owned `String`.
+///
+/// # Examples
+///
+/// Failure is a field, not a batch: an entry that could not be completed is
+/// still a result, with what *was* known populated.
+///
+/// ```
+/// use pathway_fs_core::walk::FusedEntry;
+///
+/// let entry = FusedEntry {
+///     path: "src/a.ts".into(),
+///     is_dir: false,
+///     size: Some(12),
+///     modified_nanos: None,
+///     hash: None,
+///     error: Some(pathway_fs_core::error::Error::io(
+///         "read",
+///         "src/a.ts",
+///         std::io::Error::from(std::io::ErrorKind::PermissionDenied),
+///     )),
+/// };
+///
+/// // The path and the stat survive the failure.
+/// assert_eq!(entry.size, Some(12));
+/// assert!(entry.error.is_some());
+/// ```
 #[derive(Debug)]
 pub struct FusedEntry {
     /// The path, relative to the walk root unless `absolute` was set.

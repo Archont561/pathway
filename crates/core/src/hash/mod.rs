@@ -44,6 +44,13 @@ use crate::error::{Error, Result};
 /// option: a caller who tunes it is tuning against their own disk, and the
 /// number that matters for the claim in `.knowledge/architecture/fused-walk.md`
 /// is the one every measurement was taken at.
+///
+/// # Examples
+///
+/// ```
+/// // 64 KiB — the size every benchmark figure in the knowledge base assumes.
+/// assert_eq!(pathway_fs_core::hash::CHUNK_SIZE, 64 * 1024);
+/// ```
 pub const CHUNK_SIZE: usize = 64 * 1024;
 
 /// Which hash algorithm to compute.
@@ -53,6 +60,18 @@ pub const CHUNK_SIZE: usize = 64 * 1024;
 /// files must not re-interpret the word `"blake3"` 100 000 times, and an
 /// unrecognised name is a caller's mistake that should be reported before the
 /// walk starts rather than attached to every entry in it.
+///
+/// # Examples
+///
+/// ```
+/// use pathway_fs_core::hash::Algorithm;
+///
+/// // Every algorithm round-trips through its public spelling.
+/// for algorithm in [Algorithm::Blake3, Algorithm::Xxhash, Algorithm::Sha256] {
+///     assert_eq!(Algorithm::from_name(algorithm.name())?, algorithm);
+/// }
+/// # Ok::<(), pathway_fs_core::error::Error>(())
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Algorithm {
     /// BLAKE3 — the default.
@@ -74,6 +93,19 @@ impl Algorithm {
     /// # Errors
     ///
     /// [`Error::UnknownHasher`] if the name is not one of the three.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pathway_fs_core::hash::Algorithm;
+    ///
+    /// assert_eq!(Algorithm::from_name("xxhash")?, Algorithm::Xxhash);
+    ///
+    /// // No aliases, and the rejection names the spelling it got.
+    /// let error = Algorithm::from_name("fast").unwrap_err();
+    /// assert!(error.to_string().contains("fast"));
+    /// # Ok::<(), pathway_fs_core::error::Error>(())
+    /// ```
     pub fn from_name(name: &str) -> Result<Self> {
         match name {
             blake3::NAME => Ok(Self::Blake3),
@@ -84,6 +116,14 @@ impl Algorithm {
     }
 
     /// The public spelling of this algorithm.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pathway_fs_core::hash::Algorithm;
+    ///
+    /// assert_eq!(Algorithm::Blake3.name(), "blake3");
+    /// ```
     #[must_use]
     pub fn name(self) -> &'static str {
         match self {
@@ -159,6 +199,22 @@ impl State {
 /// # Errors
 ///
 /// Any read error from the underlying reader, attributed to `path`.
+///
+/// # Examples
+///
+/// ```
+/// use std::path::Path;
+///
+/// use pathway_fs_core::hash::{hash_reader, Algorithm};
+///
+/// // Any `Read` will do; `path` only labels a potential failure.
+/// let digest = hash_reader(&b"hello"[..], Algorithm::Sha256, Path::new("<memory>"))?;
+/// assert_eq!(
+///     digest,
+///     "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+/// );
+/// # Ok::<(), pathway_fs_core::error::Error>(())
+/// ```
 pub fn hash_reader(mut reader: impl Read, algorithm: Algorithm, path: &Path) -> Result<String> {
     let mut state = State::new(algorithm);
     let mut buffer = vec![0u8; CHUNK_SIZE];

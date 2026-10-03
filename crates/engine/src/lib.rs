@@ -16,13 +16,15 @@
 //! # Concurrency
 //!
 //! A walk is blocking and CPU-bound, so it runs through `napi::bindgen_prelude::AsyncTask`
-//! on the libuv thread pool rather than on the JavaScript thread. Whether that
-//! stays the mechanism or is replaced by the experimental
-//! `#[napi(async_iterator)]` is the open question in
-//! `backlog/docs/phase-plan.md` Step 0; both are behind the same
-//! TypeScript API, which is the point of freezing the API before the spike.
+//! on the libuv thread pool rather than on the JavaScript thread. That *is*
+//! the frozen mechanism: the Step 0 spike (task-1) measured chunked paging
+//! against the experimental `#[napi(async_iterator)]` and froze paging — the
+//! record, with the measurements, is in
+//! `.knowledge/architecture/napi-boundary.md`.
 
 #![deny(missing_docs)]
+
+pub mod walk;
 
 use napi_derive::napi;
 

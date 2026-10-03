@@ -10,9 +10,35 @@
 //! chosen by how the caller was feeling is a hasher nobody can audit.
 
 /// The identifier this hasher is selected by.
+///
+/// # Examples
+///
+/// ```
+/// assert_eq!(pathway_fs_core::hash::xxhash::NAME, "xxhash");
+/// ```
 pub const NAME: &str = "xxhash";
 
 /// XXH3-64 over a stream of chunks.
+///
+/// # Examples
+///
+/// The example is on the type rather than repeated on `new`/`update`/`finish`
+/// deliberately: it exercises the whole lifecycle, and the invariant it shows
+/// — the digest is independent of how the input was chunked — is the property
+/// the fused walk relies on.
+///
+/// ```
+/// use pathway_fs_core::hash::xxhash::Hasher;
+///
+/// let mut chunked = Hasher::new();
+/// chunked.update(b"he");
+/// chunked.update(b"llo");
+///
+/// let mut whole = Hasher::new();
+/// whole.update(b"hello");
+///
+/// assert_eq!(chunked.finish(), whole.finish());
+/// ```
 pub struct Hasher(xxhash_rust::xxh3::Xxh3);
 
 // By hand, because `Xxh3` does not implement `Debug` and this crate warns on

@@ -55,6 +55,12 @@ use crate::hash::{hash_file, Algorithm};
 /// A walk of an unreadable tree can produce one error per entry, and a million
 /// `EACCES` strings is not a diagnostic — it is a second memory problem on top
 /// of the first. The first thousand say everything a caller needs.
+///
+/// # Examples
+///
+/// ```
+/// assert_eq!(pathway_fs_core::walk::MAX_REPORTED_ERRORS, 1_000);
+/// ```
 pub const MAX_REPORTED_ERRORS: usize = 1_000;
 
 /// The default number of entries in one batch.
@@ -62,6 +68,14 @@ pub const MAX_REPORTED_ERRORS: usize = 1_000;
 /// 512, and it is the number every benchmark in
 /// `.knowledge/architecture/fused-walk.md` is quoted at. Tuning it is task-4's
 /// job, with evidence.
+///
+/// # Examples
+///
+/// ```
+/// use pathway_fs_core::walk::{ScanOptions, DEFAULT_BATCH_SIZE};
+///
+/// assert_eq!(ScanOptions::default().batch_size, DEFAULT_BATCH_SIZE);
+/// ```
 pub const DEFAULT_BATCH_SIZE: usize = 512;
 
 /// Everything that configures one walk.
@@ -76,6 +90,24 @@ pub const DEFAULT_BATCH_SIZE: usize = 512;
 /// named field in the public `WalkOptions` object a TypeScript caller writes,
 /// and inventing a grouping here would mean the engine bridge translating a
 /// flat JS object into a shape that exists only to satisfy a lint.
+///
+/// # Examples
+///
+/// A struct literal over [`Default`], which is exactly how the engine bridge
+/// builds it from a decoded JavaScript object:
+///
+/// ```
+/// use pathway_fs_core::walk::ScanOptions;
+///
+/// let options = ScanOptions {
+///     glob: vec!["**/*.ts".to_owned()],
+///     files_only: false,
+///     ..ScanOptions::default()
+/// };
+///
+/// assert!(!options.dot, "hidden entries are skipped unless asked for");
+/// assert!(!options.gitignore);
+/// ```
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone)]
 pub struct ScanOptions {
@@ -180,6 +212,11 @@ impl NativeScanner {
     ///
     /// [`Error::Io`] if the root cannot be resolved, or [`Error::Glob`] /
     /// [`Error::Regex`] if a pattern does not compile.
+    ///
+    /// # Examples
+    ///
+    /// Deliberately not repeated here: the [`NativeScanner`] type-level
+    /// example begins with this constructor.
     pub fn new(root: impl AsRef<Path>, options: ScanOptions) -> Result<Self> {
         let root = root.as_ref();
         let canonical = std::fs::canonicalize(root)
@@ -199,6 +236,20 @@ impl NativeScanner {
     }
 
     /// The canonical root this scanner walks.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pathway_fs_core::walk::{NativeScanner, ScanOptions};
+    ///
+    /// let dir = tempfile::tempdir()?;
+    /// let scanner = NativeScanner::new(dir.path(), ScanOptions::default())?;
+    ///
+    /// // Canonicalised at construction — symlinks in the root are resolved
+    /// // here, which is what makes the regex-vs-absolute-path rule coherent.
+    /// assert_eq!(scanner.root(), std::fs::canonicalize(dir.path())?);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub fn root(&self) -> &Path {
         &self.root
@@ -214,6 +265,12 @@ impl NativeScanner {
     /// Does not fail on an unreadable entry — those are collected and reported
     /// by [`errors`](Self::errors). The `Result` is reserved for a failure that
     /// invalidates the whole walk.
+    ///
+    /// # Examples
+    ///
+    /// Deliberately not repeated here: the [`NativeScanner`] type-level
+    /// example is the `scan` → `next_batch` lifecycle, and a second copy
+    /// would be a second place for it to rot.
     pub fn scan(&self) -> Result<usize> {
         let mut builder = WalkBuilder::new(&self.root);
         builder
@@ -299,6 +356,20 @@ impl NativeScanner {
     }
 
     /// Whether [`scan`](Self::scan) has completed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pathway_fs_core::walk::{NativeScanner, ScanOptions};
+    ///
+    /// let dir = tempfile::tempdir()?;
+    /// let scanner = NativeScanner::new(dir.path(), ScanOptions::default())?;
+    ///
+    /// assert!(!scanner.has_scanned());
+    /// scanner.scan()?;
+    /// assert!(scanner.has_scanned());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub fn has_scanned(&self) -> bool {
         self.scanned.load(Ordering::Acquire)
@@ -309,6 +380,11 @@ impl NativeScanner {
     /// Returns an empty vector once the results are exhausted. Entries are
     /// *moved*, not copied — see this module's header for why there is no way
     /// to rewind.
+    ///
+    /// # Examples
+    ///
+    /// Deliberately not repeated here: the [`NativeScanner`] type-level
+    /// example drains a batch and asserts the exhaustion sentinel.
     #[must_use]
     pub fn next_batch(&self) -> Vec<FusedEntry> {
         let size = self.options.batch_size.max(1);
@@ -322,11 +398,33 @@ impl NativeScanner {
     /// An `AtomicBool` checked per entry, which is what task-3 wires a JS
     /// `AbortSignal` to. A cancelled walk is not an error: it yields what it
     /// had collected when the flag was seen.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pathway_fs_core::walk::{NativeScanner, ScanOptions};
+    ///
+    /// let dir = tempfile::tempdir()?;
+    /// std::fs::write(dir.path().join("a.ts"), b"")?;
+    /// let scanner = NativeScanner::new(dir.path(), ScanOptions::default())?;
+    ///
+    /// scanner.cancel();
+    /// assert!(scanner.is_cancelled());
+    ///
+    /// // Cancelled before the walk began: nothing is collected, no error.
+    /// assert_eq!(scanner.scan()?, 0);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::Release);
     }
 
     /// Whether cancellation has been requested.
+    ///
+    /// # Examples
+    ///
+    /// Deliberately not repeated here: the [`cancel`](Self::cancel) example
+    /// asserts both sides of the flag.
     #[must_use]
     pub fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::Acquire)
@@ -334,6 +432,20 @@ impl NativeScanner {
 
     /// The traversal and hash failures this walk collected, capped at
     /// [`MAX_REPORTED_ERRORS`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pathway_fs_core::walk::{NativeScanner, ScanOptions};
+    ///
+    /// let dir = tempfile::tempdir()?;
+    /// std::fs::write(dir.path().join("a.ts"), b"")?;
+    /// let scanner = NativeScanner::new(dir.path(), ScanOptions::default())?;
+    ///
+    /// scanner.scan()?;
+    /// assert!(scanner.errors().is_empty(), "a clean walk reports nothing");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub fn errors(&self) -> Vec<String> {
         lock(&self.errors).clone()

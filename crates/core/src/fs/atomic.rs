@@ -27,6 +27,19 @@
 /// fails, including when it fails partway — a reader of `target` may therefore
 /// see a truncated file until this function is implemented properly, which is
 /// the reason it is a scaffold and not the finished behaviour.
+///
+/// # Examples
+///
+/// ```
+/// use pathway_fs_core::fs::atomic::write_atomic;
+///
+/// let dir = tempfile::tempdir()?;
+/// let target = dir.path().join("config.json");
+///
+/// write_atomic(&target, b"{}")?;
+/// assert_eq!(std::fs::read(&target)?, b"{}");
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub fn write_atomic(target: &std::path::Path, bytes: &[u8]) -> crate::error::Result<()> {
     // Phase 2. Until then, writing in place is honest about what it is.
     std::fs::write(target, bytes).map_err(|source| crate::error::Error::io("write", target, source))

@@ -35,6 +35,15 @@ The `.knowledge/` directory contains the OKF v0.2 bundle (architecture, features
 - **backlog.md** (`pixi run backlog`) for Markdown tasks.
 - **skills** (`pixi run skills`) for agent skills vendored under `.agents/skills/`.
 
+## Implementing changes: consult the vendored skills
+
+The repo vendors the process skills under `.agents/skills/` (pinned by `skills-lock.json` — consult these local copies, not external ones, because the lock pins what was reviewed):
+
+- **Implementing a feature or fix → [`.agents/skills/tdd/SKILL.md`](.agents/skills/tdd/SKILL.md).** Work the red → green loop: failing test first at a public seam, minimal code to pass, one seam/one test/one implementation per cycle. Consult it before and during the work, not after.
+- **Restructuring without changing behaviour → [`.agents/skills/refactor/SKILL.md`](.agents/skills/refactor/SKILL.md).** Clear purpose, tests exist first, small steps with gates green between them, and never mix refactoring with feature changes in one step.
+
+The skills are the reference for *how*; this file remains the reference for *what* (gates, layout, conventions). Red → green cycles and refactor steps are separate commits, consistent with the Commits section below.
+
 ## Code Style
 
 - Rust: `cargo fmt`, `cargo clippy` (warnings -> errors in CI). Prefer `Result<T, Error>`. The core must remain napi-free.
