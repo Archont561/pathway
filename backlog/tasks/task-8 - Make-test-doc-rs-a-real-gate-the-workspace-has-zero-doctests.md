@@ -1,10 +1,10 @@
 ---
 id: TASK-8
 title: 'Make the Rust doctest gate real: the workspace has zero doctests'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-30 13:01'
-updated_date: '2026-09-30 20:24'
+updated_date: '2026-10-03 11:06'
 labels:
   - rust
   - testing
@@ -31,8 +31,14 @@ Two ways to close this, and the choice is the point of the task: write doctests 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every public item in `pathway-fs-core` and `pathway-fs` either carries a rustdoc example or has a recorded reason it does not
-- [ ] #2 `bun run --cwd crates test:doc` reports a non-zero number of doctests run
-- [ ] #3 A deliberately broken example in a doc comment makes `pixi run test` fail (verify by temporarily breaking one)
+- [x] #1 Every public item in `pathway-fs-core` and `pathway-fs` either carries a rustdoc example or has a recorded reason it does not
+- [x] #2 `bun run --cwd crates test:doc` reports a non-zero number of doctests run
+- [x] #3 A deliberately broken example in a doc comment makes `pixi run test` fail (verify by temporarily breaking one)
 - [ ] #4 If the decision is instead to remove the gate, `crates/package.json` drops `test:doc` from its `test` script and records in a comment why and when it should return
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Decision: write the doctests now (option A) — task-3 just landed the real walk bridge, so the public surface is worth documenting. test:doc now reports 33 (core) + 2 (path) doctests, up from 2 total. Items whose example would duplicate the type-level lifecycle example carry that as the recorded reason in the doc comment itself (NativeScanner::{new,scan,next_batch,is_cancelled}, the per-algorithm Hasher methods). AC#3 verified live: broke Algorithm::name's example, pixi run test failed on exactly that doctest, restored, gates green. AC#4 n/a — the gate stays.
+<!-- SECTION:NOTES:END -->
