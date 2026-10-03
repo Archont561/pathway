@@ -21,8 +21,18 @@
  * loader the moment there is something to load.
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join } from "node:path";
+import type { PathEntry } from "./types.js";
+
+/**
+ * `require`, reconstructed for ESM. A bare `require(file)` only *looks*
+ * portable from a Bun test run — Bun injects `require` into ES modules, Node
+ * does not, so the untestable-under-Bun failure mode was Node throwing at the
+ * first real `loadEngine()` call. (Caught by the task-3 Node smoke run.)
+ */
+const requireAddon = createRequire(import.meta.url);
 
 /**
  * How to build the addon, spelled out for the error message. `build-native` is
@@ -75,12 +85,53 @@ function addonFileName(platform: string, arch: string): string {
 /** The package root, where `napi build --output-dir .` drops the addon. */
 const PACKAGE_ROOT = join(import.meta.dirname, "..");
 
+/**
+ * The options object the native `Walker` constructor decodes.
+ *
+ * Field-for-field what `crates/engine/src/walk.rs` declares as
+ * `WalkerOptions`; the engine applies the defaults, so absence here means
+ * "the engine decides", never a second default table on this side.
+ */
+export interface NativeWalkerOptions {
+  readonly glob?: readonly string[];
+  readonly regex?: string;
+  readonly exclude?: readonly string[];
+  readonly dot?: boolean;
+  readonly gitignore?: boolean;
+  readonly absolute?: boolean;
+  readonly maxDepth?: number;
+  readonly filesOnly?: boolean;
+  readonly withMetadata?: boolean;
+  readonly hash?: string;
+  readonly batchSize?: number;
+  readonly concurrency?: number;
+}
+
+/**
+ * The paged walk handle (`crates/engine/src/walk.rs`, transport frozen by
+ * task-1): construct, `scan()` once, `nextBatch()` until empty, `cancel()`
+ * anytime. The entries come back already shaped as {@link PathEntry} —
+ * that is a deliberate contract between the two files, so the generator in
+ * `walk.ts` yields them without a per-entry re-mapping pass.
+ */
+export interface NativeWalker {
+  scan(): Promise<number>;
+  nextBatch(): Promise<PathEntry[]>;
+  cancel(): void;
+  errors(): string[];
+}
+
 /** The symbols the generated loader is expected to export. */
 export interface NativeEngine {
   /** The engine crate's version, used to refuse a stale `.node` file. */
   engineVersion(): string;
   /** The Node-API version the addon was compiled against. */
   napiVersion(): number;
+  /** The paged walk, one instance per `walk()` call. */
+  Walker: new (
+    root: string,
+    options?: NativeWalkerOptions
+  ) => NativeWalker;
 }
 
 let cached: NativeEngine | null = null;
@@ -107,10 +158,47 @@ export function loadEngine(): NativeEngine {
   // Required lazily and through a non-literal specifier: a literal
   // `import "./pathway.linux-x64-gnu.node"` would have to name this host's
   // platform at build time, which is the hand-written list again.
-  const loaded = require(file) as Partial<NativeEngine>;
+  const loaded = requireAddon(file) as Partial<NativeEngine>;
   if (typeof loaded.engineVersion !== "function" || typeof loaded.napiVersion !== "function") {
     throw new Error(
       `The native engine at ${file} is missing engineVersion()/napiVersion(). ` +
+        "It was probably built from a different revision — rebuild it."
+    );
+  }
+
+  // The two version guards, in order of how misleading the failure would
+  // otherwise be.
+  //
+  // A stale `.node` from an earlier checkout is refused by comparing the
+  // engine's compiled-in version against this package's manifest — the two
+  // are the same workspace version by construction (a test asserts it), so
+  // an inequality can only mean the binary predates the sources around it.
+  const engineVersion = loaded.engineVersion();
+  const packageVersion = (
+    JSON.parse(readFileSync(join(PACKAGE_ROOT, "package.json"), "utf8")) as { version: string }
+  ).version;
+  if (engineVersion !== packageVersion) {
+    throw new Error(
+      `The native engine at ${file} is version ${engineVersion}, but this package is ` +
+        `${packageVersion} — a stale build.\n\n${BUILD_HINT}`
+    );
+  }
+
+  // The Node-API floor: the addon declares the napi version it was compiled
+  // against, and a runtime older than that floor would otherwise fail with a
+  // missing-symbol error at the first call instead of a sentence at import.
+  const requiredNapi = loaded.napiVersion();
+  const runtimeNapi = Number(process.versions.napi ?? NaN);
+  if (!Number.isNaN(runtimeNapi) && runtimeNapi < requiredNapi) {
+    throw new Error(
+      `The native engine needs Node-API ${requiredNapi}, but this runtime provides ` +
+        `${runtimeNapi}. Upgrade the runtime (engines.node in package.json is the floor).`
+    );
+  }
+
+  if (typeof loaded.Walker !== "function") {
+    throw new Error(
+      `The native engine at ${file} is missing the Walker class. ` +
         "It was probably built from a different revision — rebuild it."
     );
   }

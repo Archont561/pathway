@@ -73,11 +73,14 @@ rayon = "1"
 thiserror = "2"
 
 # The N-API bridge (D1 layer 2). `async` pulls in `tokio_rt`, which is what the
-# experimental `#[napi(async_iterator)]` / `AsyncTask` spike in Step 0 is
-# meant to evaluate. `serde-json` converts `serde_json::Value` to `JsUnknown`
-# for the native TOML/YAML serializers. Both are experimental surfaces upstream:
-# the version is pinned to a range and the Step 0 spike is what freezes it.
-napi = { version = "3", features = ["async", "serde-json"] }
+# experimental `#[napi(async_iterator)]` / `AsyncTask` spike in Step 0
+# evaluated — the spike froze chunked `AsyncTask` paging (task-1, see
+# `.knowledge/architecture/napi-boundary.md`). `serde-json` converts
+# `serde_json::Value` to `JsUnknown` for the native TOML/YAML serializers.
+# `napi8` matches `pathway_fs_core::NAPI_VERSION` (the declared floor) and is
+# what gates BigInt conversions — `modified_nanos: i128` crosses as a BigInt,
+# which needs napi6+.
+napi = { version = "3", features = ["async", "serde-json", "napi8"] }
 napi-derive = "3"
 napi-build = "2"
 tokio = { version = "1", features = ["rt-multi-thread"] }
