@@ -51,6 +51,14 @@ pub mod walk;
 /// Read by the engine's `#[napi]` bindings so the TypeScript surface can assert
 /// that the addon it loaded is the addon it was compiled against — a stale
 /// `.node` file next to a fresh `dist/` is otherwise a silent mismatch.
+///
+/// # Examples
+///
+/// ```
+/// // One workspace version for everything — this is the same string the
+/// // npm package's manifest must carry, and a semver one at that.
+/// assert_eq!(pathway_fs_core::VERSION.split('.').count(), 3);
+/// ```
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// The Node-API version this engine is built against.
@@ -59,6 +67,14 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// TypeScript `engines.node` range and the CI matrix have to be a subset of
 /// what this constant implies, or the addon will load on a runtime that cannot
 /// satisfy it.
+///
+/// # Examples
+///
+/// ```
+/// // The TypeScript loader refuses a runtime whose `process.versions.napi`
+/// // is below this floor, at import rather than at the first missing symbol.
+/// assert!(pathway_fs_core::NAPI_VERSION >= 8);
+/// ```
 pub const NAPI_VERSION: u32 = 8;
 
 #[cfg(test)]

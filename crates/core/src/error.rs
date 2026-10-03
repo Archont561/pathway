@@ -12,6 +12,20 @@ use std::io;
 use std::path::PathBuf;
 
 /// Everything the core can fail with.
+///
+/// # Examples
+///
+/// The enum is `#[non_exhaustive]`: match what you handle, wildcard the rest.
+///
+/// ```
+/// use pathway_fs_core::error::Error;
+/// use pathway_fs_core::hash::Algorithm;
+///
+/// match Algorithm::from_name("md5").unwrap_err() {
+///     Error::UnknownHasher(name) => assert_eq!(name, "md5"),
+///     other => panic!("wrong variant: {other}"),
+/// }
+/// ```
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum Error {
@@ -86,6 +100,20 @@ pub enum Error {
 }
 
 /// The result type every fallible core function returns.
+///
+/// # Examples
+///
+/// ```
+/// use pathway_fs_core::error::Result;
+/// use pathway_fs_core::hash::Algorithm;
+///
+/// fn pick(name: &str) -> Result<Algorithm> {
+///     Algorithm::from_name(name)
+/// }
+///
+/// assert!(pick("blake3").is_ok());
+/// assert!(pick("md5").is_err());
+/// ```
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
@@ -94,6 +122,23 @@ impl Error {
     /// Every `io::Error` crossing into this enum goes through here, so the
     /// `operation` label and the path are recorded at the point of failure
     /// rather than reconstructed by the caller that catches it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pathway_fs_core::error::Error;
+    ///
+    /// let error = Error::io(
+    ///     "stat",
+    ///     "src/a.ts",
+    ///     std::io::Error::from(std::io::ErrorKind::PermissionDenied),
+    /// );
+    ///
+    /// // The message names the operation and the entry, not the walk root.
+    /// let message = error.to_string();
+    /// assert!(message.contains("stat"));
+    /// assert!(message.contains("src/a.ts"));
+    /// ```
     pub fn io(operation: &'static str, path: impl Into<PathBuf>, source: io::Error) -> Self {
         Self::Io {
             operation,

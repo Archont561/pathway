@@ -39,6 +39,28 @@ use crate::error::{Error, Result};
 ///
 /// Compiled once per walk, never per entry: the reference's per-entry
 /// `Glob::new` would re-parse the pattern 100 000 times on a 100 000-file tree.
+///
+/// # Examples
+///
+/// Globs are a vector with **AND** semantics, and `!` negates:
+///
+/// ```
+/// use std::path::Path;
+///
+/// use pathway_fs_core::walk::Matcher;
+///
+/// let matcher = Matcher::new(
+///     &["**/*.ts".to_owned(), "!**/generated/**".to_owned()],
+///     None,
+/// )?;
+///
+/// assert!(matcher.accepts(Path::new("src/a.ts"), Path::new("/repo/src/a.ts")));
+/// assert!(!matcher.accepts(
+///     Path::new("src/generated/a.ts"),
+///     Path::new("/repo/src/generated/a.ts"),
+/// ));
+/// # Ok::<(), pathway_fs_core::error::Error>(())
+/// ```
 #[derive(Debug, Default)]
 pub struct Matcher {
     /// Non-negated globs. An entry must match **every** one of these.
@@ -61,6 +83,16 @@ impl Matcher {
     /// [`Error::Glob`] or [`Error::Regex`] if a pattern does not compile. Both
     /// carry the pattern as the caller wrote it — including the `!`, so the
     /// message matches what is in their source.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pathway_fs_core::walk::Matcher;
+    ///
+    /// // A bad pattern fails here, before any traversal, naming itself.
+    /// let error = Matcher::new(&["!src/**/[".to_owned()], None).unwrap_err();
+    /// assert!(error.to_string().contains("!src/**/["));
+    /// ```
     pub fn new(globs: &[String], regex: Option<&str>) -> Result<Self> {
         let mut positive = Vec::new();
         let mut negatives = GlobSetBuilder::new();
@@ -124,6 +156,16 @@ impl Matcher {
     ///
     /// Lets the scanner skip the call entirely on an unfiltered walk, which is
     /// the common case for `walk()` with no options.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pathway_fs_core::walk::Matcher;
+    ///
+    /// assert!(Matcher::new(&[], None)?.is_unfiltered());
+    /// assert!(!Matcher::new(&["*.ts".to_owned()], None)?.is_unfiltered());
+    /// # Ok::<(), pathway_fs_core::error::Error>(())
+    /// ```
     #[must_use]
     pub fn is_unfiltered(&self) -> bool {
         self.positive.is_empty() && self.negative.is_none() && self.regex.is_none()
@@ -135,6 +177,22 @@ impl Matcher {
     /// Passing both rather than deriving one here keeps the asymmetry explicit
     /// at the call site: the caller can see that the glob gets one and the
     /// regex gets the other.
+    ///
+    /// # Examples
+    ///
+    /// The glob sees the root-relative path, the regex sees the absolute one:
+    ///
+    /// ```
+    /// use std::path::Path;
+    ///
+    /// use pathway_fs_core::walk::Matcher;
+    ///
+    /// let matcher = Matcher::new(&["**/*.ts".to_owned()], Some(r"^/repo/"))?;
+    ///
+    /// assert!(matcher.accepts(Path::new("src/a.ts"), Path::new("/repo/src/a.ts")));
+    /// assert!(!matcher.accepts(Path::new("src/a.ts"), Path::new("/elsewhere/src/a.ts")));
+    /// # Ok::<(), pathway_fs_core::error::Error>(())
+    /// ```
     #[must_use]
     pub fn accepts(&self, relative: &Path, absolute: &Path) -> bool {
         let candidate = normalize(relative);

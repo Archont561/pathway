@@ -7,4 +7,11 @@
 //! by picking whichever import path happens to compile today.
 
 /// The extensions this codec claims by default, lowercase and with the dots.
+///
+/// # Examples
+///
+/// ```
+/// // Both community spellings, `.yaml` first as the canonical one.
+/// assert_eq!(pathway_fs_core::serializers::yaml::EXTENSIONS, [".yaml", ".yml"]);
+/// ```
 pub const EXTENSIONS: [&str; 2] = [".yaml", ".yml"];

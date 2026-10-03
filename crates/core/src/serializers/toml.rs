@@ -8,4 +8,12 @@
 //! than converting `serde_json::Value` across the boundary (Q4).
 
 /// The extension this codec claims by default, lowercase and with the dot.
+///
+/// # Examples
+///
+/// ```
+/// // With the dot, so registry lookups compare `Path::extension`-style
+/// // suffixes without re-adding it.
+/// assert_eq!(pathway_fs_core::serializers::toml::EXTENSION, ".toml");
+/// ```
 pub const EXTENSION: &str = ".toml";

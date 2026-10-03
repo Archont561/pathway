@@ -11,11 +11,37 @@
 //! implemented rather than skipped.
 
 /// The identifier this hasher is selected by.
+///
+/// # Examples
+///
+/// ```
+/// assert_eq!(pathway_fs_core::hash::sha256::NAME, "sha256");
+/// ```
 pub const NAME: &str = "sha256";
 
 use sha2::Digest as _;
 
 /// SHA-256 over a stream of chunks.
+///
+/// # Examples
+///
+/// The example is on the type rather than repeated on `new`/`update`/`finish`
+/// deliberately: it exercises the whole lifecycle, and the invariant it shows
+/// — the digest is independent of how the input was chunked — is the property
+/// the fused walk relies on.
+///
+/// ```
+/// use pathway_fs_core::hash::sha256::Hasher;
+///
+/// let mut chunked = Hasher::new();
+/// chunked.update(b"he");
+/// chunked.update(b"llo");
+///
+/// let mut whole = Hasher::new();
+/// whole.update(b"hello");
+///
+/// assert_eq!(chunked.finish(), whole.finish());
+/// ```
 #[derive(Debug)]
 pub struct Hasher(sha2::Sha256);
 
