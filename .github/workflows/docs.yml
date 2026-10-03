@@ -81,6 +81,14 @@ jobs:
             turbo-${{ runner.os }}-${{ github.ref_name }}-
             turbo-${{ runner.os }}-
 
+      # `turbo` is the root package's devDependency, so it resolves out of
+      # node_modules/.bin. Every pixi verb declares `depends-on = ["bun-install"]`,
+      # but this step calls the root *script* through an ad-hoc `pixi run`, which
+      # resolves no task and therefore installs nothing — turbo was never on PATH
+      # and the build died at exit 127 before Astro ran. The install has to be asked
+      # for by name, from the one task that owns it.
+      - run: pixi run -e default -- bun-install
+
       # The filtered turbo entry point, not a pixi task: apps/docs owns its own
       # build, and pixi only exposes repo-wide verbs. `pathway-docs#build` has
       # no workspace dependencies, so this needs no cargo and no addon.
