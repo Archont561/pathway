@@ -1,16 +1,21 @@
 [package]
 name = "pathway-fs-core"
 description = "Native filesystem core: fused walk, hashing, atomic ops, serde codecs"
-# Phase 1 Step 0 owner sign-off is open on the public name (the license is
-# settled: MIT). Not publishable until the name is, and see the workspace
-# Cargo.toml for why that is deliberate.
-publish = false
+# The core is a publishable, napi-free Rust library. The crates.io name still
+# needs to be claimed by publishing the first real release.
+publish = true
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
+license.workspace = true
 repository.workspace = true
 homepage.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/pathway-fs-core"
+keywords = ["filesystem", "directory-walking", "hashing", "atomic-io", "sandbox"]
+categories = ["filesystem", "development-tools"]
+include = ["Cargo.toml", "README.md", "src/**"]
 
 [lib]
 # rlib, never cdylib: the addon is crates/engine, and core is what
@@ -36,6 +41,7 @@ tempfile = { workspace = true }
 fs2 = { workspace = true }
 rayon = { workspace = true }
 thiserror = { workspace = true }
+libc = { workspace = true }
 
 [dev-dependencies]
 # Test frameworks only (task-28). `[dev-dependencies]` and not

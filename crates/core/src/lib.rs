@@ -33,9 +33,10 @@
 //!
 //! # Status
 //!
-//! Scaffold. The module tree below is the intended shape; the modules are
-//! declared empty and each carries the spec it will be built from. The phase
-//! plan is `backlog/docs/phase-plan.md`.
+//! The fused walker, chunked hashers, atomic-write primitive, and Unix
+//! descriptor-anchored sandbox open primitive are implemented and covered by
+//! the core's Rust tests. Locking and temporary directories remain staged for
+//! later phases. The phase plan is `backlog/docs/phase-plan.md`.
 
 #![deny(missing_docs)]
 #![warn(clippy::pedantic)]

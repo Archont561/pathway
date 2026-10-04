@@ -64,8 +64,10 @@ delegate to the NAPI-RS Rust engine.
  */
 export interface Serializer<T = unknown> {
   readonly name: string;
-  parse(input: string): T;
-  stringify(value: T): string;
+  readonly native: boolean;
+  readonly extensions?: readonly string[];
+  parse(input: Uint8Array): T;
+  stringify(value: T): Uint8Array;
 }
 ```
 
@@ -82,8 +84,10 @@ import type { Serializer } from "./types.js";
  */
 export const json: Serializer<unknown> = {
   name: "json",
-  parse: (input: string) => JSON.parse(input),
-  stringify: (value: unknown) => JSON.stringify(value, null, 2),
+  native: false,
+  extensions: [".json"],
+  parse: (input) => JSON.parse(new TextDecoder().decode(input)),
+  stringify: (value) => new TextEncoder().encode(JSON.stringify(value, null, 2)),
 };
 ```
 

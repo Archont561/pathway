@@ -13,10 +13,9 @@
 //!   that is usually omitted and it is the only thing that makes the rename
 //!   survive a power loss; it is best-effort because Windows has no equivalent
 //!   for a directory handle.
-//! - `sandbox.rs` — path containment. Per-component `realpath` plus
-//!   `openat(O_NOFOLLOW)`, not a `canonicalize` of the final path: a final-path
-//!   check misses an intermediate symlink escape and leaves a TOCTOU window
-//!   between the check and the use.
+//! - `sandbox.rs` — path containment. The Unix implementation holds the root
+//!   directory descriptor and walks each component with `openat(O_NOFOLLOW)`;
+//!   the non-Unix fallback documents its canonicalize/TOCTOU limitation.
 //! - `lock.rs` — `flock` on Unix, `LockFileEx` on Windows, with a sidecar-file
 //!   option for filesystems where advisory locks are unreliable (NFS), and the
 //!   caveats documented rather than discovered.

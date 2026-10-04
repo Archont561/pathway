@@ -1,11 +1,11 @@
 ---
 id: task-10
 title: "Implement the typed JSON serializer and per-FileSystem registry"
-status: To Do
+status: Done
 priority: High
 assignee: []
 created_date: '2026-09-30'
-updated_date: '2026-09-30'
+updated_date: '2026-10-04'
 labels:
   - typescript
   - serializer
@@ -23,8 +23,8 @@ This task is derived from the project knowledge base and scheduled in m-0. It is
 
 ## Acceptance Criteria
 
-- [ ] JSON read/write and generic Serializer<T> APIs are tested through Path.
-- [ ] Registry resolution is per FileSystem, extension mappings are documented, and atomic writes are covered.
+- [x] JSON read/write and generic Serializer<T> APIs are tested through Path.
+- [x] Registry resolution is per FileSystem, extension mappings are documented, and atomic writes are covered.
 
 ## References
 
@@ -32,5 +32,5 @@ This task is derived from the project knowledge base and scheduled in m-0. It is
 
 ## Definition of Done
 
-- [ ] Implementation, tests, and documentation are complete.
-- [ ] Related knowledge-base design remains accurate after implementation.
+- [x] Implementation, tests, and documentation are complete.
+- [x] Related knowledge-base design remains accurate after implementation.

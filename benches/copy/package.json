@@ -1,0 +1,15 @@
+{
+  "name": "@repo/bench-copy",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Benchmark bounded copy against a sequential Node baseline.",
+  "type": "module",
+  "scripts": {
+    "bench": "bun src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@archont561/pathway": "workspace:*"
+  }
+}

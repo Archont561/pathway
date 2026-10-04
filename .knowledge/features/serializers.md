@@ -46,9 +46,11 @@ await file.write(toml, config);
 ```ts
 interface Serializer<T = unknown> {
   readonly name: string;
+  readonly native: boolean;
+  readonly extensions?: readonly string[];
 
-  parse(input: string): T;
-  stringify(value: T): string;
+  parse(input: Uint8Array): T;
+  stringify(value: T): Uint8Array;
 }
 ```
 
@@ -70,8 +72,10 @@ Implementation:
 ```ts
 export const json: Serializer<unknown> = {
   name: "json",
-  parse: (input: string) => JSON.parse(input),
-  stringify: (value: unknown) => JSON.stringify(value, null, 2),
+  native: false,
+  extensions: [".json"],
+  parse: (input) => JSON.parse(new TextDecoder().decode(input)),
+  stringify: (value) => new TextEncoder().encode(JSON.stringify(value, null, 2)),
 };
 ```
 
@@ -131,9 +135,9 @@ const data = await file.read(toml);
 ```
 Path.read(toml)
    │
-   ├── native.read()          ← Rust reads file bytes, returns string
+   ├── fs.readFile()          ← v0.1 reads file bytes through node:fs/promises
    │
-   └── serializer.parse()     ← Serializer parses string to object
+   └── serializer.parse()     ← Serializer parses bytes to an object
 ```
 
 The serializer is **independent** of the `Path` object. This means both
@@ -250,17 +254,18 @@ const config = await fs.path("config.toml").read();
 
 ```ts
 class SerializerRegistry {
-  private map = new Map<string, Serializer>();
+  private map = new Map<string, Serializer<unknown>>();
 
-  register(serializer: Serializer, extensions: string[]): void {
-    for (const ext of extensions) {
-      this.map.set(ext.startsWith(".") ? ext : `.${ext}`, serializer);
+  register<T>(serializer: Serializer<T>, extensions?: readonly string[]): this {
+    const mapped = extensions ?? serializer.extensions ?? [`.${serializer.name}`];
+    for (const ext of mapped) {
+      this.map.set(ext.startsWith(".") ? ext.toLowerCase() : `.${ext.toLowerCase()}`, serializer);
     }
+    return this;
   }
 
-  resolve(filePath: string): Serializer | undefined {
-    const ext = path.extname(filePath);
-    return this.map.get(ext);
+  resolve(filePath: string): Serializer<unknown> | undefined {
+    return this.map.get(path.extname(filePath).toLowerCase());
   }
 }
 ```

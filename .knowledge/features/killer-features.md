@@ -341,57 +341,39 @@ Elysia, etc.).
 
 ### Implementation
 
+The current TypeScript seam is `FileSystem.sandbox(root)`. It canonicalizes the
+existing root, returns `SandboxPath` values, and applies the same guard to
+`resolve()`, `join()`, `parent`, and filesystem I/O:
+
 ```ts
-class SandboxPath extends Path {
-  readonly root: string;
-
-  join(...segments: string[]): SandboxPath {
-    const resolved = pathe.resolve(this.root, this.value, ...segments);
-    if (!resolved.startsWith(this.root + "/") && resolved !== this.root) {
-      throw new ContainmentError(
-        `Path "${resolved}" escapes sandbox root "${this.root}"`
-      );
-    }
-    return new SandboxPath(resolved, this.root);
-  }
-
-  resolve(specifier: string): SandboxPath {
-    return this.join(specifier);  // Same containment check
-  }
-}
-
-class ContainmentError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ContainmentError";
-  }
-}
+const sandbox = FileSystem.create().sandbox("public");
+const file = sandbox.resolve(userInput); // SandboxPath
+await file.readText();                  // revalidates before opening
 ```
 
-### Symlink Handling (Native)
+The guard first performs a separator-aware, host-normalized containment check.
+It then finds the deepest existing component and resolves that component with
+`realpath`; this catches intermediate symlink escapes, loops, and broken links
+while still allowing a non-existing final component for a write. `ContainmentError`
+is a distinct exported error with `path` and `root` fields. `SandboxPath` keeps
+its sandbox identity across `join()` and `parent` instead of returning an
+unconfined `Path`.
 
-For full security, the containment check must resolve symlinks natively:
+### Native descriptor primitive
 
-```rust
-#[napi]
-pub fn resolve_realpath(path: String, root: String) -> Result<String> {
-    let real = std::fs::canonicalize(&path)
-        .map_err(|e| Error::from_reason(e.to_string()))?;
-    let real_root = std::fs::canonicalize(&root)
-        .map_err(|e| Error::from_reason(e.to_string()))?;
+The core also now exposes an internal Rust `fs::sandbox::Sandbox::open_read`
+primitive. On Unix it holds the root directory descriptor and walks components
+with `openat(O_NOFOLLOW)`, rejecting symlinks rather than following them. This
+makes the descriptor-based read path race-resistant against replacement of
+components after construction. It is deliberately not duplicated in the
+TypeScript path layer: the public path API remains compatible with existing
+Node I/O and performs a documented check immediately before each operation.
 
-    if !real.starts_with(&real_root) {
-        return Err(Error::new(
-            Status::GenericFailure,
-            format!("Path escapes sandbox: {} not in {}", real.display(), real_root.display())
-        ));
-    }
-
-    Ok(real.to_string_lossy().into())
-}
-```
-
-This handles symlink escapes that the JS `path.resolve()` check misses.
+The native core's non-Unix fallback uses canonicalization and a containment
+check, so it retains a TOCTOU limitation until an equivalent platform
+primitive is implemented. The TypeScript API has the same limitation on every
+platform because Node's ordinary path-based `readFile`/`writeFile` calls do not
+accept a directory descriptor as their root.
 
 ### Type-Level Safety (Stretch Goal)
 
@@ -412,11 +394,11 @@ serveStatic(sandbox.join("index.html"));      // ✅ Sandboxed
 
 The final-path canonicalize check above is **not sufficient**:
 
-1. **Intermediate symlinks:** `public/link → /etc` escapes even when the
-   *final* canonical path is inside the root. Fix: per-component realpath,
-   or (preferred) fd-based `openat(2, O_NOFOLLOW)` opens in the Rust engine
-   so resolution and open are a single step — which also closes the TOCTOU
-   window (the file can't be swapped for a symlink between check and open).
+1. **Intermediate symlinks:** `public/link → /etc` must be rejected even
+   when a textual prefix looks safe. The TypeScript view checks the deepest
+   existing component with `realpath`; the Rust read primitive uses the stronger
+   per-component `openat(2, O_NOFOLLOW)` path, so resolution and open are one
+   descriptor-anchored step.
 2. **Prefix collision:** `startsWith(root + sep)` must compare against the
    separator-terminated root (the sketch does this; keep the unit test:
    `root = /app/public`, `candidate = /app/public-evil/x` must fail).
@@ -492,18 +474,32 @@ Rust's `rayon` + `tokio` makes parallel I/O trivial:
 ### Architecture
 
 ```
-Rust Engine
+Path.copyTo / Path.moveTo / Path.transform
    │
-   ├── Walk + filter (ignore crate, parallel)
-   │
-   ├── For each file (rayon parallel):
-   │     ├── Read content (mmap or buffered)
-   │     ├── If transform: yield to JS callback (N-API ThreadSafeFunction)
-   │     ├── Write to destination (parallel I/O)
-   │     └── Track progress
-   │
-   └── Return summary: { copied, skipped, errors }
+   ├── collect entries with lstat and root-relative filters
+   ├── preserve symlinks unless followSymlinks is requested
+   ├── bounded worker pool for file operations
+   └── return summary: { copied/transformed, skipped, errors }
 ```
+
+The current public implementation keeps callback transforms in TypeScript, where
+user code can run safely and predictably. It uses a bounded pool rather than
+`Promise.all(files.map(...))`, so a large tree does not allocate one pending
+promise per file. `moveTo()` uses a same-filesystem rename and falls back to
+copy-then-remove for `EXDEV`; it does not reimplement atomic writes. The native
+engine remains the planned optimization boundary for large copy trees, while
+the public semantics and tests are established here.
+
+Transformer arrays run left to right for every file. A read, transform, or write
+failure is recorded for that file and does not prevent other workers from
+completing; cancellation and invalid concurrency are still hard failures.
+
+The repository benchmark creates 50,000 files and compares `copyTo()` with a
+sequential Node baseline. On 2026-10-04 it measured 906 ms versus 3,957 ms,
+for a 4.37x speedup against the documented 3x target. This is intentionally a
+reproducible local baseline, not a claim about every `fs-extra` release; an
+external `fs-extra.copy()` comparison remains a release-benchmark follow-up.
+Run it with `pixi run bench --filter=@repo/bench-copy`.
 
 ### Phase Target: v0.3
 
@@ -731,7 +727,7 @@ pub async fn with_lock(
 |---------|-----------|--------------------------|-------|-------------|
 | Temp dirs | 🔴 High | 🟢 Low | v0.2 | `tempfile` crate |
 | Snapshots/diff | 🔴 High | 🟡 Medium | v0.2 | Fused walk + hash |
-| Sandbox | 🟠 Medium | 🟢 Low | v0.3 | `pathe` + `canonicalize` |
+| Sandbox | 🟠 Medium | 🟡 Medium | v0.3 | `pathe` + per-component checks; native `openat` on Unix |
 | Parallel ops | 🟠 Medium | 🟡 Medium | v0.3 | Fused walk + rayon |
 | File locking | 🟠 Medium | 🟢 Low | v0.3 | `fs2` crate |
 | Transactions | 🟡 Low (niche) | 🔴 High | v0.4 | Locking + atomic writes |
@@ -744,7 +740,7 @@ pub async fn with_lock(
 |----------|-----------|
 | Temp dirs: tiered guarantee, documented | `O_TMPFILE` / `DELETE_ON_CLOSE` where available; mkstemp+Drop baseline; SIGKILL behavior documented per tier (2026 correction) |
 | Snapshots use content hash | `mtime` is unreliable across git checkout, Docker, CI; ns-precision mtime kept as fast-path tie-breaker |
-| Sandbox via `openat(O_NOFOLLOW)` + canonicalize | Final-path check alone misses intermediate symlink escapes and TOCTOU (2026 audit) |
+| Sandbox via `SandboxPath` checks plus native `openat(O_NOFOLLOW)` reads | The public Node path view preserves compatibility but documents its remaining TOCTOU window; Unix descriptor reads close it |
 | Parallel ops cross boundary only for transform | User code is unavoidable; everything else stays native |
 | Transactions are best-effort | Honest about limitations; not a database |
 | Locking uses `flock()` | Kernel-managed; no polling, no PID files, no races; `stale` option removed (2026) |
