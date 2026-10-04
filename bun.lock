@@ -39,6 +39,24 @@
       "name": "@repo/rust",
       "version": "0.0.0",
     },
+    "crates/core": {
+      "name": "@repo/rust-core",
+      "version": "0.0.0",
+    },
+    "crates/engine": {
+      "name": "@repo/rust-engine",
+      "version": "0.0.0",
+      "dependencies": {
+        "@repo/rust-core": "workspace:*",
+      },
+    },
+    "crates/path": {
+      "name": "@repo/rust-path",
+      "version": "0.0.0",
+      "dependencies": {
+        "@repo/rust-core": "workspace:*",
+      },
+    },
     "packages/path": {
       "name": "@archont561/pathway",
       "version": "0.1.0",
@@ -478,6 +496,12 @@
     "@repo/bench-walk": ["@repo/bench-walk@workspace:benches/walk"],
 
     "@repo/rust": ["@repo/rust@workspace:crates"],
+
+    "@repo/rust-core": ["@repo/rust-core@workspace:crates/core"],
+
+    "@repo/rust-engine": ["@repo/rust-engine@workspace:crates/engine"],
+
+    "@repo/rust-path": ["@repo/rust-path@workspace:crates/path"],
 
     "@repo/typescript-config": ["@repo/typescript-config@workspace:packages/typescript-config"],
 

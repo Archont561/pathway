@@ -9,7 +9,8 @@
     "packages/*",
     "apps/*",
     "benches/*",
-    "crates"
+    "crates",
+    "crates/*"
   ],
   "scripts": {
     "build": "turbo run build",
@@ -24,13 +25,16 @@
     "lint:biome": "biome check .",
     "lint:actions": "actionlint",
     "fmt:biome": "biome format --write .",
-    "lint:rust": "turbo run lint --filter=@repo/rust",
+    "lint:rust": "turbo run lint --filter=@repo/rust --filter=@repo/rust-core --filter=@repo/rust-path --filter=@repo/rust-engine",
     "build:native": "turbo run build:native --filter=@archont561/pathway",
     "build:native:release": "turbo run build:native:release --filter=@archont561/pathway",
     "docs:build": "turbo run build --filter=pathway-docs",
     "docs:check": "turbo run typecheck --filter=pathway-docs",
     "docs:dev": "turbo run dev --filter=pathway-docs",
-    "docs:preview": "turbo run preview --filter=pathway-docs"
+    "docs:preview": "turbo run preview --filter=pathway-docs",
+    "test:rust": "turbo run test --filter=@repo/rust-core --filter=@repo/rust-path --filter=@repo/rust-engine",
+    "test:affected": "turbo run test --affected",
+    "lint:affected": "turbo run lint lint:biome lint:actions --affected"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",

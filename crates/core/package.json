@@ -1,0 +1,10 @@
+{
+  "name": "@repo/rust-core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Turbo package for the pathway-fs-core Cargo crate.",
+  "scripts": {
+    "test": "cargo nextest run -p pathway-fs-core && cargo test --doc -p pathway-fs-core",
+    "lint": "cargo clippy -p pathway-fs-core --all-targets -- -D warnings"
+  }
+}

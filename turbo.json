@@ -97,5 +97,9 @@
     "//#fmt:biome": {
       "cache": false
     }
-  }
+  },
+  "futureFlags": {
+    "affectedUsingTaskInputs": true
+  },
+  "globalPassThroughEnv": ["CARGO_HOME", "CARGO_TARGET_*", "RUSTFLAGS", "RUSTDOCFLAGS"]
 }

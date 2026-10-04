@@ -6,25 +6,15 @@
       "dependsOn": [],
       "inputs": [
         "*/src/**",
+        "*/tests/**",
         "*/Cargo.toml",
         "*/build.rs",
+        "*/package.json",
+        "*/turbo.json",
         "package.json",
         "$TURBO_ROOT$/Cargo.toml",
         "$TURBO_ROOT$/Cargo.lock",
         "$TURBO_ROOT$/deny.toml"
-      ],
-      "outputs": []
-    },
-    "test": {
-      "dependsOn": [],
-      "inputs": [
-        "*/src/**",
-        "*/tests/**",
-        "*/Cargo.toml",
-        "*/build.rs",
-        "package.json",
-        "$TURBO_ROOT$/Cargo.toml",
-        "$TURBO_ROOT$/Cargo.lock"
       ],
       "outputs": []
     },
