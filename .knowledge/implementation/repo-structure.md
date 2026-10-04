@@ -118,7 +118,7 @@ pathlib-like Rust API published to crates.io as `pathway-fs`.
 │       ├── src/
 │       │   ├── index.ts          # Public exports
 │       │   ├── path.ts           # Path class
-│       │   ├── walk.ts           # WalkIterator (async generator; stub)
+│       │   ├── walk.ts           # Native-backed batched walk generators
 │       │   ├── serializers/
 │       │   │   ├── index.ts
 │       │   │   └── json.ts       # Built-in JSON serializer

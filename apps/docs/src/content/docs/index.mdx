@@ -23,11 +23,12 @@ The engine is native (Rust) and the boundary is deliberately coarse — bulk
 operations only, never a single string operation across the FFI seam. See
 [Architecture](/concepts/architecture/) for why that is the whole design.
 
-:::caution[This is a scaffold]
-The repository is at the tooling-and-layout stage. `Path` exists with its
-string operations; traversal, hashing and atomic writes are stubs that throw
-with the file that will implement them. The docs below describe what is true
-today, not what is planned.
+:::caution[This is an early release]
+The repository is in Phase 1. `Path` supports string operations, file I/O,
+typed serializers, and per-filesystem serializer registries. Native traversal
+and fused hashing are implemented when the addon is built. Rust atomic I/O,
+sandboxing, locking, and temporary-directory APIs remain planned scaffolds.
+The docs below describe what is true today, not what is planned.
 :::
 
 These docs describe v{version} — the version is read from the build

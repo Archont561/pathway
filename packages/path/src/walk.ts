@@ -43,7 +43,7 @@ export interface WalkOptions {
   /** Include entries whose name starts with a dot. Default `false`. */
   dot?: boolean;
 
-  /** Honour `.gitignore` and `.ignore`. Default `true`. */
+  /** Honour `.gitignore` and `.ignore`. Default `false`. */
   gitignore?: boolean;
 
   /** Return absolute paths instead of root-relative ones. Default `false`. */

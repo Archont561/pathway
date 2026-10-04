@@ -22,12 +22,14 @@
 
 > [!IMPORTANT]
 > **pathway is in Phase 1.** The workspace, the three-crate split, the pixi/turbo
-> orchestration, CI, the offline sandbox and the docs site are real. The engine is
-> **scaffold**: `crates/core`'s modules are declared with the specs they will be built
-> from, `WalkIterator` is a stub, and the N-API bridge exports only `engineVersion()`
-> and `napiVersion()`. The `pathway-fs-core` and `pathway-fs` manifests are now
-> publishable, but their first crates.io release is still gated on API readiness and
-> name ownership. `pathway-fs-engine` remains npm-only — see
+> orchestration, CI, the offline sandbox and the docs site are real. The native
+> fused walker, hashing, and the TypeScript serializer/registry surface are
+> implemented; the TypeScript walk generators use the N-API `Walker` when the
+> addon is built. The Rust filesystem modules for atomic I/O, sandboxing, locks,
+> and temp directories remain planned scaffolds, and the ergonomic `pathway-fs`
+> Rust API is still a stub. The `pathway-fs-core` and `pathway-fs` manifests are
+> now publishable, but their first crates.io release is still gated on API
+> readiness and name ownership. `pathway-fs-engine` remains npm-only — see
 > [`backlog/docs/phase-plan.md`](backlog/docs/phase-plan.md), Phase 1 Step 0.
 
 ## 🖥️ Platform Support

@@ -33,9 +33,11 @@
 //!
 //! # Status
 //!
-//! Scaffold. The module tree below is the intended shape; the modules are
-//! declared empty and each carries the spec it will be built from. The phase
-//! plan is `backlog/docs/phase-plan.md`.
+//! The fused walker and chunked hashers are implemented and covered by the
+//! core's Rust tests. The filesystem modules for atomic I/O, sandboxing, locks,
+//! and temporary directories are still staged for later phases; their module
+//! docs describe the intended guarantees without exposing unfinished behavior as
+//! a completed feature. The phase plan is `backlog/docs/phase-plan.md`.
 
 #![deny(missing_docs)]
 #![warn(clippy::pedantic)]

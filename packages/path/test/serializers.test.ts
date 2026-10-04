@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FileSystem, json, Path, type Serializer } from "../src/index.js";
+import { FileSystem, json, Path, type Serializer, type Validator } from "../src/index.js";
 
 interface Config {
   readonly name: string;
@@ -49,6 +49,32 @@ describe("json serializer", () => {
     await file.writeText("{ broken");
 
     expect(file.read(json)).rejects.toThrow();
+  });
+
+  test("runs a validator after deserialization", async () => {
+    const file = new Path(join(temporaryRoot(), "config.json"));
+    const config: Config = { name: "pathway", enabled: true };
+    const validator: Validator<Config> = {
+      name: "config",
+      validate(data) {
+        if (
+          typeof data !== "object" ||
+          data === null ||
+          typeof (data as { name?: unknown }).name !== "string"
+        ) {
+          throw new TypeError("invalid config");
+        }
+        return data as Config;
+      }
+    };
+
+    await file.write(json, config);
+
+    await expect(file.read<Config>(json, { validate: validator })).resolves.toEqual(config);
+    await file.writeText(JSON.stringify({ enabled: true }));
+    await expect(file.read<Config>(json, { validate: validator })).rejects.toThrow(
+      "invalid config"
+    );
   });
 });
 

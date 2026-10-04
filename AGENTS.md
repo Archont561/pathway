@@ -53,7 +53,7 @@ The skills are the reference for *how*; this file remains the reference for *wha
 ## Testing
 
 - Rust: per-crate unit/integration tests run without Node under `cargo nextest`, through the `@repo/rust-core`, `@repo/rust-path`, and `@repo/rust-engine` Turbo packages. Core and path doctests are part of those crates' `test` scripts because nextest does not run doctests. For an all-Rust bypass of Turbo, `bun run --cwd crates test:all` still runs the whole Cargo workspace.
-- TS: Bun tests in `packages/path/test/`. Package must import without requiring a built `.node` file (`engineAvailable()` is safe); the walk stub throws intentionally until implemented. The `test` task depends on `build:native`, so turbo builds the addon before the suite runs — never put `napi build` inside a test script, which would hide that edge from the task graph.
+- TS: Bun tests in `packages/path/test/`. Package import and `engineAvailable()` are safe without a built `.node` file; consuming a walk requires the native addon. The `test` task depends on `build:native`, so turbo builds the addon before the suite runs — never put `napi build` inside a test script, which would hide that edge from the task graph.
 - Coverage: `pixi run coverage` writes `crates/lcov.info`; `bun run --cwd crates coverage:report` prints the same numbers as a table.
 - Dependency policy: `deny.toml` is the gate for the crates.io decision. The offline subset (bans, licences, sources) is inside `pixi run lint`; `pixi run lint-advisories` needs the network and is CI-only, because cargo-deny 0.20 always fetches the RustSec database. Adding a dependency means editing `deny.toml` if its licence is new.
 
