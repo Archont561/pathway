@@ -753,6 +753,31 @@ mod tests {
         assert_eq!(with, paths(&[".config/b.ts", ".env", "a.ts"]));
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn symlinks_are_reported_without_following_them_outside_the_root() {
+        use std::os::unix::fs::symlink;
+
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join("secret.txt"), b"secret").unwrap();
+        symlink(outside.path(), root.path().join("outside")).unwrap();
+
+        let scanner = NativeScanner::new(
+            root.path(),
+            ScanOptions {
+                files_only: false,
+                ..ScanOptions::default()
+            },
+        )
+        .unwrap();
+        scanner.scan().unwrap();
+        let found = collect(&scanner);
+
+        assert_eq!(found, paths(&["outside"]));
+        assert!(scanner.errors().is_empty());
+    }
+
     /// `gitignore: true` must work outside a git repository — a walk of an
     /// extracted tarball that ships a `.gitignore` is the ordinary case, and
     /// `ignore` requires `require_git(false)` for it.

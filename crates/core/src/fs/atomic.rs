@@ -18,15 +18,21 @@
 //!   best-effort: Windows has no equivalent handle to sync, so there the
 //!   guarantee is one level weaker and the docs say so.
 
+use std::io::Write;
+use std::path::Path;
+
 /// Writes `bytes` to `target` such that a reader sees either the old contents
 /// or the new ones, never a partial file.
 ///
+/// The temporary file is created by `tempfile` with exclusive creation in the
+/// target's directory. The contents are synced before the rename, and the
+/// directory sync is best effort because Windows does not expose an equivalent
+/// directory handle.
+///
 /// # Errors
 ///
-/// Returns [`crate::error::Error::Io`] attributed to `target` if the write
-/// fails, including when it fails partway — a reader of `target` may therefore
-/// see a truncated file until this function is implemented properly, which is
-/// the reason it is a scaffold and not the finished behaviour.
+/// Returns [`crate::error::Error::Io`] attributed to `target` if creating,
+/// writing, syncing, or renaming the temporary file fails.
 ///
 /// # Examples
 ///
@@ -40,7 +46,96 @@
 /// assert_eq!(std::fs::read(&target)?, b"{}");
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub fn write_atomic(target: &std::path::Path, bytes: &[u8]) -> crate::error::Result<()> {
-    // Phase 2. Until then, writing in place is honest about what it is.
-    std::fs::write(target, bytes).map_err(|source| crate::error::Error::io("write", target, source))
+pub fn write_atomic(target: &Path, bytes: &[u8]) -> crate::error::Result<()> {
+    let directory = target
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+
+    let mut temporary = tempfile::Builder::new()
+        .prefix(".pathway-")
+        .tempfile_in(directory)
+        .map_err(|source| crate::error::Error::io("create temporary file", target, source))?;
+
+    temporary
+        .write_all(bytes)
+        .map_err(|source| crate::error::Error::io("write temporary file", target, source))?;
+    temporary
+        .as_file()
+        .sync_all()
+        .map_err(|source| crate::error::Error::io("sync temporary file", target, source))?;
+
+    temporary.persist(target).map_err(|failure| {
+        crate::error::Error::io("rename temporary file", target, failure.error)
+    })?;
+
+    sync_directory(directory);
+    Ok(())
+}
+
+/// Flushes the directory entry update when the platform permits it.
+fn sync_directory(directory: &Path) {
+    let Ok(handle) = std::fs::File::open(directory) else {
+        return;
+    };
+    let _ = handle.sync_all();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::write_atomic;
+    use std::fs::{read, read_dir, read_link, symlink_metadata};
+    use tempfile::tempdir;
+
+    #[test]
+    fn writes_the_new_contents_and_leaves_no_temporary_file() {
+        let directory = tempdir().unwrap();
+        let target = directory.path().join("config.json");
+        std::fs::write(&target, b"old").unwrap();
+
+        write_atomic(&target, b"new").unwrap();
+
+        assert_eq!(read(&target).unwrap(), b"new");
+        let entries: Vec<_> = read_dir(directory.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        assert_eq!(entries, vec![std::ffi::OsString::from("config.json")]);
+    }
+
+    #[test]
+    fn failed_rename_keeps_the_existing_target_and_cleans_up() {
+        let directory = tempdir().unwrap();
+        let target = directory.path().join("existing-directory");
+        std::fs::create_dir(&target).unwrap();
+
+        assert!(write_atomic(&target, b"not a directory").is_err());
+
+        assert!(target.is_dir());
+        assert!(read_dir(directory.path())
+            .unwrap()
+            .all(|entry| { entry.unwrap().file_name() == "existing-directory" }));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn replaces_a_symlink_without_modifying_its_target() {
+        use std::os::unix::fs::symlink;
+
+        let directory = tempdir().unwrap();
+        let outside = directory.path().join("outside.txt");
+        let link = directory.path().join("link.txt");
+        std::fs::write(&outside, b"outside").unwrap();
+        symlink(&outside, &link).unwrap();
+
+        write_atomic(&link, b"inside").unwrap();
+
+        assert_eq!(read(&outside).unwrap(), b"outside");
+        assert_eq!(read(&link).unwrap(), b"inside");
+        assert!(!symlink_metadata(&link).unwrap().file_type().is_symlink());
+        assert_eq!(
+            read_link(&link).err().map(|error| error.kind()),
+            Some(std::io::ErrorKind::InvalidInput)
+        );
+    }
 }

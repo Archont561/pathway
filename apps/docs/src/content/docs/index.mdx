@@ -26,8 +26,9 @@ operations only, never a single string operation across the FFI seam. See
 :::caution[This is an early release]
 The repository is in Phase 1. `Path` supports string operations, file I/O,
 typed serializers, and per-filesystem serializer registries. Native traversal
-and fused hashing are implemented when the addon is built. Rust atomic I/O,
-sandboxing, locking, and temporary-directory APIs remain planned scaffolds.
+and fused hashing are implemented when the addon is built. The Rust atomic-write
+primitive is implemented; sandboxing, locking, and temporary-directory APIs
+remain planned scaffolds.
 The docs below describe what is true today, not what is planned.
 :::
 

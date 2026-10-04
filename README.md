@@ -25,10 +25,11 @@
 > orchestration, CI, the offline sandbox and the docs site are real. The native
 > fused walker, hashing, and the TypeScript serializer/registry surface are
 > implemented; the TypeScript walk generators use the N-API `Walker` when the
-> addon is built. The Rust filesystem modules for atomic I/O, sandboxing, locks,
-> and temp directories remain planned scaffolds, and the ergonomic `pathway-fs`
-> Rust API is still a stub. The `pathway-fs-core` and `pathway-fs` manifests are
-> now publishable, but their first crates.io release is still gated on API
+> addon is built. The Rust atomic-write primitive is implemented and tested;
+> sandboxing, locking, and temporary-directory modules remain planned scaffolds,
+> and the ergonomic `pathway-fs` Rust API is still a stub. The `pathway-fs-core`
+> and `pathway-fs` manifests are now publishable, but their first crates.io
+> release is still gated on API
 > readiness and name ownership. `pathway-fs-engine` remains npm-only — see
 > [`backlog/docs/phase-plan.md`](backlog/docs/phase-plan.md), Phase 1 Step 0.
 
