@@ -232,13 +232,19 @@ published to crates.io.
 [package]
 name = "pathway-fs-core"
 description = "Native filesystem core: fused walk, hashing, atomic ops, serde codecs"
-publish = false                # until the crates.io names are reserved
+publish = true                 # publishable; name claim still requires a real release
 version.workspace = true       # 0.1.0, inherited — never restated per crate
 edition.workspace = true       # 2021
 rust-version.workspace = true  # 1.98 — conda-forge pins rust 1.98.x; napi 3.13
                                #   declares MSRV 1.88, so the channel is binding
-# license is inherited too: MIT, settled at Step-0 sign-off (2026-09-30).
-# One LICENSE at the root covers every crate and the npm package.
+license.workspace = true       # MIT, settled at Step-0 sign-off (2026-09-30)
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/pathway-fs-core"
+keywords = ["filesystem", "directory-walking", "hashing", "atomic-io", "sandbox"]
+categories = ["filesystem", "development-tools"]
+include = ["Cargo.toml", "README.md", "src/**"]
 
 [lib]
 crate-type = ["rlib"]
@@ -272,10 +278,18 @@ Phase 1; published as a preview at v0.3.
 [package]
 name = "pathway-fs"
 description = "pathlib's convenience + ripgrep's walker: ergonomic paths, fused walk, hashing, typed serde I/O"
-publish = false                # until the crates.io names are reserved
+publish = true                 # publishable preview surface
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/pathway-fs"
+keywords = ["filesystem", "pathlib", "directory-walking", "hashing", "serde"]
+categories = ["filesystem", "development-tools"]
+include = ["Cargo.toml", "README.md", "src/**"]
 
 [lib]
 crate-type = ["rlib"]

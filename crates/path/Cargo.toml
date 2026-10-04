@@ -1,16 +1,21 @@
 [package]
 name = "pathway-fs"
 description = "pathlib's convenience + ripgrep's walker: ergonomic paths, fused walk, hashing, typed serde I/O"
-# Phase 1 Step 0 owner sign-off is open on the public name (the license is
-# settled: MIT), so this crate is not publishable yet. Ships as a preview at
-# v0.3 and stabilises at v1.0; see the workspace Cargo.toml.
-publish = false
+# The ergonomic Rust surface is publishable as the public pathway-fs crate.
+# It remains a preview until the Rust API is ready for its first release.
+publish = true
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
+license.workspace = true
 repository.workspace = true
 homepage.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/pathway-fs"
+keywords = ["filesystem", "pathlib", "directory-walking", "hashing", "serde"]
+categories = ["filesystem", "development-tools"]
+include = ["Cargo.toml", "README.md", "src/**"]
 
 [lib]
 crate-type = ["rlib"]
