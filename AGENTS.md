@@ -35,14 +35,15 @@ The `.knowledge/` directory contains the OKF v0.2 bundle (architecture, features
 - **backlog.md** (`pixi run backlog`) for Markdown tasks.
 - **skills** (`pixi run skills`) for agent skills vendored under `.agents/skills/`.
 
-## Implementing changes: consult the vendored skills
+## Mandatory source-change workflow: TDD and refactor skills
 
-The repo vendors the process skills under `.agents/skills/` (pinned by `skills-lock.json` — consult these local copies, not external ones, because the lock pins what was reviewed):
+The repo vendors the process skills under `.agents/skills/` (pinned by `skills-lock.json` — consult these local copies, not external ones, because the lock pins what was reviewed). **Any change to source code must use the applicable skills below; do not treat this as optional guidance.**
 
-- **Implementing a feature or fix → [`.agents/skills/tdd/SKILL.md`](.agents/skills/tdd/SKILL.md).** Work the red → green loop: failing test first at a public seam, minimal code to pass, one seam/one test/one implementation per cycle. Consult it before and during the work, not after.
-- **Restructuring without changing behaviour → [`.agents/skills/refactor/SKILL.md`](.agents/skills/refactor/SKILL.md).** Clear purpose, tests exist first, small steps with gates green between them, and never mix refactoring with feature changes in one step.
+- **Implementing a feature or fix → [`.agents/skills/tdd/SKILL.md`](.agents/skills/tdd/SKILL.md).** Read it before changing source, establish the public seam, and work the red → green loop: failing test first, minimal code to pass, one seam/one test/one implementation per cycle.
+- **Restructuring without changing behaviour → [`.agents/skills/refactor/SKILL.md`](.agents/skills/refactor/SKILL.md).** Read it before refactoring, establish or improve tests first, then make small behavior-preserving steps with gates green between them.
+- **A change that includes both behavior and restructuring must separate the workflows.** Complete the TDD red → green slice first; perform the refactor afterward, without mixing feature changes into the refactor step or commit.
 
-The skills are the reference for *how*; this file remains the reference for *what* (gates, layout, conventions). Red → green cycles and refactor steps are separate commits, consistent with the Commits section below.
+The skills are the required process for *how* source changes are made; this file remains the reference for *what* (gates, layout, conventions). Documentation-only changes do not require a TDD cycle, but must still preserve the repository's documented contracts.
 
 ## Code Style
 
