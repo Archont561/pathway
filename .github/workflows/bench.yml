@@ -87,6 +87,11 @@ jobs:
             exit 1
           fi
 
+      # The report also renders on the run's Summary page, so the numbers can
+      # be read without downloading the artifact.
+      - name: Publish the report to the run summary
+        run: cat "benches/walk/results/results/report.md" >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: bench-report-bun-1-3
@@ -106,12 +111,15 @@ jobs:
 
       - run: pixi run bun-install
 
-      # Builds dev then release, in that order (turbo.json wires the release
-      # task to depend on the dev one), so the release .node is on disk last.
-      # The bun-1.4 driver is then invoked directly — outside turbo — because
-      # the task graph runs `bun src/main.ts` with whatever bun pixi puts on
-      # PATH, which is the 1.3 line this job exists to compare against.
-      - run: pixi run bunx turbo run build:native:release --filter=@archont561/pathway
+      # `@archont561/pathway`'s exports resolve to `dist/index.js`, so the TS
+      # build is required here, not just the addon: the first version of this
+      # job built only `build:native:release` and Bun 1.4 failed instantly with
+      # "Cannot find module '@archont561/pathway'" — it worked locally only
+      # because a previous local build had left dist/ behind. Both tasks in one
+      # turbo invocation: `build` runs tsc plus (through its own deps) the dev
+      # addon, and `build:native:release` is ordered after the dev build by
+      # turbo.json, so the release .node is still the last thing written.
+      - run: pixi run bunx turbo run build build:native:release --filter=@archont561/pathway
 
       - name: Fetch Bun 1.4 from the npm tarball
         run: |
@@ -133,6 +141,11 @@ jobs:
             echo "::error::the harness measured a DEBUG addon — see the report artifact"
             exit 1
           fi
+
+      # The report also renders on the run's Summary page, so the numbers can
+      # be read without downloading the artifact.
+      - name: Publish the report to the run summary
+        run: cat "benches/walk/results/results/report.md" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v7.0.1
         with:
