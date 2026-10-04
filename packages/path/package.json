@@ -18,8 +18,7 @@
   },
   "sideEffects": false,
   "files": [
-    "dist",
-    "pathway.*.node"
+    "dist"
   ],
   "publishConfig": {
     "access": "public"
@@ -29,8 +28,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "build:native": "napi build --platform --no-js --dts native-engine.d.ts --manifest-path ../../crates/engine/Cargo.toml --output-dir .",
-    "build:native:release": "napi build --platform --release --no-js --dts native-engine.d.ts --manifest-path ../../crates/engine/Cargo.toml --output-dir .",
+    "build:native": "napi build --platform --no-js --dts native-engine.d.ts --manifest-path ../../crates/engine/Cargo.toml --output-dir ./dist",
+    "build:native:release": "napi build --platform --release --no-js --dts native-engine.d.ts --manifest-path ../../crates/engine/Cargo.toml --output-dir ./dist",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun test"
   },

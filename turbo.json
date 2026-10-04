@@ -11,7 +11,7 @@
         "$TURBO_ROOT$/Cargo.lock",
         "$TURBO_ROOT$/crates/**"
       ],
-      "outputs": ["*.node", "native-engine.d.ts"]
+      "outputs": ["dist/*.node", "dist/native-engine.d.ts"]
     },
     "build:native:release": {
       "dependsOn": ["build:native"],
@@ -21,7 +21,7 @@
         "$TURBO_ROOT$/Cargo.lock",
         "$TURBO_ROOT$/crates/**"
       ],
-      "outputs": ["*.node", "native-engine.d.ts"]
+      "outputs": ["dist/*.node", "dist/native-engine.d.ts"]
     },
     "build": {
       "dependsOn": ["^build", "build:native"],
