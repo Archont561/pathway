@@ -9,39 +9,57 @@
 /**
  * A strategy object that turns bytes into a value and back.
  *
- * A serializer is passed *in*, not selected by a string on `Path`. That is
- * decision D4, and the two reasons for it are the reason this is an interface
- * and not an enum:
- *
- * 1. `read<T>()` and `write<T>()` stay generic in `T`, so the return type
- *    follows the serializer the caller passed instead of a union the caller has
- *    to narrow.
- * 2. A native Serde codec and a plain JavaScript object are interchangeable. The
- *    built-in `json` serializer is a JavaScript one (there is no reason to
- *    cross the boundary for `JSON.parse`); `toml` and `yaml` are native ones,
- *    because neither runtime has a parser for them.
- *
- * The registry these live in is per-`FileSystem` instance, never global — see
- * `FileSystem.create()`.
+ * A serializer is passed in, not selected by a string on `Path`. That is
+ * decision D4: a native codec and a JavaScript implementation are interchangeable,
+ * while the type parameter keeps the value returned by `read()` precise.
  */
 export interface Serializer<T> {
-  /** The name this serializer is registered under, e.g. `"json"`. */
+  /** The name this serializer is registered under, for example `"json"`. */
   readonly name: string;
 
-  /**
-   * Whether this serializer runs in the native engine.
-   *
-   * Exposed rather than internal so a caller can pick a JavaScript serializer
-   * deliberately when it matters — for a hot loop over many small files, a
-   * native round trip costs more than `JSON.parse` does.
-   */
+  /** Whether this serializer is backed by the native engine. */
   readonly native: boolean;
+
+  /** Extensions used when a `FileSystem` resolves a serializer automatically. */
+  readonly extensions?: readonly string[];
 
   /** Parse raw bytes into a value. */
   parse(bytes: Uint8Array): T;
 
-  /** Serialise a value into raw bytes. */
+  /** Serialize a value into raw bytes. */
   stringify(value: T): Uint8Array;
+}
+
+/** A value that can validate data after a serializer has parsed it. */
+export interface Validator<T> {
+  readonly name: string;
+  validate(data: unknown): T;
+}
+
+/** Options for reading text or serialized values. */
+export interface ReadOptions {
+  /** Text encoding used by `readText()`. Serialized reads receive bytes directly. */
+  readonly encoding?: BufferEncoding;
+  /** Optional application-level validation after deserialization. */
+  readonly validate?: Validator<unknown>;
+}
+
+/** Options for text, byte, and serialized writes. */
+export interface WriteOptions {
+  /** Write to a same-directory temporary file and rename it into place. */
+  readonly atomic?: boolean;
+  /** Flush the temporary file and best-effort flush its directory before returning. */
+  readonly fsync?: boolean;
+  /** File mode used when a new file is created. */
+  readonly mode?: number;
+  /** Text encoding used by `writeText()`. */
+  readonly encoding?: BufferEncoding;
+}
+
+/** Options used when constructing an isolated filesystem view. */
+export interface FileSystemOptions {
+  /** Serializers registered for this filesystem instance only. */
+  readonly serializers?: readonly Serializer<unknown>[];
 }
 
 /** Which hash algorithm a walk should compute while it traverses. */
@@ -64,7 +82,7 @@ export type EntryErrorKind =
  * One result of a fused walk.
  *
  * Populated by the engine in a single syscall pass — traversal, `stat`, hash
- * and filter — rather than being a path the caller then has to go and populate.
+ * and filter — rather than being a path the caller then has to populate.
  * That is the whole claim, and it is why a walk yields this and not a string.
  */
 export interface PathEntry {

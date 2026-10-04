@@ -1,13 +1,13 @@
 ---
 title: Quick Start
-description: The Path API that exists today.
+description: The Path and serializer APIs available in the current Phase 1 build.
 ---
 
 A `Path` is an immutable, normalised path string. Every operation returns a new
 `Path`; nothing mutates.
 
 ```ts
-import { Path } from "@archont561/pathway";
+import { FileSystem, Path, json } from "@archont561/pathway";
 
 const root = Path.cwd();
 
@@ -28,22 +28,108 @@ p.ext; // ".gz"
 `${p}`; // "/a/b/file.tar.gz" — toString()
 ```
 
-String operations are handled in TypeScript by [`pathe`], so they are correct on
-Windows and POSIX without a platform check, and they never cross the FFI
-boundary.
+String operations are handled in TypeScript by [`pathe`], so they work on
+Windows and POSIX without a platform check and never cross the FFI boundary.
 
-## What is not here yet
+## Typed JSON I/O
 
-Everything that needs the native engine is a stub that throws with the file that
-will implement it:
+The built-in JSON serializer is generic at the `Path` seam:
 
-- `walk()`, `walkFiles()`, `walkDirs()` — the scanner is
-  `crates/core/src/walk/scanner.rs`, not written.
-- Reading, writing, atomic writes, hashing, serializers — the core modules are
-  placeholders.
+```ts
+interface Config {
+  name: string;
+  enabled: boolean;
+}
 
-That is a deliberate scaffold order: the public signatures are frozen before
-the native work, so the N-API iterator spike cannot change how callers consume
-results.
+const configPath = root.join("config.json");
+const config: Config = { name: "pathway", enabled: true };
+
+await configPath.write(json, config, { atomic: true, fsync: true });
+const loaded = await configPath.read<Config>(json);
+```
+
+A plain `Path` has JSON registered for `.json`, so automatic resolution is also
+available:
+
+```ts
+const loaded = await configPath.read(); // unknown when no serializer is passed
+```
+
+Malformed data is reported by the serializer rather than silently returned.
+The serializer works on bytes, so custom codecs can choose their own text or
+binary representation:
+
+```ts
+import type { Serializer } from "@archont561/pathway";
+
+const tagged: Serializer<string> = {
+  name: "tagged",
+  native: false,
+  extensions: [".cfg"],
+  parse: (bytes) => new TextDecoder().decode(bytes).replace(/^value:/, ""),
+  stringify: (value) => new TextEncoder().encode(`value:${value}`)
+};
+```
+
+## Per-filesystem registries
+
+Serializer mappings belong to a `FileSystem` instance. They are not global:
+
+```ts
+const appFs = FileSystem.create({ serializers: [json, tagged] });
+const testFs = FileSystem.create({ serializers: [json] });
+
+await appFs.path("settings.cfg").write(tagged, "production");
+const value = await appFs.path("settings.cfg").read();
+
+// The test filesystem does not inherit the .cfg mapping.
+await testFs.path("settings.cfg").read(); // rejects: no serializer for .cfg
+```
+
+A mapping can also be registered explicitly:
+
+```ts
+appFs.register(tagged, ["data"]);
+const data = await appFs.path("settings.data").read();
+```
+
+## Atomic writes
+
+`atomic: true` writes to a collision-safe temporary file beside the target and
+renames it into place. `fsync: true` also flushes the temporary file and best
+-effort flushes the containing directory.
+
+```ts
+await root.join("config.json").write(
+  json,
+  { name: "pathway", enabled: true },
+  { atomic: true, fsync: true }
+);
+```
+
+## Native walk
+
+Walking is the operation that uses the native addon. It yields batches rather
+than crossing the N-API boundary once per entry:
+
+```ts
+import { walkFiles } from "@archont561/pathway";
+
+for await (const batch of walkFiles(root.value, {
+  glob: ["**/*.ts"],
+  exclude: ["node_modules", "dist"],
+  hash: "blake3"
+})) {
+  for (const entry of batch) {
+    console.log(entry.value, entry.hash);
+  }
+}
+```
+
+Build the addon before consuming a walk:
+
+```bash
+pixi run build-native
+```
 
 [`pathe`]: https://github.com/unjs/pathe
