@@ -33,12 +33,10 @@
 //!
 //! # Status
 //!
-//! The fused walker, chunked hashers, and atomic-write primitive are implemented
-//! and covered by the core's Rust tests. The filesystem modules for sandboxing,
-//! locks, and temporary directories are still staged for later phases; their
-//! module docs describe the intended guarantees without exposing unfinished
-//! behavior as a completed feature. The phase plan is
-//! `backlog/docs/phase-plan.md`.
+//! The fused walker, chunked hashers, atomic-write primitive, and Unix
+//! descriptor-anchored sandbox open primitive are implemented and covered by
+//! the core's Rust tests. Locking and temporary directories remain staged for
+//! later phases. The phase plan is `backlog/docs/phase-plan.md`.
 
 #![deny(missing_docs)]
 #![warn(clippy::pedantic)]

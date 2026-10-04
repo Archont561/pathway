@@ -38,12 +38,15 @@ export class Path {
   /** @internal The registry is supplied by FileSystem and is not global state. */
   constructor(
     value: string,
-    private readonly serializers: SerializerRegistry = defaultSerializerRegistry
+    protected readonly serializers: SerializerRegistry = defaultSerializerRegistry
   ) {
     this.value = pathe.normalize(
       pathe.isAbsolute(value) ? value : pathe.join(process.cwd(), value)
     );
   }
+
+  /** Hook for confined path views to revalidate before filesystem access. */
+  protected assertSafe(): void {}
 
   /** The current working directory as a Path. */
   static cwd(): Path {
@@ -77,11 +80,13 @@ export class Path {
 
   /** Read the file as text. */
   async readText(encoding: BufferEncoding = "utf8"): Promise<string> {
+    this.assertSafe();
     return fs.readFile(this.value, { encoding });
   }
 
   /** Read all bytes, or a bounded range starting at `offset`. */
   async readBytes(offset = 0, length?: number): Promise<Buffer> {
+    this.assertSafe();
     if (length === undefined) {
       return fs.readFile(this.value);
     }
@@ -106,6 +111,7 @@ export class Path {
     serializerOrOptions?: Serializer<T> | Serializer<unknown> | ReadOptions,
     options?: ReadOptions
   ): Promise<unknown> {
+    this.assertSafe();
     const explicit = isSerializer(serializerOrOptions);
     const serializer = explicit
       ? (serializerOrOptions as Serializer<T>)
@@ -132,6 +138,7 @@ export class Path {
 
   /** Write bytes, optionally using a same-directory temporary file and rename. */
   async writeBytes(content: Uint8Array, options?: WriteOptions): Promise<void> {
+    this.assertSafe();
     if (options?.atomic === true) {
       await this.writeBytesAtomic(content, options);
       return;

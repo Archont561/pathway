@@ -1,4 +1,5 @@
 import { Path } from "./path.js";
+import { Sandbox } from "./sandbox.js";
 import { json } from "./serializers/json.js";
 import { SerializerRegistry } from "./serializers/registry.js";
 import type { FileSystemOptions, Serializer } from "./types.js";
@@ -22,6 +23,11 @@ export class FileSystem {
   /** Create a Path that uses this filesystem view. */
   path(value: string): Path {
     return new Path(value, this.serializers);
+  }
+
+  /** Create a path-resolution view confined to an existing directory. */
+  sandbox(root: string): Sandbox {
+    return new Sandbox(root, this.serializers);
   }
 
   /** The current working directory in this filesystem view. */

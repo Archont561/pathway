@@ -70,6 +70,7 @@ tempfile = "3"
 fs2 = "0.4"
 rayon = "1"
 thiserror = "2"
+libc = "0.2"
 
 # The Phase 3/4 engine crates, pinned here so a version bump is one edit. They
 # are *declared, not installed*: the member that consumes each opts in with

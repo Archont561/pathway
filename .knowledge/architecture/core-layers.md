@@ -155,6 +155,13 @@ FileSystem.sandbox()   // Confined to a root directory
 FileSystem.overlay()   // Union mount (e.g., virtual + real)
 ```
 
+The implemented local seam is `FileSystem.create().sandbox(root)`. It returns
+`SandboxPath` values that preserve containment through `resolve`, `join`,
+`parent`, and I/O. The TypeScript view performs lexical plus existing-ancestor
+`realpath` checks and documents its remaining TOCTOU limitation. The Rust core
+also provides a Unix descriptor-anchored `Sandbox::open_read` primitive using
+`openat(O_NOFOLLOW)` for operations that require race-resistant containment.
+
 **None of these change the `Path` API.** A `Path` object behaves identically
 regardless of which `FileSystem` backend produced it.
 

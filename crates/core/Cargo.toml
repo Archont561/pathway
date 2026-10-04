@@ -41,6 +41,7 @@ tempfile = { workspace = true }
 fs2 = { workspace = true }
 rayon = { workspace = true }
 thiserror = { workspace = true }
+libc = { workspace = true }
 
 [dev-dependencies]
 # Test frameworks only (task-28). `[dev-dependencies]` and not

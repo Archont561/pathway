@@ -545,6 +545,7 @@ dependencies = [
  "fs2",
  "globset",
  "ignore",
+ "libc",
  "proptest",
  "rayon",
  "regex",

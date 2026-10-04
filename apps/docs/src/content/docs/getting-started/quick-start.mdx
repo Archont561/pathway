@@ -93,6 +93,32 @@ appFs.register(tagged, ["data"]);
 const data = await appFs.path("settings.data").read();
 ```
 
+## Sandboxed paths
+
+A `FileSystem` can create a confined view rooted at an existing directory. The
+view returns `SandboxPath` values, so `resolve()`, `join()`, and `parent` keep
+the containment checks when paths are derived:
+
+```ts
+const publicFiles = appFs.sandbox("public");
+const requested = publicFiles.resolve(userInput);
+
+await requested.readText();
+await publicFiles.join("assets", "app.css").writeText(css);
+```
+
+Traversal, prefix collisions, intermediate symlink escapes, symlink loops, and
+broken symlinks throw `ContainmentError`. Existing path components are checked
+with `lstat` and `realpath` at construction and again before I/O; comparison is
+normalised for case-insensitive and Unicode-normalising hosts.
+
+This is a path-view guard, not a promise of race-free access: a process that
+can mutate the directory can still replace a component after the final check and
+before Node opens it. The native core contains a Unix `openat(O_NOFOLLOW)`
+read primitive for descriptor-anchored operations; use that boundary when a
+race-free guarantee is required. The non-Unix native fallback has the same
+TOCTOU limitation and is documented as such.
+
 ## Atomic writes
 
 `atomic: true` writes to a collision-safe temporary file beside the target and
