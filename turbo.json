@@ -14,7 +14,7 @@
       "outputs": ["*.node", "native-engine.d.ts"]
     },
     "build:native:release": {
-      "dependsOn": [],
+      "dependsOn": ["build:native"],
       "inputs": [
         "package.json",
         "$TURBO_ROOT$/Cargo.toml",
@@ -66,9 +66,10 @@
       "outputs": []
     },
     "bench": {
-      "dependsOn": ["^build", "build:native"],
+      "dependsOn": ["^build", "@archont561/pathway#build:native:release"],
       "inputs": ["src/**", "package.json", "tsconfig.json"],
-      "outputs": ["results/**"]
+      "outputs": ["results/**"],
+      "env": ["PATHWAY_BENCH_SIZES"]
     },
     "fmt": {
       "cache": false

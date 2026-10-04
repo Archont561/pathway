@@ -362,6 +362,20 @@ best alternative — on Node 24 that means `node:fs.glob` + `fs.stat` +
 only 5–10%, the Rust complexity is not justified. If it is 10–20x faster
 with lower memory, that is the foundation of the project.
 
+> **Measured 2026-10-03, re-measured in CI 2026-10-04 (backlog task-4): the
+> threshold FAILS on every machine measured.** The fused walk is **1.85x**
+> faster than the strongest baseline at 100k files on the 2-core sandbox
+> (`fdir` + a 32-wide stat/hash pool), and **1.06–1.15x** across 10k–1M and
+> both Bun lines on GitHub's 4-vCPU CI runners — 3.8x against the serial
+> `node:fs.glob` pipeline the threshold assumes. Peak heap (14.3 vs 39.3 MiB) and GC (2.8 vs 20.6 ms per
+> sample) do hold up. The estimated table above is superseded — the measured
+> tables, the methodology traps (debug addon, unsettled page cache) and the gap
+> analysis are in
+> [verified-data.md](../../.knowledge/competitive/verified-data.md); the
+> re-baselining options are in
+> [fused-walk.md](../../.knowledge/architecture/fused-walk.md). **The ≥5x and
+> 10–20x figures are not available to marketing.**
+
 ---
 
 ## Decision Summary

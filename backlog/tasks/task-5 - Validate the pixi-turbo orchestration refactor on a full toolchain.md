@@ -1,10 +1,10 @@
 ---
 id: task-5
 title: Validate the pixi/turbo orchestration refactor on a full toolchain
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-30'
-updated_date: '2026-09-30 20:24'
+updated_date: '2026-10-04'
 labels:
   - build
   - tooling
@@ -126,7 +126,9 @@ Probed with `lefthook run pre-commit --file <path>` (without `--force`, which wo
 
 ## Definition of Done
 
-- [ ] `pixi run ci` is green on a clean clone and in GitHub Actions. — **clean clone: done. GitHub Actions: still open.**
+- [x] `pixi run ci` is green on a clean clone and in GitHub Actions.
+
+  Clean clone: 2026-09-30, below. GitHub Actions: green twice on PR #8 — run [37161133863](https://github.com/Archont561/pathway/actions/runs/37161133863) (head `0addc88`, the first run on the PR ref) and run [37163546035](https://github.com/Archont561/pathway/actions/runs/37163546035) (head `605ee56`), both `success`, the same `pixi run ci` through turbo on an ubuntu-24.04 runner. The Actions runs also exercised what this task could not check locally: the task graph running against a *restored* turbo cache (run 1 hit `@repo/rust#lint`, `typecheck`, `test`, `build` and `build:native` from main's cache entry; run 2 reached **FULL TURBO** — 5/5 typecheck in 113 ms, 4/4 test in 26 ms). The lefthook glob rows and the invalidation matrix were not re-run on Actions; they are covered by the local evidence above, and nothing in the Actions logs contradicts them.
 
   Clean-tree run, 2026-09-30, after the task delegation landed: the source tree was extracted to a fresh directory with **no `node_modules`, no `target/`, no `.turbo`, no `dist`** (16 MB of pure source) and only the toolchain symlinked in. `pixi run ci` **exited 0 in 4m25s**, all seven steps, the Astro production build ran exactly once, and `crates/lcov.info` was produced. `bun install --frozen-lockfile` accepted the lockfile with the new `crates` workspace member and installed 870 packages offline in 560 ms. That is the "clean clone" half, demonstrated rather than assumed.
 
