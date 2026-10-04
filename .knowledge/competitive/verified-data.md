@@ -1,15 +1,19 @@
 ---
 type: Market Intelligence
-title: "Verified Market Data: Round 1 (July 2025) + Round 2 (Sept 2026)"
-description: "Web-verified market facts: Node 24/26, stable node:fs.glob, Bun 1.3/1.4 Rust rewrite, Deno 2 NAPI, NAPI-RS iterators, and Round-1 corrections."
-tags: [verification, corrections, tinyglobby, bun, fdir, fast-glob, downloads, node, fs.glob, napi-rs]
+title: "Verified Data: Measured Fused-Walk Benchmark (Oct 2026) + Market Rounds 1–2"
+description: "Measured fused-walk baseline (local 1.85x; CI sweep 1.06–1.15x on 10k–1M, both Bun lines — the ≥5x claim withdrawn) plus web-verified market facts: Node 24/26, stable node:fs.glob, Bun 1.3/1.4, Deno 2 NAPI, NAPI-RS iterators."
+tags: [verification, benchmark, fused-walk, corrections, tinyglobby, bun, fdir, fast-glob, downloads, node, fs.glob, napi-rs]
 status: stable
 generated:
   by: pathway_kb/1.0
-  at: 2026-09-16T00:00:00Z
+  at: 2026-10-03T00:00:00Z
 verified:
   - by: process:web-search-round2
     at: 2026-09-16T00:00:00Z
+  - by: process:benchmark-task-4
+    at: 2026-10-03T00:00:00Z
+  - by: process:ci-benchmark-sweep
+    at: 2026-10-04T00:00:00Z
 stale_after: 2026-12-16T00:00:00Z
 sources:
   - id: web-verification-round2
@@ -17,6 +21,16 @@ sources:
     title: Round 2 live web re-verification
     author: process:web-search
     last_modified: 2026-09-16T00:00:00Z
+  - id: benchmark-task-4
+    resource: "benches/walk harness, 100k files, Bun 1.3.11-canary.1 on a 2-core Linux container, release addon, warm page cache"
+    title: Fused-walk measured baseline (first run of the harness)
+    author: process:benchmark-task-4
+    last_modified: 2026-10-03T00:00:00Z
+  - id: ci-benchmark-sweep-2026-10-04
+    resource: "GitHub Actions run 37163546083 (commit 605ee56): bench (bun 1.3 · pixi run bench) and bench (bun 1.4 · direct driver), both green, ubuntu-24.04 4-vCPU runners, release addon, 10k–1M; p50/first-entry/entries transcribed from the job logs, full metrics in the run's report artifacts"
+    title: Full CI benchmark sweep, both Bun lines, 10k–1M files
+    author: process:ci-benchmark-sweep
+    last_modified: 2026-10-04T00:00:00Z
   - id: market-snapshot-round1
     resource: "npm registry weekly-download and GitHub star snapshot, July 2025"
     title: Round 1 market snapshot (historical)
@@ -32,7 +46,250 @@ depends_on:
 
 # Verified Market Data
 
-## Round 2 (September 2026) — Current
+## Benchmark baseline (2026-10-03) — the first measured numbers
+
+> **The ≥5x fused-walk claim does not hold.** On 100k files the fused walk is
+> **1.85x** faster than the strongest alternative on this container, not ≥5x,
+> and **1.06–1.15x** when the same harness runs on CI hardware (see the CI
+> sweep below — the margin is machine-dependent and never ≥5x). It is **5.7x**
+> slower than `fdir` on raw traversal. Measured with `benches/walk`
+> (backlog task-4); the full tables are in that package's generated
+> `results/results/report.md`. This supersedes the *projected* figures in
+> [fused-walk.md](/architecture/fused-walk.md), which were written before any
+> harness existed.
+
+### Configuration
+
+| | |
+|---|---|
+| Platform | 2-core Linux container, overlayfs on loopback |
+| Runtime | Bun `1.3.11-canary.1`, Node target 24.3.0 |
+| Addon | **release** build (`napi build --release`) |
+| Harness | `pixi run bench`, `PATHWAY_BENCH_SIZES=100000` |
+| Tree | 100,000 files, ~6.4 MB of content, generated deterministically |
+| Cache | whole tree read once before measuring (warm-cache steady state) |
+
+Two methodology notes, both forced by observed failures, because they change
+the numbers by more than the claim does:
+
+- **The addon must be a release build.** The first run used the debug addon
+  and put the fused walk at 245 ms where the release build measures 1380 ms —
+  the debug profile is not 2x off, it changes the ranking.
+- **The tree is read once before measuring.** Generating 100k files leaves
+  hundreds of MB of dirty pages; the first subject that then reads *content*
+  pays for the generator's writeback. One run put the fused walk at **29.2 s**
+  and the next at **1.3 s** for identical work. Scenarios A and B only read
+  directory entries, so they looked stable throughout and hid the cause
+  entirely.
+
+### A — raw traversal (paths only)
+
+| Implementation | p50 ms | p95 ms | first entry ms | peak heap | entries |
+|---|---:|---:|---:|---:|---:|
+| **`fdir`** | **70.8** | 73.8 | 81.2 | 33.6 MiB | 100,000 |
+| `node-glob` | 245.5 | 275.4 | 94.2 | 26.6 MiB | 100,000 |
+| `tinyglobby` | 288.9 | 343.4 | 206.3 | 35.2 MiB | 100,000 |
+| pathway | 404.2 | 423.0 | 152.5 | 39.3 MiB | 100,000 |
+
+**Pathway is 0.18x — it loses to `fdir` by 5.7x.** `fdir` uses
+`readdir(withFileTypes: true)` and never stats; pathway pays for the `ignore`
+crate's generality (gitignore support, pruning, parallel workers) whether or not
+the caller uses it.
+
+### B — traversal with an exclusion set
+
+| Implementation | p50 ms | p95 ms | first entry ms | peak heap | entries |
+|---|---:|---:|---:|---:|---:|
+| **`fdir`** | **50.0** | 52.1 | 49.1 | 21.5 MiB | 38,660 |
+| pathway | 121.6 | 124.4 | 118.8 | 10.5 MiB | 38,660 |
+| `tinyglobby` | 633.8 | 748.9 | 585.0 | 15.8 MiB | 38,660 |
+| `node-glob` | 824.2 | 1134.2 | 102.2 | 27.0 MiB | 38,660 |
+
+**0.41x.** Pre-descent pruning (`node_modules`, `dist`, `.git` never entered)
+is where pathway earns its keep — 38,660 entries instead of 100,000 — but the
+scenarios measure equal work over equal outputs, so pruning does not show up as
+speed here. It would show in a tree where the excluded directories are large.
+
+### C — fused traversal + stat + hash (the claim)
+
+| Implementation | p50 ms | p95 ms | first entry ms | peak heap | entries |
+|---|---:|---:|---:|---:|---:|
+| **pathway (fused)** | **1,380.1** | 1,401.1 | 1,093.2 | 14.3 MiB | 100,000 |
+| `fdir` + 32-wide pool | 2,551.7 | 2,672.3 | 115.4 | 39.3 MiB | 100,000 |
+| `fdir` (serial) | 4,856.9 | 4,983.5 | 133.8 | 40.9 MiB | 100,000 |
+| `tinyglobby` (serial) | 4,990.3 | 5,575.8 | 213.6 | 33.8 MiB | 100,000 |
+| `node-glob` (serial) | 5,280.2 | 5,370.9 | 101.1 | 29.3 MiB | 100,000 |
+
+**1.85x against `fdir` + a 32-wide stat/hash pool on this container** — 3.6x
+against `node:fs.glob` + `node:fs` + `node:crypto`, the baseline the ≥5x
+threshold was written against. (The 2026-10-04 CI sweep below puts the same
+comparison at 1.06–1.15x on 4-vCPU runners.) Peak heap is genuinely lower (14.3 MiB vs 39.3 MiB) and GC
+pressure is lower (2.8 ms vs 20.6 ms per sample), which is the fusion working as
+designed; the wall-clock margin is simply smaller than projected.
+
+**Why the earlier 3.7x reading was wrong.** The first version of this baseline
+ran each baseline's stat+hash in a plain `for` loop, serialising 100k round
+trips. That measures pathway's internal parallelism against a single-threaded
+consumer — not fusion. Adding the concurrent baseline halved the apparent win.
+The honest strongest alternative is a consumer that keeps the disk busy too.
+
+### Cancellation (pathway only)
+
+Abort lands mid-walk; the iterator settles in **0.4 ms**. It does **not** surface
+the abort reason, and **0 batches** had been delivered when the abort fired.
+
+### Gap analysis — why the claim misses
+
+1. **The baseline got stronger, not weaker.** The ≥5x threshold assumed
+   `node:fs.glob` + serial post-processing. A competent consumer pools its I/O,
+   and the pooled baseline is 2.1x faster than the serial one. Fusion removes
+   JS↔native round trips; it does not remove the round trips to the kernel.
+2. **The traversal is already cheap.** At ~71 ms for 100k entries, `fdir`
+   spends 0.7 µs per file. The stat+hash pass costs ~1.8 s fused — hashing and
+   I/O are ~20x the traversal, so fusion can only ever amortise the smaller term.
+3. **`withMetadata: false` is load-bearing.** The N-API binding defaults it to
+   `true`, which stats every entry. Left on, scenario A gave pathway a per-file
+   `stat` that no baseline performs.
+4. **Streaming is not incremental yet.** `scan()` runs the entire traversal
+   before JavaScript can pull the first batch, so time-to-first-entry is 79% of
+   total (1,093 of 1,380 ms) while every baseline's first entry arrives in
+   ~100 ms. On a *streaming* metric pathway is currently the worst option, and
+   for a build tool reacting to a large tree that matters more than p50.
+
+### What would have to change to reach 5x
+
+Nothing in the harness. The gap is architectural: 1.06–1.85x against a pooled
+baseline (CI runner vs 2-core sandbox) means the fusion win is real but bounded,
+and closing it to 5x requires either a faster hash (the pass is I/O- and
+hash-bound) or true incremental batching so the traversal overlaps the consumer. **The ≥5x figure should be
+withdrawn from marketing until re-measured**, and [fused-walk.md](/architecture/fused-walk.md)'s
+projected 10–20x replaced with these numbers.
+
+### Not yet measured
+
+~~10k / 500k / 1M trees, and `Bun.Glob.scan` on Bun 1.4~~ — **measured 2026-10-04**, in the CI
+sweep below. What this local baseline still uniquely contributes: peak heap, GC pressure, p95
+and the cancellation measurement — the CI job logs expose p50, time-to-first-entry and entry
+counts (the driver's own progress output), while the full metric set lives in the workflow's
+`report.md` artifacts. Single-run p50 on a 2-core container; repeat runs vary by up to 2x, so
+treat these as order-of-magnitude.
+
+---
+
+## CI benchmark sweep (2026-10-04) — GitHub Actions, both Bun lines, 10k–1M
+
+The recorded sweep now runs where benchmarks belong — in CI
+([run 37163546083](https://github.com/Archont561/pathway/actions/runs/37163546083), commit
+`605ee56`), not on ephemeral local hardware. Two jobs: Bun `1.3.11-canary.1` through
+`pixi run bench --force` (turbo graph, westus3 runner) and Bun `1.4.2` through the driver
+directly (eastus2 runner) — both on the `ubuntu-24.04` image (GitHub's standard 4-vCPU
+runner), release addon asserted by the workflow before measuring, page cache settled before
+each size (`read 64,000,000 bytes in 99.0 s / 101.5 s` at 1M). The numbers below are p50 ms,
+transcribed from the drivers' own per-scenario output in the job logs; p95, peak heap, GC and
+cancellation live in the `bench-report-bun-1-3` / `bench-report-bun-1-4` artifacts
+(digests `7e3fdda6…` / see run page). Entry counts matched across every implementation at
+every size — and match the local sweep exactly (3,950 / 38,660 / 184,094 / 368,047 for
+scenario B), so the tree generator is deterministic across machines.
+
+> **The CI hardware moves the headline again — downward.** Against `fdir` + a 32-wide
+> stat/hash pool the fused walk is **1.06x at 100k, 1.10x at 500k, 1.09x at 1M** on Bun 1.3
+> and **1.08x / 1.15x / 1.11x** on Bun 1.4 (parity, 1.02–1.03x, at 10k). The 2-core
+> sandbox's 1.85x does not reproduce on the 4-vCPU runner: pathway's fused time is the same
+> on both machines (506.9 vs 500.3 ms at 100k), but the pooled JS consumer is faster on the
+> bigger runner (538.4 vs 729.1 ms) — the margin is machine-dependent, and **on no measured
+> machine does it reach ≥5x**. The claim is withdrawn everywhere, not just locally.
+
+### C — fused traversal + stat + hash (the claim), p50 ms
+
+| Implementation | 10k | 100k | 500k | 1M |
+|---|---:|---:|---:|---:|
+| **Bun 1.3.11** | | | | |
+| **pathway (fused)** | 56.5 | **506.9** | **2,572.2** | **5,155.8** |
+| `fdir` + 32-wide pool | **58.1** | 538.4 | 2,820.4 | 5,597.3 |
+| `fdir` (serial) | 887.9 | 8,794.5 | 44,715.3 | 88,350.4 |
+| `node-glob` (serial) | 933.5 | 9,258.0 | 46,781.3 | 93,877.3 |
+| `tinyglobby` (serial) | 903.8 | 9,006.8 | 45,503.3 | 90,959.8 |
+| `bun-glob` (serial) | 912.9 | 9,212.0 | 46,025.2 | 92,639.2 |
+| **Bun 1.4.2** | | | | |
+| **pathway (fused)** | **52.1** | **502.0** | **2,494.6** | **4,979.4** |
+| `fdir` + 32-wide pool | 53.0 | 544.1 | 2,869.2 | 5,521.8 |
+| `fdir` (serial) | 999.3 | 9,885.5 | 49,645.4 | 99,705.8 |
+| `node-glob` (serial) | 1,115.0 | 11,026.6 | 56,589.9 | 117,184.0 |
+| `tinyglobby` (serial) | 996.0 | 9,996.4 | 50,445.3 | 100,984.9 |
+| `bun-glob` (serial) | 1,020.3 | 10,198.5 | 51,002.6 | 102,141.2 |
+
+**Verdict: the fused walk wins every size on both runtimes, but by 1.02–1.15x against the
+pooled baseline, not ≥5x.** The serial baselines are 17–22x slower than both pathway and the
+pool — the serial comparison flatters whatever it is measured against, which is why the pool
+is the comparator of record. Time-to-first-entry stays the architectural sore point at scale:
+at 1M, pathway's first entry lands at 4,120 ms (1.3) / 4,080 ms (1.4) of a ~5.0–5.2 s total —
+**~80%** — while `fdir`+pool's first entry arrives at 360/312 ms.
+
+### A — raw traversal (paths only), p50 ms
+
+| Implementation | 10k | 100k | 500k | 1M |
+|---|---:|---:|---:|---:|
+| **Bun 1.3.11** | | | | |
+| **`fdir`** | **4.1** | **29.7** | **159.1** | **339.1** |
+| `tinyglobby` | 7.7 | 69.7 | 390.5 | 868.7 |
+| `bun-glob` | 11.1 | 103.9 | 555.4 | 1,183.9 |
+| pathway | 12.6 | 120.2 | 571.9 | 1,214.2 |
+| `node-glob` | 15.2 | 145.9 | 790.8 | 1,626.6 |
+| **Bun 1.4.2** | | | | |
+| **`fdir`** | **4.1** | **32.3** | **160.4** | **323.1** |
+| `tinyglobby` | 7.4 | 66.6 | 348.6 | 737.2 |
+| `bun-glob` | 10.8 | 104.9 | 529.0 | 1,065.5 |
+| pathway | 12.3 | 106.5 | 527.3 | **1,050.6** |
+| `node-glob` | 57.5 | 557.0 | 2,902.8 | 6,171.0 |
+
+Pathway loses raw traversal to `fdir` by **3.0–4.0x** everywhere (it was 5.7x in the first
+local 100k run) — `fdir` reads `readdir(withFileTypes)` and never stats, while pathway pays
+for the `ignore` crate's generality. On Bun 1.4 pathway pulls level with `bun-glob` and ahead
+of a collapsing `node-glob` (below).
+
+### B — traversal with an exclusion set, p50 ms
+
+| Implementation | 10k | 100k | 500k | 1M |
+|---|---:|---:|---:|---:|
+| **Bun 1.3.11** | | | | |
+| **`fdir`** | **2.3** | **18.1** | **99.9** | **185.3** |
+| pathway | 7.2 | 49.1 | 249.9 | 493.1 |
+| `bun-glob` | 16.5 | 159.4 | 905.4 | 1,918.0 |
+| `node-glob` | 38.4 | 380.0 | 1,902.8 | 3,778.1 |
+| `tinyglobby` | 39.2 | 386.0 | 1,859.7 | 3,735.4 |
+| **Bun 1.4.2** | | | | |
+| **`fdir`** | **2.2** | **17.5** | **98.5** | **193.4** |
+| pathway | 7.3 | 51.9 | 235.7 | 446.4 |
+| `bun-glob` | 13.5 | 132.4 | 676.4 | 1,348.5 |
+| `tinyglobby` | 32.9 | 319.9 | 1,568.2 | 3,113.3 |
+| `node-glob` | 99.0 | 908.2 | 4,462.0 | 9,312.3 |
+
+Pathway is 2.5–3.1x behind `fdir` on equal work (38,660 of 100k entries survive the
+exclusions; the pruning itself is the product, not the speed). The `bun-glob` rows carry the
+documented asymmetry: `Bun.GlobScanOptions` has no `ignore`, so scenario B filters in JS
+after a full scan — its scenario-B cost is not its traversal cost.
+
+### What the sweep settles
+
+1. **The ≥5x claim is dead on every machine measured.** 1.85x (2-core sandbox, 100k) →
+   1.06–1.15x (4-vCPU CI runner, 10k–1M, both Bun lines). The margin is real, positive and
+   machine-dependent; the honest one-line claim is *"fused stat+hash beats the best JS
+   pipeline by ~1.1x on CI hardware, with lower memory and GC"* (heap/GC figures from the
+   local baseline, artifact-preserved in CI).
+2. **The unresolved ratio-trend question is closed.** Local sweeps disagreed about the
+   direction (1.53→1.44 vs 1.29→1.58 across sizes); CI says flat ~1.1x with a mild hump at
+   500k. No size regime rescues the claim.
+3. **Bun 1.4 vs 1.3, measured:** pathway's fused walk is marginally *faster* on 1.4 at scale
+   (4,979 vs 5,156 ms at 1M); `node:fs.glob` regressed hard on 1.4 (557 vs 146 ms at 100k
+   raw, 117.2 s vs 93.9 s fused at 1M — the worst serial baseline); `fdir` is unchanged;
+   `Bun.Glob.scan` (instance method — the static never existed) now runs on both lines and
+   sits between `fdir` and `node-glob` on raw traversal, ~17x off the pool when fused.
+4. **The two jobs ran on different physical runners** (westus3 / eastus2, same image), so
+   cross-runtime deltas carry that caveat; within-job comparisons share a runner.
+
+---
+
+## Round 2 (September 2026) — Market
 
 Live web re-verification, 2026-09-16. Supersedes Round 1 where they
 conflict. **Re-pull npm download stats again before any external
@@ -344,8 +601,9 @@ It's actively maintained, ESM-native, and has zero Node.js dependency
 
 | Correction | Impact |
 |-----------|--------|
+| **Fused walk measured at 1.85x locally, 1.06–1.15x in CI (Oct 2026)** | The ≥5x claim **misses on every machine measured**; projected 10–20x was off by ~6x locally, ~10x in CI. Memory/GC claims hold. Withdraw 5x and 10–20x from marketing; re-baseline on incremental batching |
 | **Node 24 LTS / 26 Current / 20 EOL (Sept 2026)** | CI matrix refresh: 24 + 26 (+22 optional) |
-| **`node:fs.glob` stable in Node core** | Enters benchmark + competitor set; moat reframed as "fused pipeline vs native glob" |
+| **`node:fs.glob` stable in Node core** | Enters benchmark + competitor set; moat reframed as "fused pipeline vs native glob". Measured: 3.8x *serial*, 1.06–1.85x against a pooled baseline (CI vs sandbox) |
 | **Bun 1.4 Rust rewrite (Aug 2026)** | All Zig-era assumptions void; CI + benchmarks on 1.3 **and** 1.4 |
 | **NAPI-RS iterators experimental** | 1–2 day spike gates the streaming architecture (resolves Open Q1) |
 | **`AsyncTask` for blocking work** | Walk path uses libuv pool, not Tokio workers (resolves Open Q2) |

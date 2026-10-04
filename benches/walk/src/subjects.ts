@@ -280,36 +280,98 @@ function tinyglobbySubject(scenario: Scenario): Subject {
   };
 }
 
-/** `Bun.Glob.scan`, reached through a cast because the typings and the runtime disagree. */
-function bunGlobCtor(): { scan(options: unknown): AsyncGenerator<string> } | null {
-  const g = (Bun as unknown as { Glob?: { scan?: unknown } }).Glob;
-  return typeof g?.scan === "function"
-    ? (g as unknown as { scan(options: unknown): AsyncGenerator<string> })
-    : null;
+// `Bun.Glob.scan`, reached through a cast because the typings and the runtime
+// disagree.
+//
+// The scan API is an *instance* method — `new Bun.Glob(pattern).scan(opts)` —
+// and there is no static `Bun.Glob.scan` on any released Bun (probed on
+// 1.3.11-canary.1 and 1.4.2), which is why the first revision of this subject
+// never activated and the task believed the API did not exist on 1.3.
+//
+// The options `GlobScanOptions` accepts are `cwd`, `dot`, `absolute`,
+// `followSymlinks`, `throwErrorOnBrokenSymlink` and `onlyFiles` — there is no
+// `ignore`/`exclude`. Verified empirically on both runtimes rather than assumed:
+// every ignore pattern shape tried (`[asterisk][asterisk]/dist/…`, `dist/…`,
+// `[asterisk][asterisk]/*.md`, absolute variants, `exclude`) left the entry
+// count untouched, and the bun.com reference for Glob.scan lists no such
+// option. Scenario B therefore filters in JavaScript over the full stream —
+// the same shape as fdir's exclude/filter callbacks — and that asymmetry is
+// recorded with the results: the bun-glob B row measures "scan everything,
+// then filter", not exclusion pruning.
+function bunGlobScanner(): { scan(options: unknown): AsyncGenerator<string> } | null {
+  const Glob = (Bun as unknown as { Glob?: new (pattern: string) => unknown }).Glob;
+  if (typeof Glob !== "function") {
+    return null;
+  }
+  try {
+    const instance = new (Glob as new (pattern: string) => unknown)("**/*") as {
+      scan?: unknown;
+    };
+    return typeof instance.scan === "function"
+      ? (instance as unknown as { scan(options: unknown): AsyncGenerator<string> })
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+// The directory half of benchmark B's exclusion set, as path segments.
+const EXCLUDED_DIR_SEGMENTS: ReadonlySet<string> = new Set(EXCLUDED_DIRS);
+
+/**
+ * Benchmark B's exclusion set as a JavaScript predicate over relative paths.
+ *
+ * Only used by the subject whose native API cannot express exclusions — see
+ * `bunGlobScanner` for why that is a documented fact about `Bun.Glob.scan`,
+ * not a wiring shortcut.
+ */
+function notExcluded(relative: string): boolean {
+  const segments = relative.split("/");
+  for (let i = 0; i < segments.length - 1; i += 1) {
+    if (EXCLUDED_DIR_SEGMENTS.has(segments[i] as string)) {
+      return false;
+    }
+  }
+  return !/\.(test\.ts|spec\.js|md)$/.test(relative);
 }
 
 function bunGlob(scenario: Scenario): Subject | null {
-  const ctor = bunGlobCtor();
-  if (ctor === null) {
+  const globber = bunGlobScanner();
+  if (globber === null) {
     return null;
   }
   return {
     implementation: "bun-glob",
     scenario,
     async run(onFirst) {
-      const stream = ctor.scan({ cwd: root, dot: true });
-      if (scenario !== "c-fused") {
-        return await countOf(stream, onFirst);
-      }
-      let count = 0;
-      for await (const relative of stream) {
-        if (count === 0) {
-          onFirst();
+      // `onlyFiles: true` is the documented default; stated explicitly so a
+      // future runtime default change cannot silently change the file set.
+      // scan() yields relative paths, files only — verified on both runtimes.
+      const stream = globber.scan({ cwd: root, dot: true, onlyFiles: true });
+      if (scenario === "c-fused") {
+        let count = 0;
+        for await (const relative of stream) {
+          if (count === 0) {
+            onFirst();
+          }
+          await statAndHash(join(root, relative));
+          count++;
         }
-        await statAndHash(join(root, relative));
-        count++;
+        return count;
       }
-      return count;
+      if (scenario === "b-exclusions") {
+        let count = 0;
+        for await (const relative of stream) {
+          if (notExcluded(relative)) {
+            if (count === 0) {
+              onFirst();
+            }
+            count++;
+          }
+        }
+        return count;
+      }
+      return await countOf(stream, onFirst);
     }
   };
 }
@@ -393,7 +455,7 @@ export function baselineAvailability(): Record<string, boolean> {
     "node:fs.glob": true,
     fdir: true,
     tinyglobby: true,
-    "Bun.Glob.scan": bunGlobCtor() !== null,
+    "Bun.Glob.scan": bunGlobScanner() !== null,
     [`fdir + ${POOL_WIDTH}-wide stat/hash pool`]: true
   };
 }
