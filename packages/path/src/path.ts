@@ -1,16 +1,28 @@
 /**
  * `Path` — the ergonomic surface.
  *
- * String manipulation stays in TypeScript. Filesystem operations that operate
- * on one file use the platform's promises API for now; large-scale traversal,
- * hashing, and filtering continue to use the native engine through `walk.ts`.
+ * String manipulation stays in TypeScript. Single-file operations use the
+ * platform's promises API; bounded bulk copy, move, and transform operations
+ * live in `bulk.ts`. Large-scale traversal, hashing, and filtering continue
+ * to use the native engine through `walk.ts`.
  */
 
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as pathe from "pathe";
+import { copyTree, movePath, transformTree } from "./bulk.js";
 import { defaultSerializerRegistry, type SerializerRegistry } from "./serializers/registry.js";
-import type { ReadOptions, Serializer, WriteOptions } from "./types.js";
+import type {
+  CopyOptions,
+  CopyResult,
+  MoveOptions,
+  MoveResult,
+  ReadOptions,
+  Serializer,
+  TransformOptions,
+  TransformResult,
+  WriteOptions
+} from "./types.js";
 
 function isSerializer(value: unknown): value is Serializer<unknown> {
   if (typeof value !== "object" || value === null) {
@@ -76,6 +88,27 @@ export class Path {
   /** Join path segments onto this path. */
   join(...segments: string[]): Path {
     return new Path(pathe.join(this.value, ...segments), this.serializers);
+  }
+
+  /** Copy this file or tree to the exact destination using bounded concurrency. */
+  async copyTo(destination: Path, options?: CopyOptions): Promise<CopyResult> {
+    this.assertSafe();
+    destination.assertSafe();
+    return copyTree(this.value, destination.value, options);
+  }
+
+  /** Move this file or tree to the exact destination. */
+  async moveTo(destination: Path, options?: MoveOptions): Promise<MoveResult> {
+    this.assertSafe();
+    destination.assertSafe();
+    return movePath(this.value, destination.value, options);
+  }
+
+  /** Transform selected text files into a destination tree in bounded parallelism. */
+  async transform(destination: Path, options: TransformOptions): Promise<TransformResult> {
+    this.assertSafe();
+    destination.assertSafe();
+    return transformTree(this.value, destination.value, options);
   }
 
   /** Read the file as text. */

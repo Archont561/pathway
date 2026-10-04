@@ -22,12 +22,20 @@ export { Path } from "./path.js";
 export { ContainmentError, Sandbox, SandboxPath } from "./sandbox.js";
 export { json, SerializerRegistry } from "./serializers/index.js";
 export type {
+  BulkOperationError,
+  CopyOptions,
+  CopyResult,
   EntryErrorKind,
   FileSystemOptions,
+  FileTransform,
   HasherName,
+  MoveOptions,
+  MoveResult,
   PathEntry,
   ReadOptions,
   Serializer,
+  TransformOptions,
+  TransformResult,
   Validator,
   WriteOptions
 } from "./types.js";

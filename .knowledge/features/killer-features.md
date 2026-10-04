@@ -474,18 +474,32 @@ Rust's `rayon` + `tokio` makes parallel I/O trivial:
 ### Architecture
 
 ```
-Rust Engine
+Path.copyTo / Path.moveTo / Path.transform
    │
-   ├── Walk + filter (ignore crate, parallel)
-   │
-   ├── For each file (rayon parallel):
-   │     ├── Read content (mmap or buffered)
-   │     ├── If transform: yield to JS callback (N-API ThreadSafeFunction)
-   │     ├── Write to destination (parallel I/O)
-   │     └── Track progress
-   │
-   └── Return summary: { copied, skipped, errors }
+   ├── collect entries with lstat and root-relative filters
+   ├── preserve symlinks unless followSymlinks is requested
+   ├── bounded worker pool for file operations
+   └── return summary: { copied/transformed, skipped, errors }
 ```
+
+The current public implementation keeps callback transforms in TypeScript, where
+user code can run safely and predictably. It uses a bounded pool rather than
+`Promise.all(files.map(...))`, so a large tree does not allocate one pending
+promise per file. `moveTo()` uses a same-filesystem rename and falls back to
+copy-then-remove for `EXDEV`; it does not reimplement atomic writes. The native
+engine remains the planned optimization boundary for large copy trees, while
+the public semantics and tests are established here.
+
+Transformer arrays run left to right for every file. A read, transform, or write
+failure is recorded for that file and does not prevent other workers from
+completing; cancellation and invalid concurrency are still hard failures.
+
+The repository benchmark creates 50,000 files and compares `copyTo()` with a
+sequential Node baseline. On 2026-10-04 it measured 906 ms versus 3,957 ms,
+for a 4.37x speedup against the documented 3x target. This is intentionally a
+reproducible local baseline, not a claim about every `fs-extra` release; an
+external `fs-extra.copy()` comparison remains a release-benchmark follow-up.
+Run it with `pixi run bench --filter=@repo/bench-copy`.
 
 ### Phase Target: v0.3
 

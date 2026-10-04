@@ -119,6 +119,46 @@ read primitive for descriptor-anchored operations; use that boundary when a
 race-free guarantee is required. The non-Unix native fallback has the same
 TOCTOU limitation and is documented as such.
 
+## Bulk copy, move, and transform
+
+`Path` also provides bounded bulk operations. The worker pool never creates one
+promise per file, and symlinks are preserved unless `followSymlinks` is enabled:
+
+```ts
+const source = appFs.path("packages");
+const destination = appFs.path("build/packages");
+
+const copied = await source.copyTo(destination, {
+  glob: ["**/*.ts", "**/*.json"],
+  exclude: ["node_modules", ".git"],
+  concurrency: 8
+});
+
+await appFs.path("old-config.json").moveTo(appFs.path("archive/config.json"));
+```
+
+Transforms accept one callback or an ordered list. Each file runs the list from
+left to right; a failed file is reported in `errors` while other files continue:
+
+```ts
+const result = await appFs.path("src").transform(appFs.path("dist"), {
+  glob: "**/*.ts",
+  concurrency: 8,
+  transform: [
+    (content) => content.replaceAll("process.env.NODE_ENV", '"production"'),
+    (content) => `${content}\n// generated\n`
+  ]
+});
+
+if (result.errors.length > 0) {
+  console.error(result.errors);
+}
+```
+
+`copyTo()` returns `{ copied, skipped, errors }`; `transform()` returns
+`{ transformed, skipped, errors }`; `moveTo()` uses rename and falls back to
+copy-then-remove across filesystems.
+
 ## Atomic writes
 
 `atomic: true` writes to a collision-safe temporary file beside the target and

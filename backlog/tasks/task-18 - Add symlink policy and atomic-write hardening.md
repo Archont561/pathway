@@ -1,11 +1,11 @@
 ---
 id: task-18
 title: Add symlink policy and atomic-write hardening
-status: In Progress
+status: Done
 assignee:
   - '@me'
 created_date: '2026-09-30'
-updated_date: '2026-10-04 18:20'
+updated_date: '2026-10-04 18:43'
 labels:
   - rust
   - security
@@ -26,33 +26,36 @@ This task is derived from the project knowledge base and scheduled in m-2. It is
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Symlink behavior is covered for walking, copying, and sandbox containment.
+- [x] #1 Symlink behavior is covered for walking, copying, and sandbox containment.
 - [x] #2 O_EXCL temp creation and best-effort directory fsync after rename are implemented and tested.
 <!-- AC:END -->
+
+## Definition of Done
+<!-- DOD:BEGIN -->
+- [x] #1 Implementation, tests, and documentation are complete.
+- [x] #2 Related knowledge-base design remains accurate after implementation.
+<!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Keep symlink policy consistent across the walker, copy operations, and sandbox containment; retain the existing atomic-write hardening and verify all gates.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Atomic writes use exclusive same-directory temporary files, file sync, rename, best-effort parent-directory sync, and cleanup on failure. Walker tests verify no-follow traversal. TASK-15 now supplies sandbox containment tests, while TASK-17 adds copy tests that preserve symlinks by default and supports an explicit followSymlinks option.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Completed symlink and atomic-write hardening across walking, sandbox containment, and copy operations. Full repository gates pass.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 # Add symlink policy and atomic-write hardening
 
 ## References
 
 - [backlog/docs/phase-plan.md](../docs/phase-plan.md)
-
-## Definition of Done
-
-- [ ] Implementation, tests, and documentation are complete.
-- [ ] Related knowledge-base design remains accurate after implementation.
-
-## Implementation Plan
-
-<!-- SECTION:PLAN:BEGIN -->
-Implement the Rust atomic-write primitive test-first, add symlink regression coverage for the existing walker policy, then update documentation and verify all gates. Sandbox and copy APIs belong to TASK-15 and TASK-17 because they do not yet exist in this repository.
-<!-- SECTION:PLAN:END -->
-
-## Implementation Notes
-
-<!-- SECTION:NOTES:BEGIN -->
-Rust atomic writes now use tempfile exclusive creation in the target directory, sync the file before persist/rename, best-effort sync the parent directory, and clean up failed renames.
-
-Regression coverage covers replacement, failed rename cleanup, replacing a symlink without modifying its target, and the existing walker no-follow symlink policy.
-
-The copy and sandbox portions of AC #1 remain owned by TASK-17 and TASK-15 because those public APIs are not implemented yet.
-<!-- SECTION:NOTES:END -->

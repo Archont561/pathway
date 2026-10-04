@@ -82,7 +82,7 @@ measurable, significant value:
 |-----------|----------|
 | `walk()` / `walkFiles()` | Directory traversal with pruning, glob, regex — all in one pass |
 | `hashTree()` | Parallel content hashing across thousands of files |
-| `copyTo()` | Parallel recursive copy with filtering |
+| `copyTo()` | Planned native optimization; current API uses a bounded TypeScript worker pool with filtering |
 | `snapshot()` | Stat + hash entire directory trees |
 
 These are the operations that justify the native dependency. A single

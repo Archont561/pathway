@@ -56,6 +56,74 @@ export interface WriteOptions {
   readonly encoding?: BufferEncoding;
 }
 
+/** One file-level failure from a bulk filesystem operation. */
+export interface BulkOperationError {
+  /** The source path associated with the failed operation. */
+  readonly path: string;
+  /** The original operation error rendered for diagnostics. */
+  readonly message: string;
+}
+
+/** Options for recursive copy and its bounded worker pool. */
+export interface CopyOptions {
+  /** Include only paths matching one or more root-relative glob patterns. */
+  readonly glob?: string | readonly string[];
+  /** Directory names or root-relative glob patterns to exclude. */
+  readonly exclude?: readonly string[];
+  /** Maximum number of file operations in flight. Defaults to eight. */
+  readonly concurrency?: number;
+  /** Follow symlinks instead of preserving them as symlinks. Defaults to false. */
+  readonly followSymlinks?: boolean;
+  /** Abort before or during the operation. */
+  readonly signal?: AbortSignal;
+}
+
+/** Result of a recursive copy. */
+export interface CopyResult {
+  /** Files and symlinks copied successfully. */
+  readonly copied: number;
+  /** Files omitted by `glob` or `exclude`. */
+  readonly skipped: number;
+  /** File-level failures collected without hiding successful work. */
+  readonly errors: readonly BulkOperationError[];
+}
+
+/** Options for moving one path. */
+export interface MoveOptions {
+  /** Abort before or during a cross-device fallback copy. */
+  readonly signal?: AbortSignal;
+}
+
+/** Result of moving one path. */
+export interface MoveResult {
+  /** Source paths moved; one for a successful rename or copied tree. */
+  readonly moved: number;
+  /** Failures from a fallback copy, if any. */
+  readonly errors: readonly BulkOperationError[];
+}
+
+/** A text transformer used by the bulk `transform()` operation. */
+export type FileTransform = (
+  content: string,
+  path: import("./path.js").Path
+) => string | Promise<string>;
+
+/** Options for bounded parallel text transformation. */
+export interface TransformOptions extends CopyOptions {
+  /** One transformer or an ordered list applied from left to right. */
+  readonly transform: FileTransform | readonly FileTransform[];
+}
+
+/** Result of a bulk transform. */
+export interface TransformResult {
+  /** Files transformed successfully. */
+  readonly transformed: number;
+  /** Files omitted by `glob` or `exclude`. */
+  readonly skipped: number;
+  /** Per-file transformer or write failures. */
+  readonly errors: readonly BulkOperationError[];
+}
+
 /** Options used when constructing an isolated filesystem view. */
 export interface FileSystemOptions {
   /** Serializers registered for this filesystem instance only. */
