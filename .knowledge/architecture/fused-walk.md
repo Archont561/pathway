@@ -1,7 +1,7 @@
 ---
 type: Architecture Decision
 title: "Fused Walk: Single-Pass Stat + Hash + Filter"
-description: "Single-pass Rust traversal fusing stat + hash + filter — measured at 1.85x vs the best alternative on 100k files, not the projected 10-20x."
+description: "Single-pass Rust traversal fusing stat + hash + filter — measured at 1.85x (2-core sandbox) and 1.06–1.15x on CI hardware vs the best alternative, not the projected 10-20x."
 tags: [walk, traversal, fused, performance, fdir, tinyglobby, benchmark]
 status: stable
 generated:
@@ -130,12 +130,14 @@ Everything was computed natively during the single traversal pass.
 | GC per sample | 20.6 ms | **2.8 ms** |
 | Time to first entry | 115.4 ms | 1,093.2 ms |
 
-**Fused pipeline: 1.85x, not 10–20x.** Peak heap and GC pressure do behave as
-designed — the memory claim holds, and holds clearly.
+**Fused pipeline: 1.85x on this 2-core container; 1.06–1.15x on CI hardware —
+not 10–20x.** Peak heap and GC pressure do behave as designed — the memory
+claim holds, and holds clearly.
 
 Two of these numbers are worse than the projection and both are real:
 
-- **Pathway loses raw traversal to `fdir` by 5.7x.** `fdir` reads
+- **Pathway loses raw traversal to `fdir` by 5.7x** (3.0–4.0x on CI
+  hardware). `fdir` reads
   `readdir(withFileTypes: true)` and never stats; the `ignore` crate carries
   gitignore support, pruning and parallel workers that this configuration does
   not use. The projection assumed traversal parity.
@@ -145,8 +147,10 @@ Two of these numbers are worse than the projection and both are real:
   currently the *worst* option, which matters for a build tool reacting to a
   large tree.
 
-The honest summary: **fusion works, and it is worth ~1.85x against a pooled
-baseline** — not 5x, and not 10–20x.
+The honest summary: **fusion works, and it is worth 1.06–1.85x against a pooled
+baseline depending on hardware** (1.06–1.15x on the 4-vCPU CI runner across
+10k–1M and both Bun lines; 1.85x on the 2-core sandbox) — not 5x, and not
+10–20x.
 
 ### Against `Bun.Glob.scan()`
 
@@ -335,11 +339,13 @@ The fused walk must be **≥5x faster** than the best alternative on the full
 pipeline (walk + stat + hash) for 100k+ files — the baseline on Node 24 is
 `node:fs.glob` + `node:fs` + `node:crypto` (native C++), not just pure JS.
 
-**Measured 2026-10-03 at 100k files: 1.85x.** The threshold **fails.**
+**Measured 2026-10-03 at 100k files: 1.85x locally; re-measured 2026-10-04 in
+CI (GitHub Actions, 4-vCPU ubuntu runner, both Bun lines, 10k–1M):
+1.06–1.15x.** The threshold **fails on every machine measured.**
 
 | Baseline | pathway | Speedup |
 |---|---:|---:|
-| `fdir` + 32-wide stat/hash pool (**the strongest**) | 1,380 ms | **1.85x** |
+| `fdir` + 32-wide stat/hash pool (**the strongest**) | 1,380 ms | **1.85x** (1.06x in CI) |
 | `fdir`, serial post-processing | 1,380 ms | 3.5x |
 | `tinyglobby`, serial | 1,380 ms | 3.6x |
 | `node:fs.glob`, serial | 1,380 ms | 3.8x |
@@ -357,10 +363,12 @@ What the first run changed about how this document should be read:
 2. **Harness methodology is not optional.** A debug addon and an unsettled page
    cache each moved the numbers by more than the claim does — the cache alone
    produced a 29.2 s reading and a 1.3 s reading for identical work.
-3. **1.85x with 2.7x lower peak heap and 7x lower GC is a real result**, just
-   not the one that justifies the architecture on speed alone. The case for the
-   native engine now rests on memory and GC, and on fusion removing
-   JS↔native hops — which is a narrower claim than "5x faster".
+3. **1.06–1.85x (machine-dependent) with 2.7x lower peak heap and 7x lower GC
+   is a real result**, just not the one that justifies the architecture on speed
+   alone. The CI sweep is the number of record now: the pooled JS consumer
+   scales with cores, so the margin narrows as the machine grows. The case for
+   the native engine rests on memory and GC, and on fusion removing JS↔native
+   hops — which is a narrower claim than "5x faster".
 
 Re-baselining options, in the order they are worth trying: true incremental
 batching (so the traversal overlaps the consumer, which also fixes the

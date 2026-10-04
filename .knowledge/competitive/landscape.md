@@ -287,7 +287,8 @@ that. Added to the benchmark harness in [phase-plan.md](../../backlog/docs/phase
 **Relationship to us:** The primary traversal competitor. The bar was beating
 its post-traversal stat/hash pipeline by ≥5x on the **full fused pipeline** —
 and as of 2026-10-03 we do not: the measured margin is **1.85x** against a
-pooled baseline, 3.6x against a serial one. See
+pooled baseline on the 2-core sandbox, **1.06–1.15x** in the 2026-10-04 CI
+sweep (4-vCPU runner, 10k–1M, both Bun lines), 3.6x against a serial one. See
 [verified-data.md](/competitive/verified-data.md) for the tables and
 [fused-walk.md](/architecture/fused-walk.md) for the gap analysis.
 

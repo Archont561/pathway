@@ -1,7 +1,7 @@
 ---
 type: Market Intelligence
 title: "Strategic Conclusions, Target Audience, Pitch, Bun-as-Ally"
-description: "Strategic conclusions: target audience, one-line pitch, Bun-as-ally posture, messaging guardrails; benchmark story corrected to the measured 1.85x."
+description: "Strategic conclusions: target audience, one-line pitch, Bun-as-ally posture, messaging guardrails; benchmark story corrected to the measured 1.06–1.85x (CI vs 2-core sandbox)."
 tags: [positioning, strategy, pitch, audience, bun, marketing, benchmark]
 status: stable
 generated:
@@ -253,10 +253,14 @@ interface. Similar to how `express` middleware became a standard.
 
 ### Moat 4: The Benchmark Story (Marketing)
 
-**Measured 2026-10-03: 1.85x, not 10–20x.** On 100k files the fused pipeline is
-1,380 ms against 2,552 ms for the strongest baseline (`fdir` + a 32-wide
-stat/hash pool) — 3.8x against the serial `node:fs.glob` + `node:fs` +
-`node:crypto` pipeline. The original projection of 10–20x was off by roughly 6x.
+**Measured 2026-10-03: 1.85x; re-measured 2026-10-04 in CI: 1.06–1.15x — not
+10–20x.** On 100k files the fused pipeline is 1,380 ms against 2,552 ms for the
+strongest baseline (`fdir` + a 32-wide stat/hash pool) locally; the same harness
+on GitHub's 4-vCPU runner puts the margin at 1.06–1.15x across 10k–1M and both
+Bun lines (507 vs 538 ms at 100k on Bun 1.3) — the pooled consumer scales with
+cores, the margin narrows as the machine grows. 3.8x against the serial
+`node:fs.glob` + `node:fs` + `node:crypto` pipeline. The original projection of
+10–20x was off by roughly 6x locally and ~10x in CI.
 
 This moat is **weaker than assumed but not empty**, and the honest version is
 narrower and more specific:
@@ -286,7 +290,7 @@ have been checked rather than asserted.
 |------|-----------|--------|-----------|
 | NAPI-RS distribution pain | Medium | High | Use `napi-rs/cli` tooling; proven by SWC/lightningcss |
 | Bun N-API breakage | Medium | Medium | CI matrix includes Bun; **test both 1.3.x and 1.4.x (Rust-rewrite release, Aug 2026)** |
-| ~~Fused walk not fast enough vs `node:fs.glob`~~ | **Materialised** (2026-10-03) | Critical | 1.85x vs the strongest baseline, not ≥5x. **This risk has landed.** Response: withdraw the speed claim, re-baseline on incremental batching, and lead with memory/GC (14.3 MiB vs 39.3 MiB peak) rather than a multiple |
+| ~~Fused walk not fast enough vs `node:fs.glob`~~ | **Materialised** (2026-10-03) | Critical | 1.06–1.85x vs the strongest baseline (CI sweep vs 2-core sandbox), not ≥5x. **This risk has landed, on every machine measured.** Response: withdraw the speed claim, re-baseline on incremental batching, and lead with memory/GC (14.3 MiB vs 39.3 MiB peak) rather than a multiple |
 | `tinyglobby` adds native backend | Low | High | Unlikely (JS ecosystem); our composition layer remains |
 | Node core ships stat/hash fusion in `fs.glob` | Low | High | Watch Node tracking issues; composition layer + ecosystem remain the fallback |
 | Bun ships compositional FS API | Low | Medium | Would take years; we establish ecosystem first |

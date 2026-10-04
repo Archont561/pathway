@@ -221,10 +221,11 @@ Rust does it with:
 - Memory-mapped I/O for large files
 - Zero JS allocations until the final batch yield
 
-**Measured speedup (2026-10-03, 100k files): 1.85x** on the full pipeline
-against the strongest baseline (`fdir` + a 32-wide stat/hash pool), with peak
-heap **14.3 MiB vs 39.3 MiB** and GC **2.8 ms vs 20.6 ms** per sample. The
-originally projected 10–20x was off by ~6x. See
+**Measured speedup (2026-10-03 locally, 100k files: 1.85x; 2026-10-04 CI
+sweep, 10k–1M, both Bun lines: 1.06–1.15x)** on the full pipeline against the
+strongest baseline (`fdir` + a 32-wide stat/hash pool), with peak heap
+**14.3 MiB vs 39.3 MiB** and GC **2.8 ms vs 20.6 ms** per sample. The
+originally projected 10–20x was off by ~6x locally and ~10x in CI. See
 [verified-data.md](/competitive/verified-data.md).
 
 ### Persistence
