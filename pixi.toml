@@ -99,20 +99,22 @@ default = { features = [
 #
 # What is deliberately NOT here any more: every package-scoped command. There
 # is no `clippy`, no `test-rs`, no `fmt-rs`, no `deny`, no `build-native`, no
-# `docs-build`. Those are scripts in the package that owns them —
-# `crates/package.json` owns every cargo command, `packages/path` owns the
-# addon, `apps/docs` owns the site — and turbo runs them, caches them and
-# orders them. To reach one directly, filter rather than adding a task back:
+# `docs-build`. Those are scripts in the package that owns them — per-crate
+# Rust test/clippy scripts live in `crates/core`, `crates/path`, and
+# `crates/engine`; workspace-wide Cargo scripts live in `crates/package.json`;
+# `packages/path` owns the addon; `apps/docs` owns the site — and turbo runs
+# them, caches them and orders them. To reach one directly, filter rather than
+# adding a task back:
 #
-#   turbo run lint --filter=@repo/rust        # just the Rust gate
+#   turbo run test --filter=@repo/rust-core   # one Rust crate
+#   turbo run test --affected                 # changed packages and dependents
 #   bun run docs:dev                          # just the docs site
 #   bun run --cwd crates coverage:report      # just the coverage summary
 #
-# The Cargo workspace is ONE turbo package (`@repo/rust`, `crates/package.json`),
-# not three. Cargo's unit of work is the workspace: it takes a single lock on
-# `target/`, so three per-crate packages would serialise on that lock and run
-# slower than one workspace invocation — measured at 320-365 ms against 195 ms
-# for `cargo clippy`. Splitting them would buy nothing and cost ~1.8x.
+# Rust is split into per-crate turbo packages only for tasks where that buys
+# useful affected selection (`test` and `lint`/clippy). Workspace-wide commands
+# that should stay one Cargo invocation — rustfmt, cargo-deny, coverage, docs
+# and release builds — remain in `@repo/rust` (`crates/package.json`).
 #
 # RULE: a task here must never use `cwd = "<a workspace package>"`, and must
 # never spell a cargo, tsc, astro or biome command. A task that shells into a
@@ -130,10 +132,10 @@ default = { features = [
 
 # ── setup ────────────────────────────────────────────────────────────────────
 # One install for the whole Bun workspace. The root package.json declares
-# `workspaces: ["packages/*", "apps/*", "crates"]`, so members carry no
-# lockfile of their own and the root bun.lock is the single resolution record.
-# `crates` is in that list because the Cargo workspace is a turbo package: it
-# ships no JavaScript, only the scripts that spell the cargo commands.
+# `workspaces: ["packages/*", "apps/*", "benches/*", "crates", "crates/*"]`,
+# so members carry no lockfile of their own and the root bun.lock is the single
+# resolution record. `crates/*` exists for turbo's affected Rust crate
+# selection; `crates` remains the workspace-wide Cargo command package.
 bun-install = { cmd = "bun install --frozen-lockfile", description = "Install the Bun workspace from the root lockfile" }
 # Install the git hooks. Run once per clone; `lefthook install` is idempotent
 # and writes .git/hooks/*, which is not tracked.
@@ -146,10 +148,10 @@ hooks-install = { cmd = "lefthook install", description = "Install the lefthook 
 # only the environment.
 #
 # `test` covers both languages: `cargo nextest` plus the Rust doctests come
-# from @repo/rust, `bun test` from packages/path. `lint` likewise — rustfmt,
-# clippy and cargo-deny from @repo/rust, biome and actionlint as root tasks.
-# There is no `-rs` / `-js` split any more because there is no reason for a
-# contributor to think about which language a verb belongs to.
+# from the per-crate Rust packages, `bun test` from packages/path. `lint`
+# likewise spans rustfmt/cargo-deny from @repo/rust, per-crate clippy from the
+# Rust crate packages, and biome/actionlint as root tasks. There is no pixi
+# `-rs` / `-js` split because contributors still enter through one verb.
 build = { cmd = "bun run build", depends-on = [
   "bun-install",
 ], description = "Build every buildable package: the addon, the TypeScript packages and the docs site (turbo)" }

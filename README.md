@@ -157,7 +157,8 @@ Rejected on the record: WASM/WASI (a filesystem library needs real OS access) an
 | `crates/core` | `pathway-fs-core` — rlib, **all** engine logic, zero napi dependencies; the whole test story runs without Node |
 | `crates/path` | `pathway-fs` — the ergonomic pathlib-like Rust surface over core (v0.3 preview) |
 | `crates/engine` | `pathway-fs-engine` — cdylib NAPI-RS bridge, glue only; npm-only, never on crates.io |
-| `crates/package.json` | The Cargo workspace as **one** turbo package (`@repo/rust`); cargo locks `target/`, so per-crate packages would serialise on it |
+| `crates/package.json` | `@repo/rust` — workspace-wide Cargo commands: rustfmt, cargo-deny, coverage, docs, and release builds |
+| `crates/*/package.json` | Per-crate Turbo packages (`@repo/rust-core`, `@repo/rust-path`, `@repo/rust-engine`) for affected Rust test/clippy selection |
 | `packages/path` | `@archont561/pathway` — the published TypeScript surface; `napi.binaryName = "pathway"` |
 | `packages/typescript-config` | `@repo/typescript-config` — shared tsconfig, internal by convention, never published |
 | `apps/docs` | Astro + Starlight docs site → <https://archont561.github.io/pathway/> |
@@ -183,8 +184,8 @@ invocation at all.
 
 | Command | What it does |
 |---------|--------------|
-| `pixi run lint` | `cargo fmt --check`, `clippy -D warnings`, `cargo deny` (licences/bans/sources), biome, actionlint |
-| `pixi run test` | `cargo nextest` over the workspace, the Rust doctests, and the Bun suites |
+| `pixi run lint` | workspace `cargo fmt --check`, per-crate `clippy -D warnings`, `cargo deny` (licences/bans/sources), biome, actionlint |
+| `pixi run test` | per-crate `cargo nextest`, core/path Rust doctests, and the Bun suites |
 | `pixi run typecheck` | `tsc --noEmit` and `astro check` |
 | `pixi run gates` | The three above — everything that must pass before a push |
 | `pixi run coverage` | Rust coverage via `cargo-llvm-cov`, written to `crates/lcov.info` |
@@ -204,9 +205,10 @@ The commands live in the package that owns them; pixi does not re-export them. T
 directly, filter the same turbo graph:
 
 ```bash
-turbo run lint --filter=@repo/rust     # just the Rust gate
-bun run docs:dev                       # just the docs site
-bun run --cwd crates coverage:report   # just the coverage summary
+turbo run test --filter=@repo/rust-core  # one Rust crate
+turbo run test --affected                # changed packages and dependents
+bun run docs:dev                         # just the docs site
+bun run --cwd crates coverage:report     # just the coverage summary
 ```
 
 Because it is one graph, `pixi run build` and `bun run docs:build` share a task **and a cache
