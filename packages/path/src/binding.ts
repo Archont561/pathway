@@ -3,10 +3,10 @@
  *
  * ## Why this file is a diagnostic and not a loader
  *
- * The real loader is *generated*. `napi build --platform --release` writes
- * `index.js` and `index.d.ts` at the package root from the addon's own symbol
- * table, which is how the right binary is found on every platform without
- * anyone maintaining a list.
+ * The native build is configured with `--no-js --dts` and writes the
+ * platform-specific `.node` file plus its declaration file under `dist/`.
+ * This front end keeps the runtime checks and lazy loading in one place,
+ * without maintaining a platform list in generated JavaScript.
  *
  * A hand-written platform `require` list is forbidden in this repository. The
  * 2025 draft was `require("@archont561/pathway")` from inside the package that
@@ -82,8 +82,10 @@ function addonFileName(platform: string, arch: string): string {
   }
 }
 
-/** The package root, where `napi build --output-dir .` drops the addon. */
+/** The package root, used for manifest/version validation. */
 const PACKAGE_ROOT = join(import.meta.dirname, "..");
+/** The native build output configured by `packages/path/package.json`. */
+const NATIVE_DIR = join(PACKAGE_ROOT, "dist");
 
 /**
  * The options object the native `Walker` constructor decodes.
@@ -150,7 +152,7 @@ export function loadEngine(): NativeEngine {
     return cached;
   }
 
-  const file = join(PACKAGE_ROOT, addonFileName(process.platform, process.arch));
+  const file = join(NATIVE_DIR, addonFileName(process.platform, process.arch));
   if (!existsSync(file)) {
     throw new Error(`Cannot find the native engine at ${file}.\n\n${BUILD_HINT}`);
   }
@@ -209,5 +211,5 @@ export function loadEngine(): NativeEngine {
 
 /** Whether a built addon is present, for callers that want to degrade rather than throw. */
 export function engineAvailable(): boolean {
-  return existsSync(join(PACKAGE_ROOT, addonFileName(process.platform, process.arch)));
+  return existsSync(join(NATIVE_DIR, addonFileName(process.platform, process.arch)));
 }
