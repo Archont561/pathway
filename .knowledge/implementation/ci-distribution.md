@@ -27,52 +27,45 @@ depends_on:
 
 ## NAPI-RS Distribution Model
 
-NAPI-RS uses a **platform-specific package** model. The root package
-(`@archont561/pathway`) declares optional dependencies on platform-specific
-packages, and npm/pnpm/bun automatically installs the correct one.
+**Current Phase 1 model:** `@archont561/pathway` is one npm package. The
+TypeScript build writes `dist/index.js` and the NAPI build writes the
+platform-specific `.node` file into the same `packages/path/dist/` directory.
+`package.json` publishes only `dist/`, so `npm pack ./packages/path` and a
+clean install exercise the same artifact that the loader consumes. There is
+no checked-in platform-package list and no generated optional-dependency graph
+yet.
 
-### Published Packages
+The hand-written loader in `packages/path/src/binding.ts` calculates the
+NAPI-RS filename from `process.platform`, `process.arch`, and glibc/musl
+availability, then validates the engine and Node-API versions. This is the
+source-build contract; it is tested with Node smoke tests and the Bun suite.
 
-```
-@archont561/pathway                          ← Root package (JS + types)
-@archont561/pathway-linux-x64-gnu            ← Linux x64 glibc
-@archont561/pathway-linux-arm64-gnu          ← Linux arm64 glibc
-@archont561/pathway-linux-x64-musl           ← Linux x64 musl (Alpine)
-@archont561/pathway-darwin-x64               ← macOS Intel
-@archont561/pathway-darwin-arm64             ← macOS Apple Silicon
-@archont561/pathway-win32-x64-msvc           ← Windows x64
-@archont561/pathway-win32-arm64-msvc         ← Windows arm64
-```
+**Release-time direction:** `napi publish` may split artifacts into
+platform-specific optional-dependency packages once the release workflow is
+implemented. That future packaging plan must not be documented as current
+support or used as a substitute for the packed-install smoke test below.
 
-### Published Crates (crates.io — D7, added 2026-09-30)
+### Published Crates (crates.io — D7, verified 2026-10-05)
 
 Per [rust-crate-surface.md](/architecture/rust-crate-surface.md), the Rust
-surface is distributed through crates.io, on an **independent semver
-cadence** from the npm packages:
+surface is distributed through crates.io, on an **independent semver cadence**
+from the npm package. The names `pathway-fs` and `pathway-fs-core` are reserved
+and their manifests have `publish = true`; `pathway-fs-engine` remains glue
+only with `publish = false`.
 
 ```
-pathway-fs-core                      ← rlib engine core (from Phase 1; napi-free)
-pathway-fs                           ← ergonomic pathlib-like Rust API (v0.3 preview)
-pathway-fs-engine                    ← NEVER published (publish = false; cdylib napi glue)
+pathway-fs-core                      ← rlib engine core (napi-free)
+pathway-fs                           ← ergonomic pathlib-like Rust API (preview)
+pathway-fs-engine                    ← NEVER published (cdylib napi glue)
 ```
 
-`cargo publish` for the two crates is a separate release workflow step,
-gated on the same tag but not coupled to the npm version number.
+`cargo publish --dry-run` for the two crates is a separate release gate. The
+crates are named and publishable, but no first release is claimed here.
 
-Each platform package contains a single `.node` binary:
-
-```
-@archont561/pathway-linux-x64-gnu/
-├── package.json
-└── pathway-fs.linux-x64-gnu.node    ← The compiled Rust addon
-```
-
-> **Legacy-npm fallback (added Sept 2026):** some npm versions mishandle
-> platform-specific `optionalDependencies` (npm/cli#4828 — the reason
-> swc/rollup/unrs-resolver ship `napi-postinstall`). We either add the
-> `napi-postinstall` fallback or, at minimum, an install smoke test in CI
-> on the oldest supported npm. Either way, the "binding not found" error
-> must name the platform package to install.
+> **Install smoke requirement:** npm pack metadata, the packed tarball, and a
+> clean install must be checked on Linux, macOS, and Windows. The runtime
+> workflow performs this check with Node 24 and `npm publish --dry-run
+> --provenance`; it does not claim a registry release.
 
 ---
 
@@ -114,205 +107,46 @@ Each platform package contains a single `.node` binary:
 
 ---
 
-## Runtime Support Matrix (updated Sept 2026)
+## Runtime Support Matrix (updated 2026-10-05)
 
-### Tested Runtimes
+### Required Phase 1 matrix
 
-| Runtime | Versions | Support Level |
-|---------|----------|---------------|
-| Node.js 24 "Krypton" | LTS (e.g. 24.21.0) | **Full** — primary production target |
-| Node.js 26 | Current (e.g. 26.8.2) | **Full** — libraries must test Current |
-| Bun 1.3.x | stable | **Full** (verified via CI) |
-| Bun 1.4.x | stable (Rust-rewrite release, Aug 20, 2026) | **Full** — separate validation required |
+The executable workflow is
+[`.github/workflows/runtime-matrix.yml`](../../.github/workflows/runtime-matrix.yml).
+It deliberately uses native GitHub-hosted runners rather than treating the
+knowledge-base table as evidence:
 
-### Optional (Non-Blocking)
+| Operating system | Node | Bun | Checks |
+|------------------|------|-----|--------|
+| Ubuntu | 24, 26 | 1.3.11, 1.4.2 | build; Node smoke or Bun suite |
+| macOS | 24, 26 | 1.3.11, 1.4.2 | build; Node smoke or Bun suite |
+| Windows | 24, 26 | 1.3.11, 1.4.2 | build; Node smoke or Bun suite |
 
-| Runtime | Notes |
-|---------|-------|
-| Node 22 | Maintenance until Apr 2027 — optional CI leg |
-| Deno 2 | NAPI addons are a supported surface (local `node_modules` + `--allow-ffi`; >75% Node suite parity on 2.8). Smoke-test job from v0.2. |
+Every runtime row installs with Bun, builds the native addon into `dist/`,
+and then runs the suite for the selected runtime. The three OS-specific
+install-smoke jobs additionally pack `packages/path`, run
+`npm publish --dry-run --provenance`, install that tarball into a clean
+prefix, and import it with Node. This is intentionally a package-level smoke
+test until platform-specific `napi publish` packaging is implemented.
 
-### Removed
+**Evidence status (2026-10-05):** YAML/actionlint and the local built-package
+Node smoke test pass. The 12-row GitHub matrix and three install-smoke jobs
+are configured but are not called green until a pull-request run reports all
+jobs successful. The existing `.github/workflows/ci.yml` remains the unified
+Ubuntu/Pixi repository gate; it is not this runtime matrix.
 
-| Runtime | Notes |
-|---------|-------|
-| Node 20 | **EOL** — no longer supported or tested |
+### Optional runtimes
 
----
+Node 22 and Deno 2 are not part of the Phase 1 support claim. Add them only
+when a separate compatibility decision and executable smoke tests exist.
 
-## CI Configuration
+### Release workflow direction
 
-### Rust Core Job (D7, added 2026-09-30)
-
-Before the runtime matrix below, a cheap **Node-free Rust job** runs on
-all three OSes: `cargo test -p pathway-fs-core` (+ `-p pathway-fs` once
-the crate lands), `cargo clippy -D warnings`, and an **MSRV check**
-(build with the pinned `rust-version`). This job catches engine-logic
-regressions without paying for the napi build, and is the entire test
-story for the crates.io artifacts.
-
-### Test Matrix (`.github/workflows/ci.yml`)
-
-```yaml
-name: CI
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        include:
-          - { os: ubuntu-latest,  runtime: node, node-version: "24" }
-          - { os: ubuntu-latest,  runtime: node, node-version: "26" }
-          - { os: ubuntu-latest,  runtime: bun,  bun-version: "1.3" }
-          - { os: ubuntu-latest,  runtime: bun,  bun-version: "1.4" }
-          - { os: macos-latest,   runtime: node, node-version: "24" }
-          - { os: macos-latest,   runtime: bun,  bun-version: "1.4" }
-          - { os: windows-latest, runtime: node, node-version: "24" }
-          - { os: windows-latest, runtime: bun,  bun-version: "1.4" }
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Node
-        if: matrix.runtime == 'node'
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      - name: Setup Bun
-        if: matrix.runtime == 'bun'
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ matrix.bun-version }}
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Build native addon
-        run: pnpm --filter @archont561/pathway build
-
-      - name: Test (Node)
-        if: matrix.runtime == 'node'
-        run: pnpm --filter @archont561/pathway test
-
-      - name: Test (Bun)
-        if: matrix.runtime == 'bun'
-        run: pnpm --filter @archont561/pathway test:bun
-
-  # Optional, non-blocking: NAPI is a supported Deno 2 surface
-  deno-smoke:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: denoland/setup-deno@v2
-        with: { deno-version: v2.x }
-      - run: deno install
-      - run: deno test --allow-ffi --allow-read --allow-env --allow-env=TMPDIR
-
-  # Oldest-supported-npm install check (optionalDependencies bug, npm/cli#4828)
-  install-smoke:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: "24", npm-version: "8" }
-      - run: npm publish --dry-run --dry-run  # placeholder: use a staged package
-      - run: npm install --ignore-scripts ./published-packs/@pathway-fs.tgz && node -e "require('./node_modules/@archont561/pathway')"
-```
-
-### Release Workflow (`.github/workflows/release.yml`)
-
-```yaml
-name: Release
-
-on:
-  push:
-    tags: ["v*"]
-
-permissions:
-  contents: read
-  id-token: write   # required for npm provenance
-
-jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - { os: ubuntu-latest,  triple: x86_64-unknown-linux-gnu,     cross: none }
-          - { os: ubuntu-latest,  triple: x86_64-unknown-linux-musl,     cross: musl }
-          - { os: ubuntu-latest,  triple: aarch64-unknown-linux-gnu,     cross: zigbuild }
-          - { os: macos-latest,   triple: x86_64-apple-darwin,           cross: none }
-          - { os: macos-latest,   triple: aarch64-apple-darwin,          cross: none }
-          - { os: windows-latest, triple: x86_64-pc-windows-msvc,        cross: none }
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-node@v4
-        with: { node-version: "24" }
-
-      # Cross toolchain only where the native runner can't produce the triple
-      - name: Cross toolchain (musl/arm64)
-        if: matrix.cross != 'none'
-        run: |
-          if [ "${{ matrix.cross }}" = "musl" ]; then
-            sudo apt-get install -y musl-tools
-            # or: cargo install cargo-zigbuild && use zig for libc
-          else
-            cargo install cargo-zigbuild
-          fi
-
-      - name: Build
-        run: npx napi build --platform --release --target ${{ matrix.triple }}
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.triple }}
-          path: "*.node"
-
-  publish:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-
-      - name: Publish (with provenance)
-        # --provenance: npm publishes a Sigstore attestation linking the
-        # package to this GitHub Actions run (supply-chain best practice).
-        run: npx napi publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-```
-
-> **Version lockstep:** root + all platform packages must publish the same
-> version in one shot (napi publish handles this); add a CI assertion that
-> every `optionalDependencies` entry has a matching built artifact before
-> publishing.
+A future release workflow may cross-build the Tier 1 NAPI targets and publish
+platform packages with provenance. Until that workflow exists, the checked-in
+single-package source-build layout and the packed-install smoke test are the
+only supported distribution path. Do not copy an illustrative release YAML
+into CI as if it were executable.
 
 ---
 
@@ -326,16 +160,15 @@ guaranteed and must be verified by the package author.
 
 ### Our Stance
 
-> **Bun is a first-class runtime. Our CI proves it — on both 1.3 and 1.4.**
-
-We do not rely on:
-> "Bun supports Node-API, therefore it works."
-
-We run the **exact same test suite** on Bun as on Node.js, across all three
-operating systems. If a test passes on Node but fails on Bun, that is a
-blocking CI failure. **Bun 1.4 (the Rust-rewrite release) is validated
-separately from 1.3 — a runtime rewritten in a new language can change
-addon behavior even when the ABI is unchanged.**
+> **Bun is a first-class runtime. The executable workflow is designed to
+> prove it — on both 1.3 and 1.4 — rather than infer it from Node-API claims.**
+>
+> The matrix runs the **same package test suite** on Bun as the Node smoke
+> contract across all three operating systems. If a test passes on Node but
+> fails on Bun, that is a blocking CI failure. The configuration is committed;
+> support is not called verified until GitHub reports the matrix green.
+> **Bun 1.4 is validated separately from 1.3 because a runtime implementation
+> change can alter addon behavior even when the ABI is unchanged.**
 
 ### Known Bun Edge Cases to Watch
 
@@ -384,7 +217,8 @@ Applies once the `#[napi(async_iterator)]` spike lands:
     ↓
   Node-API (stable ABI)
     ↓
-  Works on: Node 24/26 ✅ | Bun 1.3/1.4 ✅ | Deno 2 (smoke)
+  Target matrix: Node 24/26 + Bun 1.3/1.4
+  (configured for Linux/macOS/Windows; verification is a GitHub CI result)
 ```
 
 ---
@@ -406,13 +240,13 @@ Applies once the `#[napi(async_iterator)]` spike lands:
 
 | Decision | Rationale |
 |----------|-----------|
-| 6 launch targets (+2 Tier 2) | Covers ~99% of Node/Bun users; expand later |
-| Node 24 LTS + 26 Current + Bun 1.3/1.4 | Sept 2026 runtime reality; Bun's Rust rewrite gets separate validation |
-| Deno 2 smoke job (non-blocking) | NAPI is a supported Deno surface; cheap reach |
-| Cross toolchains for musl/arm64 | x64 runners can't produce those triples as written in the 2025 draft |
-| npm provenance + install smoke test | Supply-chain hygiene; legacy-npm optionalDependencies bug (npm/cli#4828) |
-| Bun is blocking CI, same suite | NAPI-RS upstream is best-effort; we earn the support contract |
-| NAPI-RS v3 distribution | Proven model (SWC, lightningcss, node-rs) |
+| 6 launch targets (+2 Tier 2) | Release target; package publication is not yet implemented |
+| Node 24 LTS + 26 Current + Bun 1.3/1.4 | Phase 1 executable matrix; Bun 1.3.11 and 1.4.2 get separate validation |
+| No Deno claim in Phase 1 | No executable Deno smoke job is committed |
+| Cross toolchains for musl/arm64 | Required before platform-package publication |
+| npm provenance + packed-install smoke test | Supply-chain hygiene; the current single-package path is exercised before release |
+| Bun is blocking CI, same suite | NAPI-RS upstream is best-effort; the project must earn the support contract |
+| NAPI-RS v3 distribution | The native addon boundary; future platform publication remains release work |
 | No `bun:ffi` | Experimental; Node-API is stable and cross-runtime |
 | No WASM | Wrong model for filesystem operations |
-| musl for Alpine | Docker users on Alpine need musl binaries |
+| musl for Alpine | Release target; no published musl artifact is claimed yet |

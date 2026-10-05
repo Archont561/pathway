@@ -20,7 +20,7 @@ name: bench
 # an unrelated commit. The addon profile is not left to chance: turbo's graph
 # orders `build:native` before `build:native:release` (the release task depends
 # on the dev one), so the release artifact is always the last thing written to
-# `packages/path/*.node` — the file the driver loads — in every cache state.
+# `packages/path/dist/*.node` — the file the loader loads — in every cache state.
 # The driver records the addon's size in the report header anyway, and the
 # assert step below turns a debug-profile report into a red job rather than a
 # silently incomparable table.
@@ -118,7 +118,7 @@ jobs:
       # because a previous local build had left dist/ behind. Both tasks in one
       # turbo invocation: `build` runs tsc plus (through its own deps) the dev
       # addon, and `build:native:release` is ordered after the dev build by
-      # turbo.json, so the release .node is still the last thing written.
+      # turbo.json, so the release .node in dist/ is still the last thing written.
       - run: pixi run bunx turbo run build build:native:release --filter=@archont561/pathway
 
       - name: Fetch Bun 1.4 from the npm tarball

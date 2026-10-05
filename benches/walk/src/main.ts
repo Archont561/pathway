@@ -73,9 +73,9 @@ async function readWholeTree(root: string): Promise<number> {
  * (release ≈ 2.4 MiB, debug ≈ 15 MiB), and the methodology requires release:
  * the debug profile was measured to change the *ranking*, not just the margin
  * (245 ms vs 1,380 ms for the fused walk at 100k files). Both profiles write
- * the same `.node` path, so whichever build finished last is what this process
- * loaded — a fact the report must carry, because a number without it cannot be
- * compared to the recorded baseline.
+ * the same `.node` path under `packages/path/dist/`, so whichever build
+ * finished last is what this process loaded — a fact the report must carry,
+ * because a number without it cannot be compared to the recorded baseline.
  *
  * The threshold is a loud warning, not a hard error: file sizes drift across
  * platforms and Rust versions, and a report that merely looks wrong is better
@@ -83,13 +83,13 @@ async function readWholeTree(root: string): Promise<number> {
  */
 async function addonOnDisk(): Promise<{ name: string; sizeMiB: number } | null> {
   try {
-    const pkgDir = dirname(fileURLToPath(import.meta.resolve("@archont561/pathway/package.json")));
-    const entries = await readdir(pkgDir);
+    const distDir = dirname(fileURLToPath(import.meta.resolve("@archont561/pathway")));
+    const entries = await readdir(distDir);
     const name = entries.find((entry) => entry.endsWith(".node"));
     if (name === undefined) {
       return null;
     }
-    const info = await stat(join(pkgDir, name));
+    const info = await stat(join(distDir, name));
     return { name, sizeMiB: info.size / (1024 * 1024) };
   } catch {
     return null;

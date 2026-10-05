@@ -38,12 +38,14 @@ This document maps the entire landscape across five tiers, identifies the
 exact gap we occupy, and provides the feature matrix that justifies the
 project's existence.
 
-> **Sept 2026 re-verification** (see [verified-data.md](/competitive/verified-data.md)
-> Round 2): three material additions — **`node:fs.glob`** (stable,
+> **October 2026 re-verification** (see [verified-data.md](/competitive/verified-data.md)
+> Rounds 2–3): three material additions — **`node:fs.glob`** (stable,
 > C++-native, in Node core), **Bun 1.4** (runtime rewritten in Rust,
 > 2× faster `Bun.Glob.scan`), and **`unrs-resolver`** (published Rust
-> resolver that subsumes our v1.0 build plan). Download figures from
-> Round 1 are stale; re-pull before external publication.
+> resolver that subsumes our v1.0 build plan). Round 3 refreshes the npm
+> download counts for `glob`, `chokidar`, `tinyglobby`, `fdir`, `fast-glob`,
+> and `@parcel/watcher` for 2026-09-28 through 2026-10-04; counts are scale
+> signals, not unique users.
 
 ---
 
@@ -585,11 +587,12 @@ a fraction of the cells.**
    cells in the gap matrix. We target 18+.
 
 2. **The traversal space is consolidating — and now includes Node core.**
-   `tinyglobby` (186M downloads, 2025 figure) is becoming infrastructure,
-   and **`node:fs.glob` is stable and C++-native** (v22.17/v24.0.0). We
-   don't compete on raw glob matching — we compete on the **fused
-   pipeline** (stat+hash+filter) that comes after the glob. The honest
-   benchmark baseline on Node is `node:fs.glob` + `fs.stat` + `crypto`.
+   The October 2026 registry window records `tinyglobby` at 258.1M weekly
+   downloads and `fdir` at 243.8M (not unique users); both are infrastructure.
+   **`node:fs.glob` is stable and C++-native** (v22.17/v24.0.0). We don't
+   compete on raw glob matching — we compete on the **fused pipeline**
+   (stat+hash+filter) that comes after the glob. The honest benchmark baseline
+   on Node is `node:fs.glob` + `fs.stat` + `crypto`.
 
 3. **NAPI-RS filesystem gap is wide open (re-verified Sept 2026).** Every
    NAPI-RS project found involves compute (hashing, parsing, compiling),
