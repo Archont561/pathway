@@ -2,6 +2,11 @@
 
 This document provides guidelines for AI agents working on the pathway codebase.
 
+**Start of session?** Follow [`.agents/skills/session/SKILL.md`](.agents/skills/session/SKILL.md): it
+sequences restoration of the offline environment, backlog selection, the user-approved session
+proposal, implementation, and the post-merge report. Its opening-prompt, standup, hand-off, and
+report templates are in [`.agents/skills/session/standup-template.md`](.agents/skills/session/standup-template.md).
+
 ## Project Identity
 
 **pathway** is a native, pathlib-inspired filesystem API for TypeScript, Bun, Node and Rust. Its central architectural claim is two ergonomic surfaces over the same engine:

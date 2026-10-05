@@ -5,27 +5,32 @@ description: Install pathway for Bun, Node and Rust.
 
 import { version } from "../../../version.ts";
 
-pathway ships as three Rust crates and one npm package. Both surfaces are
-versioned together from a single source of truth: `[workspace.package] version`
-in the root `Cargo.toml`.
+pathway ships as three Rust crates and one npm package. Both public surfaces
+are versioned from a single source of truth: `[workspace.package] version` in
+the root `Cargo.toml`.
 
 ## JavaScript
 
-Requires Node 24 or newer, or Bun 1.3+.
+Requires Node 24 or newer, or Bun 1.3+. The Phase 1 npm package is a single
+package whose build places the native addon in `dist/`; platform-specific npm
+packages are a later release concern.
 
-:::caution[The native addon is not published yet]
-The npm package exists in this repository but is not on a registry, and the
-native half has no published platform packages. To try it today, add the
-workspace package from a clone:
+:::caution[The npm package is not published yet]
+The package exists in this repository but is not on a registry. To try it from
+a clone:
 
 ```sh
 # in a clone of the repository
 bun install
+bun --cwd packages/path build:native
 bun --cwd packages/path build
+node packages/path/test/node-smoke.mjs
 ```
 
 `engineAvailable()` returns `false` rather than throwing when the `.node` file
-has not been built, so importing the package in a fresh clone is always safe.
+has not been built, so importing the TypeScript package in a fresh clone is
+safe. The packed-install smoke test in
+`.github/workflows/runtime-matrix.yml` is the executable distribution check.
 :::
 
 ## Rust
@@ -38,10 +43,9 @@ pathway-fs = "0.1"
 
 The ergonomic surface is `pathway-fs`; the engine core is `pathway-fs-core`;
 `pathway-fs-engine` is the N-API bridge and is **not** published, because a
-`cdylib` is not something you can depend on from Rust.
-
-Neither crate is publishable yet — the public names are still an open decision.
-See `publish = false` in the workspace manifest.
+`cdylib` is not something you can depend on from Rust. The names
+`pathway-fs` and `pathway-fs-core` are reserved and their manifests are
+publishable, but neither crate has had its first crates.io release yet.
 
 ## Building from source
 

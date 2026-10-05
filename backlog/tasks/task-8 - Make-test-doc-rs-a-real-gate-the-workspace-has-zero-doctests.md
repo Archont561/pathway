@@ -4,7 +4,7 @@ title: 'Make the Rust doctest gate real: the workspace has zero doctests'
 status: Done
 assignee: []
 created_date: '2026-09-30 13:01'
-updated_date: '2026-10-03 11:06'
+updated_date: '2026-10-05 20:42'
 labels:
   - rust
   - testing
@@ -41,4 +41,12 @@ Two ways to close this, and the choice is the point of the task: write doctests 
 
 <!-- SECTION:NOTES:BEGIN -->
 Decision: write the doctests now (option A) — task-3 just landed the real walk bridge, so the public surface is worth documenting. test:doc now reports 33 (core) + 2 (path) doctests, up from 2 total. Items whose example would duplicate the type-level lifecycle example carry that as the recorded reason in the doc comment itself (NativeScanner::{new,scan,next_batch,is_cancelled}, the per-algorithm Hasher methods). AC#3 verified live: broke Algorithm::name's example, pixi run test failed on exactly that doctest, restored, gates green. AC#4 n/a — the gate stays.
+
+2026-10-05: Reverified the Rust doctest gate in the restored environment with `pixi run --frozen bun run --cwd crates test:doc:all`: 33 pathway-fs-core doctests and 2 pathway-fs doctests passed. The task remains Done; AC#4 is not applicable because the decision was to keep the gate.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The doctest gate is real and remains enabled. Public Rust documentation now executes 33 core examples and 2 pathway-fs examples; the restored verification passed with zero failures. AC#4 is intentionally unchecked because the gate was retained, not removed.
+<!-- SECTION:FINAL_SUMMARY:END -->

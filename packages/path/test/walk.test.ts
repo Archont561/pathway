@@ -87,8 +87,9 @@ describe("walk", () => {
     const root = tree(["a.ts"]);
     const entries = await drain(walkFiles(root, { absolute: true }));
 
-    expect(entries[0]?.value.startsWith("/")).toBe(true);
+    expect(entries[0]?.value).not.toBe("a.ts");
     expect(entries[0]?.value.endsWith("a.ts")).toBe(true);
+    expect(entries[0]?.value.includes("\\")).toBe(false);
   });
 
   test("rejects a bad glob before any traversal, naming the pattern", async () => {

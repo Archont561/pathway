@@ -41,25 +41,30 @@ Gates from the gap analysis; Phase 1 does not start until these are done:
       one LICENSE file) and **`@archont561/pathway`** on npm — decided
       2026-09-30. npm forbids uppercase in package names, so the scope is
       lowercase even though the GitHub owner is `Archont561`.
-- [ ] **Reserve crates.io names** for the Rust surface (D7). Decided:
+- [x] **Reserve crates.io names** for the Rust surface (D7). Decided:
       `pathway-fs` and `pathway-fs-core` — `pathway` itself is taken on
       crates.io (a 2022 placeholder, v0.0.0), hence the `-fs` suffix; the
-      engine glue stays `pathway-fs-engine`, `publish = false` forever. The
-      reservation on crates.io is still outstanding. See
+      engine glue stays `pathway-fs-engine`, `publish = false` forever. Both
+      crate pages were verified 2026-10-05. See
       [rust-crate-surface.md](../../.knowledge/architecture/rust-crate-surface.md).
-- [ ] **Fix the reference-code defects** now documented in
+- [x] **Fix the reference-code defects** now documented in
       [code-rust-walker.md](../../.knowledge/implementation/code-rust-walker.md) /
       [code-ts-path.md](../../.knowledge/implementation/code-ts-path.md): walkDirs filter, `Vec<String>`
-      globs, generated binding loader, root-relative glob matching, error
-      collection, `dot`/`gitignore`, chunked hashing, `cancel()`/`errors()`.
+      globs, the checked-in `dist/` binding loader, root-relative glob matching,
+      error collection, `dot`/`gitignore`, chunked hashing, `cancel()`/`errors()`.
 - [ ] **NAPI-RS spike (1–2 days):** `#[napi(async_iterator)]` +
       `AsyncTask` across Node 24/26 + Bun 1.3/1.4, per the napi.rs test
       checklist → freeze the streaming architecture (native async
       iterator vs. chunked paging fallback).
-- [ ] **Refresh the CI matrix** (ci-distribution.md): Node 24/26, Bun
-      1.3/1.4, cross toolchains, npm provenance, install smoke test.
-- [ ] **Re-pull npm download stats** for any external benchmark document
-      (the July 2025 figures are stale).
+- [x] **Refresh the CI matrix configuration** (ci-distribution.md): the
+      executable workflow covers Node 24/26, Bun 1.3.11/1.4.2, Linux/macOS/
+      Windows, npm provenance, and a packed-install smoke test. The GitHub
+      matrix remains an open verification sub-gate until a pull-request run
+      is green.
+- [x] **Re-pull npm download stats** for external benchmark documents. Round 3
+      in [verified-data.md](../../.knowledge/competitive/verified-data.md)
+      records the 2026-09-28–2026-10-04 npm API window; July 2025 figures are
+      historical only.
 
 #### Step 1.1: Project Scaffolding (Week 1)
 - [ ] Initialize Cargo workspace with the **three-crate split (D7)**:

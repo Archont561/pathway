@@ -237,7 +237,11 @@ impl Task for NextBatchTask {
 /// One `FusedEntry`, translated. Pure data movement — no logic.
 fn to_walk_entry(entry: FusedEntry) -> WalkEntry {
     WalkEntry {
-        value: entry.path.to_string_lossy().into_owned(),
+        // Public paths use `/` on every host, matching `pathe` and the
+        // root-relative glob contract. Native filesystem access still uses
+        // the original platform path internally; this is only the boundary
+        // representation.
+        value: entry.path.to_string_lossy().replace('\\', "/"),
         is_dir: entry.is_dir,
         // `f64` loses nothing until 2^53 bytes (8 PiB), far beyond a file a
         // walk can hash; `size` stays a plain JS number on purpose.

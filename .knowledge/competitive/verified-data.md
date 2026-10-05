@@ -6,7 +6,7 @@ tags: [verification, benchmark, fused-walk, corrections, tinyglobby, bun, fdir, 
 status: stable
 generated:
   by: pathway_kb/1.0
-  at: 2026-10-03T00:00:00Z
+  at: 2026-10-05T00:00:00Z
 verified:
   - by: process:web-search-round2
     at: 2026-09-16T00:00:00Z
@@ -36,6 +36,12 @@ sources:
     title: Round 1 market snapshot (historical)
     author: process:web-search
     last_modified: 2025-07-11T00:00:00Z
+  - id: npm-downloads-2026-10-05
+    resource: "https://api.npmjs.org/downloads/point/last-week/{package}"
+    title: npm registry weekly downloads, 2026-09-28 through 2026-10-04
+    author: process:fetch-page
+    last_modified: 2026-10-05T00:00:00Z
+    packages: [fdir, tinyglobby, fast-glob, glob, chokidar, '@parcel/watcher']
 domain: competitive
 decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
@@ -292,8 +298,8 @@ after a full scan — its scenario-B cost is not its traversal cost.
 ## Round 2 (September 2026) — Market
 
 Live web re-verification, 2026-09-16. Supersedes Round 1 where they
-conflict. **Re-pull npm download stats again before any external
-publication.**
+conflict. The npm download figures were refreshed in Round 3 on 2026-10-05;
+all counts remain registry scale signals rather than unique users.
 
 ### Node.js runtime lines (Sept 2026)
 
@@ -384,6 +390,32 @@ Phase 4 (v0.4) via the `notify` crate.
 - Hard guarantee requires OS flags: `O_TMPFILE` (Linux local FS — not NFS)
   or `FILE_FLAG_DELETE_ON_CLOSE` (Windows). Docs now state the tiered
   guarantee explicitly.
+
+---
+
+## Round 3 (October 2026) — npm download refresh
+
+Fetched from the npm downloads API on **2026-10-05**. The API window is
+**2026-09-28 through 2026-10-04**; these are registry download counts, not
+unique users or active installations. This replaces the stale July 2025
+figures in the market comparison while retaining Round 1 as historical
+context.
+
+| Package | Downloads in the API window | Source |
+|---------|----------------------------:|--------|
+| `glob` | 483,346,591 | [npm downloads API](https://api.npmjs.org/downloads/point/last-week/glob) |
+| `chokidar` | 262,111,537 | [npm downloads API](https://api.npmjs.org/downloads/point/last-week/chokidar) |
+| `tinyglobby` | 258,096,458 | [npm downloads API](https://api.npmjs.org/downloads/point/last-week/tinyglobby) |
+| `fdir` | 243,813,734 | [npm downloads API](https://api.npmjs.org/downloads/point/last-week/fdir) |
+| `fast-glob` | 190,002,087 | [npm downloads API](https://api.npmjs.org/downloads/point/last-week/fast-glob) |
+| `@parcel/watcher` | 48,032,170 | [npm downloads API](https://api.npmjs.org/downloads/point/last-week/@parcel/watcher) |
+
+Download counts are a scale signal only: transitive dependencies, mirrors,
+CI, and repeated installs all contribute. The strategic conclusion is
+unchanged and is now better supported by the measured benchmark: pathway
+should not claim raw traversal leadership over `fdir`/`tinyglobby`; its
+positioning must focus on the native composition of traversal, metadata,
+hashing, and typed filesystem operations.
 
 ---
 
