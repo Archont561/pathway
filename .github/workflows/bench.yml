@@ -4,8 +4,9 @@ name: bench
 #
 # A full sweep is 10k → 1M files × three scenarios × six subjects — an hour or
 # more of dedicated hardware — and the recorded numbers must come from an
-# environment that does not change between runs. So the harness runs here, on
-# demand, and the report is uploaded as an artifact for transcription into
+# environment that does not change between runs. Pull requests run only the
+# 10k smoke size; workflow_dispatch runs the requested sizes (empty means the
+# full sweep). The report is uploaded as an artifact for transcription into
 # `.knowledge/competitive/verified-data.md`.
 #
 # Two jobs, one per Bun line the task-4 acceptance criteria require:
@@ -30,9 +31,9 @@ name: bench
 #
 # Triggers: `workflow_dispatch` for re-measuring on demand (the `sizes` input
 # narrows the sweep, e.g. `10000` for a smoke run), and `pull_request` only for
-# changes to the harness itself, its wiring, or this file — an engine change
-# does not automatically deserve an hour of runner time; dispatch one when the
-# numbers need refreshing.
+# changes to the harness itself, its wiring, or this file. Pull requests force
+# the 10k smoke size; an engine change does not automatically deserve an hour
+# of runner time, and the full sizes are available by dispatch.
 
 on:
   workflow_dispatch:
@@ -78,7 +79,7 @@ jobs:
       # passes turbo's strict env mode and is part of the task's cache key.
       - run: pixi run bench --force
         env:
-          PATHWAY_BENCH_SIZES: ${{ inputs.sizes || '' }}
+          PATHWAY_BENCH_SIZES: ${{ github.event_name == 'pull_request' && '10000' || inputs.sizes || '' }}
 
       - name: Assert the measured addon was the release build
         run: |
@@ -131,7 +132,7 @@ jobs:
       - name: Run the harness under Bun 1.4
         working-directory: benches/walk
         env:
-          PATHWAY_BENCH_SIZES: ${{ inputs.sizes || '' }}
+          PATHWAY_BENCH_SIZES: ${{ github.event_name == 'pull_request' && '10000' || inputs.sizes || '' }}
         run: |
           "$RUNNER_TEMP/bun14/package/bin/bun" src/main.ts
 
