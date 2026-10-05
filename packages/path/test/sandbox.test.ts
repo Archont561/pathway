@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import * as pathe from "pathe";
 import { ContainmentError, FileSystem } from "../src/index.js";
 
 const roots: string[] = [];
@@ -38,8 +39,8 @@ describe("FileSystem sandbox", () => {
     const child = sandbox.resolve("nested/config.json");
 
     expect(sandbox.resolve(".").value).toBe(sandbox.root.value);
-    expect(child.value).toBe(join(sandbox.root.value, "nested/config.json"));
-    expect(child.parent.value).toBe(join(sandbox.root.value, "nested"));
+    expect(child.value).toBe(pathe.join(sandbox.root.value, "nested/config.json"));
+    expect(child.parent.value).toBe(pathe.join(sandbox.root.value, "nested"));
   });
 
   test("blocks traversal and prefix-collision escapes", () => {
