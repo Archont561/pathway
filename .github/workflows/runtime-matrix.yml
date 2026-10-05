@@ -48,6 +48,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The legacy task filename contains a colon, which Windows Git cannot
+          # materialise. Runtime jobs do not need backlog/; sparse checkout keeps
+          # the cross-platform matrix executable without renaming that record.
+          sparse-checkout: |
+            /*
+            !/backlog/
+          sparse-checkout-cone-mode: false
       - uses: dtolnay/rust-toolchain@stable
       - uses: oven-sh/setup-bun@v2
         with:
@@ -85,6 +93,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The legacy task filename contains a colon, which Windows Git cannot
+          # materialise. Runtime jobs do not need backlog/; sparse checkout keeps
+          # the cross-platform matrix executable without renaming that record.
+          sparse-checkout: |
+            /*
+            !/backlog/
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
