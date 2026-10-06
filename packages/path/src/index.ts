@@ -18,6 +18,7 @@
 
 export { engineAvailable } from "./binding.js";
 export { FileSystem } from "./filesystem.js";
+export { hashFile, hashTree } from "./hash.js";
 export { Path } from "./path.js";
 export { ContainmentError, Sandbox, SandboxPath } from "./sandbox.js";
 export { json, SerializerRegistry } from "./serializers/index.js";
@@ -28,7 +29,9 @@ export type {
   EntryErrorKind,
   FileSystemOptions,
   FileTransform,
+  Hasher,
   HasherName,
+  HashOptions,
   MoveOptions,
   MoveResult,
   PathEntry,

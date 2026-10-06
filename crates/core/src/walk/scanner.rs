@@ -48,7 +48,7 @@ use ignore::{WalkBuilder, WalkState};
 use super::entry::FusedEntry;
 use super::matcher::Matcher;
 use crate::error::{Error, Result};
-use crate::hash::{hash_file, Algorithm};
+use crate::hash::{hash_file, hash_reader, Algorithm};
 
 /// How many traversal failures a single walk will report.
 ///
@@ -495,6 +495,54 @@ impl Drop for Sink {
     }
 }
 
+/// Hashes a tree using one fused traversal and a canonical, sorted encoding.
+///
+/// Each file contributes its root-relative path length, path bytes, and content
+/// digest. Sorting before encoding makes the result independent of parallel
+/// walker scheduling and filesystem enumeration order.
+///
+/// # Errors
+///
+/// Returns an error if the root cannot be traversed, an entry cannot be
+/// hashed, or the final canonical stream cannot be read.
+pub fn hash_tree(
+    root: impl AsRef<Path>,
+    mut options: ScanOptions,
+    algorithm: Algorithm,
+) -> Result<String> {
+    options.hash = Some(algorithm);
+    let scanner = NativeScanner::new(root, options)?;
+    scanner.scan()?;
+    if let Some(error) = scanner.errors().into_iter().next() {
+        return Err(Error::io(
+            "walk",
+            scanner.root(),
+            std::io::Error::other(error),
+        ));
+    }
+
+    let mut entries = Vec::new();
+    loop {
+        let batch = scanner.next_batch();
+        if batch.is_empty() {
+            break;
+        }
+        entries.extend(batch.into_iter().filter(|entry| entry.error.is_none()));
+    }
+    entries.sort_by(|left, right| left.path.cmp(&right.path));
+
+    let mut canonical = Vec::new();
+    for entry in entries {
+        let path = entry.path.to_string_lossy();
+        canonical.extend((path.len() as u64).to_le_bytes());
+        canonical.extend(path.as_bytes());
+        let digest = entry.hash.unwrap_or_default();
+        canonical.extend((digest.len() as u64).to_le_bytes());
+        canonical.extend(digest.as_bytes());
+    }
+    hash_reader(canonical.as_slice(), algorithm, scanner.root())
+}
+
 /// Takes a lock, treating poisoning as recoverable.
 ///
 /// A panic in one worker must not turn every later access into a second panic:
@@ -600,7 +648,7 @@ fn to_unix_nanos(time: SystemTime) -> i128 {
 
 #[cfg(test)]
 mod tests {
-    use super::{NativeScanner, ScanOptions, DEFAULT_BATCH_SIZE};
+    use super::{hash_tree, NativeScanner, ScanOptions, DEFAULT_BATCH_SIZE};
     use crate::hash::Algorithm;
     use std::collections::BTreeSet;
     use std::path::{Path, PathBuf};
@@ -1131,6 +1179,26 @@ mod tests {
 
         let found: BTreeSet<PathBuf> = collect(&scanner).into_iter().collect();
         assert_eq!(found.len(), 5, "{found:?}");
+    }
+
+    #[test]
+    fn tree_hash_is_stable_across_parallel_traversals_and_file_order() {
+        let dir = tree(&["z.txt", "a.txt", "nested/m.txt"]);
+        let first = hash_tree(dir.path(), ScanOptions::default(), Algorithm::Sha256).unwrap();
+        let second = hash_tree(
+            dir.path(),
+            ScanOptions {
+                concurrency: Some(1),
+                ..ScanOptions::default()
+            },
+            Algorithm::Sha256,
+        )
+        .unwrap();
+        assert_eq!(first, second);
+
+        std::fs::write(dir.path().join("a.txt"), "changed").unwrap();
+        let changed = hash_tree(dir.path(), ScanOptions::default(), Algorithm::Sha256).unwrap();
+        assert_ne!(first, changed);
     }
 
     // ── cancellation (AC #12) ───────────────────────────────────────────────

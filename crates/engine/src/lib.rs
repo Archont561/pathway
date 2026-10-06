@@ -26,6 +26,34 @@
 
 pub mod walk;
 
+use napi::bindgen_prelude::Buffer;
+use napi::Result as NapiResult;
+use pathway_fs_core::hash::{hash_file, hash_reader, Algorithm};
+use std::io::Cursor;
+use std::path::Path;
+
+/// Hash bytes with a built-in streaming algorithm.
+#[napi]
+pub fn hash_bytes_native(bytes: Buffer, algorithm: String) -> NapiResult<String> {
+    let algorithm = Algorithm::from_name(&algorithm)
+        .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+    hash_reader(
+        Cursor::new(bytes.to_vec()),
+        algorithm,
+        Path::new("<memory>"),
+    )
+    .map_err(|error| napi::Error::from_reason(error.to_string()))
+}
+
+/// Hash one file with a built-in streaming algorithm.
+#[napi]
+pub fn hash_file_native(path: String, algorithm: String) -> NapiResult<String> {
+    let algorithm = Algorithm::from_name(&algorithm)
+        .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+    hash_file(Path::new(&path), algorithm)
+        .map_err(|error| napi::Error::from_reason(error.to_string()))
+}
+
 use napi_derive::napi;
 
 /// The engine's version, so the TypeScript surface can refuse to run against a
@@ -44,4 +72,24 @@ pub fn engine_version() -> String {
 #[napi]
 pub fn napi_version() -> u32 {
     pathway_fs_core::NAPI_VERSION
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{hash_bytes_native, hash_file_native};
+    use napi::bindgen_prelude::Buffer;
+
+    #[test]
+    fn native_hash_helpers_cover_file_and_bytes() {
+        let root = std::env::temp_dir().join(format!("pathway-engine-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let file = root.join("value.txt");
+        std::fs::write(&file, b"hello").unwrap();
+        let file_hash =
+            hash_file_native(file.to_string_lossy().into_owned(), "sha256".to_owned()).unwrap();
+        let bytes_hash =
+            hash_bytes_native(Buffer::from(b"hello".to_vec()), "sha256".to_owned()).unwrap();
+        assert_eq!(file_hash, bytes_hash);
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }
