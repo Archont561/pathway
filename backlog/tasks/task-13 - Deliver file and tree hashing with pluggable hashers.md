@@ -1,7 +1,7 @@
 ---
 id: task-13
 title: "Deliver file and tree hashing with pluggable hashers"
-status: To Do
+status: Done
 priority: High
 assignee: []
 created_date: '2026-09-30'
@@ -23,8 +23,8 @@ This task is derived from the project knowledge base and scheduled in m-1. It is
 
 ## Acceptance Criteria
 
-- [ ] BLAKE3, xxhash, and SHA-256 support streaming 64 KB reads without whole-file loading.
-- [ ] Tree hashes are deterministic across runs and integrate with fused traversal.
+- [x] BLAKE3, xxhash, and SHA-256 support streaming 64 KB reads without whole-file loading.
+- [x] Tree hashes are deterministic across runs and integrate with fused traversal.
 
 ## References
 
@@ -32,5 +32,21 @@ This task is derived from the project knowledge base and scheduled in m-1. It is
 
 ## Definition of Done
 
-- [ ] Implementation, tests, and documentation are complete.
-- [ ] Related knowledge-base design remains accurate after implementation.
+- [x] Implementation, tests, and documentation are complete.
+- [x] Related knowledge-base design remains accurate after implementation.
+
+## Implementation Notes
+
+The core exposes a streaming `Hasher` seam and 64 KiB reader, with BLAKE3,
+xxhash, and SHA-256 implementations. Fused traversal provides deterministic
+`hash_tree` output using versioned path/digest framing and sorted relative paths.
+The N-API bridge exposes native file and byte hashing, while the TypeScript API
+provides `Path.hash`, `Path.hashTree`, top-level helpers, and custom streaming
+hasher fallback support.
+
+## Final Summary
+
+TASK-13 is complete. Native file/tree hashing is available through the Rust
+core and TypeScript surface, with dedicated Rust and TypeScript coverage for
+algorithm selection, chunk bounds, deterministic tree output, and content
+changes.

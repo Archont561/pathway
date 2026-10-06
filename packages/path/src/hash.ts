@@ -43,7 +43,7 @@ export async function hashTree(root: string, options: HashOptions = {}): Promise
       })()
     );
   }
-  return loadEngine().hashBytesNative(bytes, selected);
+  return loadEngine().hashBytesNative(Buffer.from(bytes), selected);
 }
 
 export type { Hasher, HasherName, HashOptions };

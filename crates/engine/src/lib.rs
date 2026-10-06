@@ -26,6 +26,7 @@
 
 pub mod walk;
 
+use napi::bindgen_prelude::Buffer;
 use napi::Result as NapiResult;
 use pathway_fs_core::hash::{hash_file, hash_reader, Algorithm};
 use std::io::Cursor;
@@ -33,11 +34,15 @@ use std::path::Path;
 
 /// Hash bytes with a built-in streaming algorithm.
 #[napi]
-pub fn hash_bytes_native(bytes: Vec<u8>, algorithm: String) -> NapiResult<String> {
+pub fn hash_bytes_native(bytes: Buffer, algorithm: String) -> NapiResult<String> {
     let algorithm = Algorithm::from_name(&algorithm)
         .map_err(|error| napi::Error::from_reason(error.to_string()))?;
-    hash_reader(Cursor::new(bytes), algorithm, Path::new("<memory>"))
-        .map_err(|error| napi::Error::from_reason(error.to_string()))
+    hash_reader(
+        Cursor::new(bytes.to_vec()),
+        algorithm,
+        Path::new("<memory>"),
+    )
+    .map_err(|error| napi::Error::from_reason(error.to_string()))
 }
 
 /// Hash one file with a built-in streaming algorithm.

@@ -135,7 +135,7 @@ export interface NativeEngine {
     options?: NativeWalkerOptions
   ) => NativeWalker;
   hashFileNative(path: string, algorithm: string): string;
-  hashBytesNative(bytes: Uint8Array, algorithm: string): string;
+  hashBytesNative(bytes: Buffer, algorithm: string): string;
 }
 
 let cached: NativeEngine | null = null;
