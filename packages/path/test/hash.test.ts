@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { hashFile, hashTree, Path, type Hasher } from "../src/index.js";
 
 const roots: string[] = [];
 function tree(files: Record<string, string>): string {
-  const root = mkdtempSync(join("/tmp", "pathway-hash-"));
+  const root = mkdtempSync(join(tmpdir(), "pathway-hash-"));
   roots.push(root);
   for (const [name, contents] of Object.entries(files)) {
     const path = join(root, name);
