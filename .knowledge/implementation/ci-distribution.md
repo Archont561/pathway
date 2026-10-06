@@ -6,12 +6,14 @@ tags: [ci, napi-rs, distribution, platform, bun, targets, github-actions, proven
 status: stable
 generated:
   by: pathway_kb/1.0
-  at: 2026-09-30T00:00:00Z
+  at: 2026-10-06T00:00:00Z
 verified:
   - by: human:archont561
     at: 2025-07-11T00:00:00Z
   - by: process:gap-analysis-2026-09
     at: 2026-09-16T00:00:00Z
+  - by: process:runtime-matrix-task-11
+    at: 2026-10-05T22:33:54Z
 domain: implementation
 decision: decided  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
@@ -129,10 +131,15 @@ install-smoke jobs additionally pack `packages/path`, run
 prefix, and import it with Node. This is intentionally a package-level smoke
 test until platform-specific `napi publish` packaging is implemented.
 
-**Evidence status (2026-10-05):** YAML/actionlint and the local built-package
-Node smoke test pass. The 12-row GitHub matrix and three install-smoke jobs
-are configured but are not called green until a pull-request run reports all
-jobs successful. The existing `.github/workflows/ci.yml` remains the unified
+**Evidence status (2026-10-05, task-11):** GitHub runtime matrix run
+[37382716742](https://github.com/Archont561/pathway/actions/runs/37382716742)
+on main commit `70bb89d` passed every required job: Node 24 and Node 26 on
+Ubuntu, macOS, and Windows; Bun 1.3.11 and Bun 1.4.2 on Ubuntu, macOS, and
+Windows; and the three OS-specific packed-install smoke jobs. Each smoke job
+builds the addon and TypeScript package, packs `packages/path`, runs
+`npm publish --dry-run --provenance`, installs the tarball into a clean
+prefix, imports it with Node 24, verifies `engineAvailable()`, and exercises
+the built package. The existing `.github/workflows/ci.yml` remains the unified
 Ubuntu/Pixi repository gate; it is not this runtime matrix.
 
 ### Optional runtimes
@@ -165,8 +172,10 @@ guaranteed and must be verified by the package author.
 >
 > The matrix runs the **same package test suite** on Bun as the Node smoke
 > contract across all three operating systems. If a test passes on Node but
-> fails on Bun, that is a blocking CI failure. The configuration is committed;
-> support is not called verified until GitHub reports the matrix green.
+> fails on Bun, that is a blocking CI failure. The configuration is committed,
+> and main run
+> [37382716742](https://github.com/Archont561/pathway/actions/runs/37382716742)
+> is the current green evidence for the Phase 1 runtime contract.
 > **Bun 1.4 is validated separately from 1.3 because a runtime implementation
 > change can alter addon behavior even when the ABI is unchanged.**
 
@@ -241,7 +250,7 @@ Applies once the `#[napi(async_iterator)]` spike lands:
 | Decision | Rationale |
 |----------|-----------|
 | 6 launch targets (+2 Tier 2) | Release target; package publication is not yet implemented |
-| Node 24 LTS + 26 Current + Bun 1.3/1.4 | Phase 1 executable matrix; Bun 1.3.11 and 1.4.2 get separate validation |
+| Node 24 LTS + 26 Current + Bun 1.3/1.4 | Phase 1 executable matrix; Bun 1.3.11 and 1.4.2 get separate validation; run 37382716742 is green |
 | No Deno claim in Phase 1 | No executable Deno smoke job is committed |
 | Cross toolchains for musl/arm64 | Required before platform-package publication |
 | npm provenance + packed-install smoke test | Supply-chain hygiene; the current single-package path is exercised before release |

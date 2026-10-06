@@ -4,7 +4,7 @@ title: "Release Success Metrics v0.1 / v0.5 / v1.0"
 type: document
 status: active
 created_date: '2025-07-11'
-updated_date: '2026-10-02'
+updated_date: '2026-10-06'
 tags: [metrics, success-criteria, release, adoption]
 ---
 
@@ -21,8 +21,8 @@ tags: [metrics, success-criteria, release, adoption]
 ### v0.1 (Proof of Concept)
 - [ ] Fused walk benchmark ≥5x faster than `node:fs.glob` + `fs.stat` +
       `crypto` (and all JS incumbents)
-- [ ] Works on Node 24 (LTS), Node 26 (Current), Bun 1.3.x, Bun 1.4.x
-- [ ] CI passes on Linux, macOS, Windows
+- [x] Works on Node 24 (LTS), Node 26 (Current), Bun 1.3.x, Bun 1.4.x — runtime matrix run 37382716742
+- [x] CI passes on Linux, macOS, Windows — runtime matrix run 37382716742
 - [ ] `Path`, `walkFiles`, `read(json)`, `write(json)` all functional
 
 ### v0.5 (Early Adoption)
