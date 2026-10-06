@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as pathe from "pathe";
 import { copyTree, movePath, transformTree } from "./bulk.js";
+import { hashFile, hashTree } from "./hash.js";
 import { defaultSerializerRegistry, type SerializerRegistry } from "./serializers/registry.js";
 import type {
   CopyOptions,
@@ -109,6 +110,18 @@ export class Path {
     this.assertSafe();
     destination.assertSafe();
     return transformTree(this.value, destination.value, options);
+  }
+
+  /** Hash this file with a built-in or custom streaming hasher. */
+  async hash(options?: import("./types.js").HashOptions): Promise<string> {
+    this.assertSafe();
+    return hashFile(this.value, options);
+  }
+
+  /** Hash this directory deterministically from its fused file walk. */
+  async hashTree(options?: import("./types.js").HashOptions): Promise<string> {
+    this.assertSafe();
+    return hashTree(this.value, options);
   }
 
   /** Read the file as text. */

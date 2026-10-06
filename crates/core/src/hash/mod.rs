@@ -53,6 +53,19 @@ use crate::error::{Error, Result};
 /// ```
 pub const CHUNK_SIZE: usize = 64 * 1024;
 
+/// A streaming content hasher.
+///
+/// Implementations receive the same bounded chunks used by [`hash_reader`].
+/// Custom hashers can therefore be supplied without loading a file into memory
+/// or changing the filesystem traversal code.
+pub trait Hasher {
+    /// Absorb one input chunk.
+    fn update(&mut self, chunk: &[u8]);
+
+    /// Finish the digest as lowercase hexadecimal.
+    fn finish(self: Box<Self>) -> String;
+}
+
 /// Which hash algorithm to compute.
 ///
 /// A closed enum, and the string spelling is resolved once by
@@ -155,40 +168,6 @@ impl std::str::FromStr for Algorithm {
 /// 64 KiB chunk. Boxing would trade a few stack bytes that nobody copies for a
 /// heap allocation per file, which on a 100 000-file walk is 100 000
 /// allocations bought with nothing.
-#[allow(clippy::large_enum_variant)]
-#[derive(Debug)]
-enum State {
-    Blake3(blake3::Hasher),
-    Xxhash(xxhash::Hasher),
-    Sha256(sha256::Hasher),
-}
-
-impl State {
-    fn new(algorithm: Algorithm) -> Self {
-        match algorithm {
-            Algorithm::Blake3 => Self::Blake3(blake3::Hasher::new()),
-            Algorithm::Xxhash => Self::Xxhash(xxhash::Hasher::new()),
-            Algorithm::Sha256 => Self::Sha256(sha256::Hasher::new()),
-        }
-    }
-
-    fn update(&mut self, chunk: &[u8]) {
-        match self {
-            Self::Blake3(h) => h.update(chunk),
-            Self::Xxhash(h) => h.update(chunk),
-            Self::Sha256(h) => h.update(chunk),
-        }
-    }
-
-    fn finish(self) -> String {
-        match self {
-            Self::Blake3(h) => h.finish(),
-            Self::Xxhash(h) => h.finish(),
-            Self::Sha256(h) => h.finish(),
-        }
-    }
-}
-
 /// Hashes everything a reader yields, in [`CHUNK_SIZE`] blocks.
 ///
 /// The buffer is allocated once and reused for every chunk, so hashing a 10 GiB
@@ -215,10 +194,42 @@ impl State {
 /// );
 /// # Ok::<(), pathway_fs_core::error::Error>(())
 /// ```
-pub fn hash_reader(mut reader: impl Read, algorithm: Algorithm, path: &Path) -> Result<String> {
-    let mut state = State::new(algorithm);
-    let mut buffer = vec![0u8; CHUNK_SIZE];
+pub fn hash_reader(reader: impl Read, algorithm: Algorithm, path: &Path) -> Result<String> {
+    hash_reader_with(reader, algorithm.hasher(), path)
+}
 
+/// Creates the built-in streaming implementation for an algorithm.
+#[must_use]
+pub fn hasher(algorithm: Algorithm) -> Box<dyn Hasher> {
+    match algorithm {
+        Algorithm::Blake3 => Box::new(blake3::Hasher::new()),
+        Algorithm::Xxhash => Box::new(xxhash::Hasher::new()),
+        Algorithm::Sha256 => Box::new(sha256::Hasher::new()),
+    }
+}
+
+impl Algorithm {
+    /// Creates a fresh built-in streaming hasher.
+    #[must_use]
+    pub fn hasher(self) -> Box<dyn Hasher> {
+        hasher(self)
+    }
+}
+
+/// Hashes a reader with a caller-supplied streaming hasher.
+///
+/// The reader is consumed in exactly [`CHUNK_SIZE`] bounded chunks. This is
+/// the public extension seam for custom hashers.
+///
+/// # Errors
+///
+/// Returns an I/O error attributed to `path` if reading fails.
+pub fn hash_reader_with(
+    mut reader: impl Read,
+    mut hasher: Box<dyn Hasher>,
+    path: &Path,
+) -> Result<String> {
+    let mut buffer = vec![0u8; CHUNK_SIZE];
     loop {
         let read = reader
             .read(&mut buffer)
@@ -226,10 +237,9 @@ pub fn hash_reader(mut reader: impl Read, algorithm: Algorithm, path: &Path) -> 
         if read == 0 {
             break;
         }
-        state.update(&buffer[..read]);
+        hasher.update(&buffer[..read]);
     }
-
-    Ok(state.finish())
+    Ok(hasher.finish())
 }
 
 /// Hashes a file's contents, reading it in [`CHUNK_SIZE`] blocks.
@@ -264,7 +274,7 @@ pub fn hash_file(path: &Path, algorithm: Algorithm) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{hash_file, hash_reader, Algorithm, CHUNK_SIZE};
+    use super::{hash_file, hash_reader, hash_reader_with, Algorithm, Hasher, CHUNK_SIZE};
     use crate::error::Error;
 
     /// The three well-known digests of the empty input. If a refactor ever
@@ -326,6 +336,37 @@ mod tests {
         for algorithm in [Algorithm::Blake3, Algorithm::Xxhash, Algorithm::Sha256] {
             assert_eq!(Algorithm::from_name(algorithm.name()).unwrap(), algorithm);
         }
+    }
+
+    #[test]
+    fn custom_hashers_receive_the_stream_in_bounded_chunks() {
+        struct CountingHasher {
+            chunks: usize,
+            bytes: usize,
+        }
+
+        impl Hasher for CountingHasher {
+            fn update(&mut self, chunk: &[u8]) {
+                self.chunks += 1;
+                self.bytes += chunk.len();
+            }
+
+            fn finish(self: Box<Self>) -> String {
+                format!("{}:{}", self.chunks, self.bytes)
+            }
+        }
+
+        let payload = vec![7u8; CHUNK_SIZE * 2 + 1];
+        let digest = hash_reader_with(
+            payload.as_slice(),
+            Box::new(CountingHasher {
+                chunks: 0,
+                bytes: 0,
+            }),
+            std::path::Path::new("<memory>"),
+        )
+        .unwrap();
+        assert_eq!(digest, "3:131073");
     }
 
     #[test]

@@ -26,6 +26,29 @@
 
 pub mod walk;
 
+use napi::Result as NapiResult;
+use pathway_fs_core::hash::{hash_file, hash_reader, Algorithm};
+use std::io::Cursor;
+use std::path::Path;
+
+/// Hash bytes with a built-in streaming algorithm.
+#[napi]
+pub fn hash_bytes_native(bytes: Vec<u8>, algorithm: String) -> NapiResult<String> {
+    let algorithm = Algorithm::from_name(&algorithm)
+        .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+    hash_reader(Cursor::new(bytes), algorithm, Path::new("<memory>"))
+        .map_err(|error| napi::Error::from_reason(error.to_string()))
+}
+
+/// Hash one file with a built-in streaming algorithm.
+#[napi]
+pub fn hash_file_native(path: String, algorithm: String) -> NapiResult<String> {
+    let algorithm = Algorithm::from_name(&algorithm)
+        .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+    hash_file(Path::new(&path), algorithm)
+        .map_err(|error| napi::Error::from_reason(error.to_string()))
+}
+
 use napi_derive::napi;
 
 /// The engine's version, so the TypeScript surface can refuse to run against a

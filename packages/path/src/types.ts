@@ -36,6 +36,22 @@ export interface Validator<T> {
   validate(data: unknown): T;
 }
 
+/** Built-in digest algorithms supported by the native engine. */
+export type HasherName = "blake3" | "xxhash" | "sha256";
+
+/** A streaming custom hasher used by the TypeScript fallback path. */
+export interface Hasher {
+  readonly name: string;
+  readonly digestLength: number;
+  digest(chunks: AsyncIterable<Uint8Array>): Promise<string>;
+}
+
+/** Options for file and tree hashing. */
+export interface HashOptions {
+  readonly hasher?: HasherName | Hasher;
+  readonly signal?: AbortSignal;
+}
+
 /** Options for reading text or serialized values. */
 export interface ReadOptions {
   /** Text encoding used by `readText()`. Serialized reads receive bytes directly. */
@@ -129,9 +145,6 @@ export interface FileSystemOptions {
   /** Serializers registered for this filesystem instance only. */
   readonly serializers?: readonly Serializer<unknown>[];
 }
-
-/** Which hash algorithm a walk should compute while it traverses. */
-export type HasherName = "blake3" | "xxhash" | "sha256";
 
 /** Why one entry in a walk could not be completed. */
 export type EntryErrorKind =

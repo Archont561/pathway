@@ -73,6 +73,16 @@ impl Default for Hasher {
     }
 }
 
+impl crate::hash::Hasher for Hasher {
+    fn update(&mut self, chunk: &[u8]) {
+        Self::update(self, chunk);
+    }
+
+    fn finish(self: Box<Self>) -> String {
+        (*self).finish()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

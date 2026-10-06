@@ -37,4 +37,4 @@ pub mod scanner;
 
 pub use entry::FusedEntry;
 pub use matcher::Matcher;
-pub use scanner::{NativeScanner, ScanOptions, DEFAULT_BATCH_SIZE, MAX_REPORTED_ERRORS};
+pub use scanner::{hash_tree, NativeScanner, ScanOptions, DEFAULT_BATCH_SIZE, MAX_REPORTED_ERRORS};
