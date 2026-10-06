@@ -42,9 +42,9 @@ whereas a consumer only needs the addon npm resolves for their machine.
 
 | Platform | Phase 1 runtime check | Published addon | Notes |
 |----------|-----------------------|-----------------|-------|
-| Linux x64 | ✅ configured | 🟡 planned | Native runner builds and loads the single-package `dist/` addon |
-| macOS x64/arm64 | ✅ configured | 🟡 planned | Native runners build and load the addon; the GitHub matrix is the evidence gate |
-| Windows x64 | ✅ configured | 🟡 planned | Native runner builds and loads the addon; not a Pixi development target |
+| Linux x64 | ✅ verified | 🟡 planned | Runtime matrix run 37382716742 builds and loads the single-package `dist/` addon |
+| macOS x64/arm64 | ✅ verified | 🟡 planned | Runtime matrix run 37382716742 builds and loads the single-package `dist/` addon |
+| Windows x64 | ✅ verified | 🟡 planned | Runtime matrix run 37382716742 builds and loads the addon; not a Pixi development target |
 
 The current package has no hand-maintained platform `optionalDependencies` list:
 `napi build` writes the host addon into `packages/path/dist`, and the package
@@ -52,8 +52,10 @@ packs that directory. A future `napi publish` release may split platform
 artifacts. Consumers need **Node ≥ 24** (`engines` in
 `packages/path/package.json`); Bun 1.3/1.4 uses the same Node-API boundary.
 The 12-row runtime matrix and three packed-install smoke jobs live in
-[`.github/workflows/runtime-matrix.yml`](.github/workflows/runtime-matrix.yml);
-a configured workflow is not a green CI result until GitHub runs it.
+[`.github/workflows/runtime-matrix.yml`](.github/workflows/runtime-matrix.yml).
+Main run [37382716742](https://github.com/Archont561/pathway/actions/runs/37382716742)
+is the current Phase 1 evidence: Node 24/26 and Bun 1.3.11/1.4.2 passed on
+Linux, macOS, and Windows, and all three packed-install smoke jobs passed.
 
 ## 📦 Architecture
 

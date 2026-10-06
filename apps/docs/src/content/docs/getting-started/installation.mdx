@@ -13,7 +13,10 @@ the root `Cargo.toml`.
 
 Requires Node 24 or newer, or Bun 1.3+. The Phase 1 npm package is a single
 package whose build places the native addon in `dist/`; platform-specific npm
-packages are a later release concern.
+packages are a later release concern. The current runtime evidence is GitHub
+run [37382716742](https://github.com/Archont561/pathway/actions/runs/37382716742):
+Node 24/26 and Bun 1.3.11/1.4.2 pass on Linux, macOS and Windows, with
+packed-install smoke tests on all three operating systems.
 
 :::caution[The npm package is not published yet]
 The package exists in this repository but is not on a registry. To try it from

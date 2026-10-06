@@ -4,7 +4,7 @@ title: "Phase 1-4 Implementation Plan, v0.1-v1.0 Roadmap, Benchmark Harness"
 type: document
 status: active
 created_date: '2025-07-11'
-updated_date: '2026-10-02'
+updated_date: '2026-10-06'
 tags: [phase, roadmap, benchmark, v0.1, v1.0, plan]
 ---
 
@@ -58,9 +58,9 @@ Gates from the gap analysis; Phase 1 does not start until these are done:
       iterator vs. chunked paging fallback).
 - [x] **Refresh the CI matrix configuration** (ci-distribution.md): the
       executable workflow covers Node 24/26, Bun 1.3.11/1.4.2, Linux/macOS/
-      Windows, npm provenance, and a packed-install smoke test. The GitHub
-      matrix remains an open verification sub-gate until a pull-request run
-      is green.
+      Windows, npm provenance, and a packed-install smoke test. GitHub runtime
+      matrix run 37382716742 on main passed all 12 runtime rows and all three
+      packed-install smoke jobs on 2026-10-05.
 - [x] **Re-pull npm download stats** for external benchmark documents. Round 3
       in [verified-data.md](../../.knowledge/competitive/verified-data.md)
       records the 2026-09-28–2026-10-04 npm API window; July 2025 figures are
@@ -131,11 +131,13 @@ All items below are implemented in **`crates/core`** (napi-free);
 - [ ] Fused walk ≥5x faster than the best alternative on 100k+ files —
       the baseline on Node 24 is `node:fs.glob` + `fs.stat` + `crypto`
       (native C++), not just pure JS
-- [ ] All tests pass on Node 24 (LTS), Node 26 (Current), Bun 1.3.x,
-      Bun 1.4.x
-- [ ] All tests pass on Linux (glibc), macOS (arm64), Windows (x64)
-- [ ] Package installs and loads correctly via NAPI-RS platform binaries
-      (including the oldest-supported-npm install smoke test)
+- [x] All tests pass on Node 24 (LTS), Node 26 (Current), Bun 1.3.x,
+      Bun 1.4.x — runtime matrix run 37382716742
+- [x] All tests pass on Linux (glibc), macOS (arm64), Windows (x64) —
+      runtime matrix run 37382716742
+- [x] Package installs and loads correctly via the current single-package
+      NAPI-RS `dist/` artifact on Linux, macOS, and Windows; platform-package
+      optional dependencies remain future release work
 - [ ] API matches the design in [walk-traversal.md](../../.knowledge/features/walk-traversal.md)
       (including `dot`, `gitignore`, `absolute`, `signal`, error reporting)
 
