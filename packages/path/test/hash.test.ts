@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { hashFile, hashTree, Path, type Hasher } from "../src/index.js";
+import { type Hasher, hashFile, hashTree, Path } from "../src/index.js";
 
 const roots: string[] = [];
 function tree(files: Record<string, string>): string {
@@ -15,7 +15,9 @@ function tree(files: Record<string, string>): string {
   }
   return root;
 }
-afterEach(() => roots.splice(0).forEach((root) => rmSync(root, { recursive: true, force: true })));
+afterEach(() => {
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
 
 describe("hashing", () => {
   test("hashes a file with every built-in algorithm", async () => {
