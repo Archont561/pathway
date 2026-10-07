@@ -22,6 +22,8 @@ export { hashFile, hashTree } from "./hash.js";
 export { Path } from "./path.js";
 export { ContainmentError, Sandbox, SandboxPath } from "./sandbox.js";
 export { json, SerializerRegistry } from "./serializers/index.js";
+export type { SnapshotDiff, SnapshotEntry, SnapshotOptions } from "./snapshot.js";
+export { SNAPSHOT_FORMAT, Snapshot, SnapshotFormatError } from "./snapshot.js";
 export type { TempOptions } from "./temp.js";
 export { TempDir, tempDir } from "./temp.js";
 export type {

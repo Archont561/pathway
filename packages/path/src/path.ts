@@ -13,6 +13,7 @@ import * as pathe from "pathe";
 import { copyTree, movePath, transformTree } from "./bulk.js";
 import { hashFile, hashTree } from "./hash.js";
 import { defaultSerializerRegistry, type SerializerRegistry } from "./serializers/registry.js";
+import { Snapshot, type SnapshotOptions } from "./snapshot.js";
 import { type TempOptions, withTempDirectory } from "./temp.js";
 import type {
   CopyOptions,
@@ -157,6 +158,18 @@ export class Path {
   async hashTree(options?: import("./types.js").HashOptions): Promise<string> {
     this.assertSafe();
     return hashTree(this.value, options);
+  }
+
+  /**
+   * Snapshot this directory: one fused walk, folded into a comparable value.
+   *
+   * The companion of {@link Path.hashTree} — a tree hash answers *did
+   * anything change*, a snapshot answers *what*. Pass `hash` to compare
+   * content instead of `size` plus mtime.
+   */
+  async snapshot(options?: SnapshotOptions): Promise<Snapshot> {
+    this.assertSafe();
+    return Snapshot.capture(this.value, options ?? {}, this.serializers);
   }
 
   /** Read the file as text. */

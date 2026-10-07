@@ -24,6 +24,7 @@
 
 #![deny(missing_docs)]
 
+pub mod snapshot;
 pub mod temp;
 pub mod walk;
 

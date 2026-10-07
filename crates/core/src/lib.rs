@@ -45,6 +45,7 @@ pub mod error;
 pub mod fs;
 pub mod hash;
 pub mod serializers;
+pub mod snapshot;
 pub mod walk;
 
 /// The version of this crate, as a string.

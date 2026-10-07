@@ -171,6 +171,17 @@ export interface NativeEngine {
   ) => NativeTempDir;
   /** Removes every live temp directory; called from the `exit` flush. */
   flushTempDirs(): number;
+  /**
+   * Captures a snapshot, resolving with the core's persisted JSON document.
+   *
+   * The document *is* the transport: see `crates/engine/src/snapshot.rs` for
+   * why the fold and the comparison rule stay on the native side.
+   */
+  snapshotCaptureNative(root: string, options?: NativeWalkerOptions): Promise<string>;
+  /** Diffs two documents, returning the core's diff document. */
+  snapshotDiffNative(before: string, after: string): string;
+  /** Validates a document and returns it canonically re-folded. */
+  snapshotValidateNative(json: string): string;
 }
 
 let cached: NativeEngine | null = null;
@@ -249,6 +260,20 @@ export function loadEngine(): NativeEngine {
   if (typeof loaded.TempDir !== "function" || typeof loaded.flushTempDirs !== "function") {
     throw new Error(
       `The native engine at ${file} is missing the TempDir class or flushTempDirs(). ` +
+        "It was probably built from a different revision — rebuild it."
+    );
+  }
+
+  // Snapshots are the third pair of symbols the surface depends on. Checking
+  // them here keeps a half-built addon from failing inside a capture with a
+  // bare "not a function" where the stack says nothing about the build.
+  if (
+    typeof loaded.snapshotCaptureNative !== "function" ||
+    typeof loaded.snapshotDiffNative !== "function" ||
+    typeof loaded.snapshotValidateNative !== "function"
+  ) {
+    throw new Error(
+      `The native engine at ${file} is missing the snapshot functions. ` +
         "It was probably built from a different revision — rebuild it."
     );
   }
