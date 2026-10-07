@@ -22,6 +22,8 @@ export { hashFile, hashTree } from "./hash.js";
 export { Path } from "./path.js";
 export { ContainmentError, Sandbox, SandboxPath } from "./sandbox.js";
 export { json, SerializerRegistry } from "./serializers/index.js";
+export type { TempOptions } from "./temp.js";
+export { TempDir, tempDir } from "./temp.js";
 export type {
   BulkOperationError,
   CopyOptions,
@@ -42,6 +44,5 @@ export type {
   Validator,
   WriteOptions
 } from "./types.js";
-
 export type { WalkBatch, WalkOptions } from "./walk.js";
 export { WalkError, walk, walkDirs, walkFiles } from "./walk.js";

@@ -13,6 +13,7 @@ import * as pathe from "pathe";
 import { copyTree, movePath, transformTree } from "./bulk.js";
 import { hashFile, hashTree } from "./hash.js";
 import { defaultSerializerRegistry, type SerializerRegistry } from "./serializers/registry.js";
+import { type TempOptions, withTempDirectory } from "./temp.js";
 import type {
   CopyOptions,
   CopyResult,
@@ -64,6 +65,40 @@ export class Path {
   /** The current working directory as a Path. */
   static cwd(): Path {
     return new Path(process.cwd());
+  }
+
+  /**
+   * Run `callback` with a temporary directory that is removed afterwards.
+   *
+   * The directory is gone when the callback returns, when it throws, and when
+   * the process exits through `process.exit()` — see `temp.ts` for the tiers,
+   * including what a `SIGKILL` does and does not guarantee. Removal happens
+   * even if the callback throws, and the callback's error is the one that
+   * propagates.
+   *
+   * ```ts
+   * await Path.temp(async (dir) => {
+   *   await dir.join("bundle.js").writeText(bundle);
+   * });
+   * ```
+   *
+   * A directory that must outlive one callback is what {@link tempDir} is for;
+   * this is the scoped form.
+   */
+  static async temp<T>(callback: (dir: Path) => Promise<T>): Promise<T>;
+  /** Run `callback` with a temporary directory created from `options`. */
+  static async temp<T>(options: TempOptions, callback: (dir: Path) => Promise<T>): Promise<T>;
+  static async temp<T>(
+    optionsOrCallback: TempOptions | ((dir: Path) => Promise<T>),
+    maybeCallback?: (dir: Path) => Promise<T>
+  ): Promise<T> {
+    const callback = typeof optionsOrCallback === "function" ? optionsOrCallback : maybeCallback;
+    if (callback === undefined) {
+      throw new TypeError("Path.temp needs a callback; pass (options, callback) or (callback)");
+    }
+    const options = typeof optionsOrCallback === "function" ? undefined : optionsOrCallback;
+
+    return withTempDirectory(options, (path) => callback(new Path(path)));
   }
 
   /** The directory containing this path. */

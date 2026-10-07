@@ -1,9 +1,10 @@
 ---
 id: TASK-30
 title: Expose native traversal errors through the TypeScript walk API
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-04 18:16'
+updated_date: '2026-10-07'
 labels:
   - rust
   - typescript

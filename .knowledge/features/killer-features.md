@@ -6,7 +6,7 @@ tags: [temp, snapshot, diff, sandbox, transaction, lock, parallel, security]
 status: draft
 generated:
   by: pathway_kb/1.0
-  at: 2026-10-03T00:00:00Z
+  at: 2026-10-07T00:00:00Z
 verified:
   - by: human:archont561
     at: 2025-07-11T00:00:00Z
@@ -14,6 +14,8 @@ verified:
     at: 2026-09-16T00:00:00Z
   - by: process:benchmark-task-4
     at: 2026-10-03T00:00:00Z
+  - by: process:task-12-session
+    at: 2026-10-07T00:00:00Z
 domain: features
 decision: proposed  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
@@ -77,7 +79,10 @@ await Path.temp(async (dir) => {
   await scratch.join("output.js").writeText(bundle);
   // ...
 });
-// dir is gone. Even on throw. Even on SIGINT.
+// dir is gone: on return, on throw, and on process.exit().
+// On SIGINT it is gone only if the host installed a handler that exits
+// cleanly (Pathway does not install signal handlers for you); a SIGKILL
+// runs no code at all. See the tier table below.
 ```
 
 With options:
@@ -88,25 +93,41 @@ await Path.temp({ prefix: "build-", dir: "/fast-ssd" }, async (dir) => {
 });
 ```
 
-### Why Rust Matters (corrected Sept 2026)
+### Why Rust Matters (corrected Sept 2026, corrected again 2026-10-07 from measurement)
 
-The 2025 draft overstated the guarantee. The Rust `tempfile` crate uses
-`mkstemp`/`mkdtemp` + **destructor-based** cleanup. That covers throws,
-`process.exit()`, and GC — but **not** `SIGKILL`/hard crash: the
-destructor never runs, and the OS reclaims nothing until a tmp reaper does.
+The 2025 draft overstated the guarantee twice, and the second correction came
+from probes rather than from reading `tempfile`'s README:
 
-The implementation must therefore use OS-level flags where available, and
-the docs must state the **tiered** guarantee honestly:
+1. **`tempfile` has no atexit hook.** Its guarantee *is* the destructor. A
+   `process.exit()` runs no destructors, so tier 1 only reaches that exit path
+   when the host adds a flush of its own — Pathway registers every live temp
+   directory in the core and flushes the registry from a
+   `process.on("exit")` listener installed on first use.
+2. **A temp directory can never be tier 2.** `O_TMPFILE` provides anonymity by
+   creating no directory entry, and the kernel ignores the `O_DIRECTORY` bit:
+   `open(dir, O_TMPFILE | O_DIRECTORY | O_RDWR)` returns an unnamed *regular*
+   file, and `openat` inside it fails `ENOTDIR`. A path the caller can hand to a
+   child process is a directory entry, so the hard guarantee is a property of
+   unnamed temp **files** only. That primitive is not implemented yet; it is
+   filed as its own backlog task.
+
+The guarantee is therefore stated per tier, with what each row was measured on:
 
 | Tier | Mechanism | Survives |
 |------|-----------|----------|
-| 1 | `tempfile` Drop + atexit | throw, `process.exit()`, normal GC |
-| 2a | **Linux:** `O_TMPFILE` (anonymous inode — never appears in the directory tree; reclaimed on close even after SIGKILL). Not supported on all filesystems (e.g. NFS) — fall back to mkstemp + immediate unlink | SIGKILL (local FS) |
-| 2b | **Windows:** `FILE_FLAG_DELETE_ON_CLOSE` — OS deletes on last handle close | SIGKILL |
-| 3 | **macOS/other:** mkstemp + unlink, best-effort | leaks until OS tmp reaper on SIGKILL — documented |
+| 1 | `tempfile` Drop, plus the core's registry flushed from a `process.on("exit")` hook | a return, a throw, `process.exit()`, normal GC, and a `SIGINT`/`SIGTERM` whose handler exits cleanly |
+| 2 | **Linux:** `O_TMPFILE`; **Windows:** `FILE_FLAG_DELETE_ON_CLOSE` | `SIGKILL` (local FS) — **for unnamed temp files only** |
+| 3 | documented only | a `SIGKILL`, a `SIGINT`/`SIGTERM` under the default disposition, or a power loss: the tree stays on disk until something reaps it |
 
 The cleanup happens at the **file descriptor / OS level** where tier 2 is
-available, not via JS `finally` blocks that can be skipped.
+available, not via JS `finally` blocks that can be skipped. On Node 22 and
+Bun 1.3 an `exit` hook runs for `process.exit(0)` and for a signal whose
+handler exits, but not for a signal under the default disposition — which is
+why Pathway does not install `SIGINT`/`SIGTERM` handlers: that would change
+the host process's semantics behind its back.
+
+Measured 2026-10-07 (linux-64), pinned by tests in
+`crates/core/src/fs/temp.rs` and `packages/path/test/temp.test.ts`.
 
 ### Implementation Notes
 
@@ -142,11 +163,12 @@ impl NativeTempDir {
 ```
 
 The `TempDir` destructor runs when the N-API wrapper is garbage-collected,
-providing best-effort cleanup even if the JS callback throws. **In
-addition**, the implementation opens temp files with `O_TMPFILE` on Linux
-local filesystems and `FILE_FLAG_DELETE_ON_CLOSE` on Windows (via the
-`open`/`tempfile` crate options) to obtain the hard tier-2 guarantee; where
-those flags are unavailable the tier-3 documented behavior applies.
+providing best-effort cleanup even if the JS callback throws, and the core's
+registry covers the `process.exit()` path the destructor cannot. The tier-2
+flags (`O_TMPFILE`, `FILE_FLAG_DELETE_ON_CLOSE`) do not apply to a directory
+at all — see correction 2 above — so a landed `Path.temp` is tier 1 with
+tier-3 behavior documented and tested for the paths nothing can cover. Where
+the flags are unavailable for *files*, the tier-3 documented behavior applies.
 
 ### Phase Target: v0.2
 

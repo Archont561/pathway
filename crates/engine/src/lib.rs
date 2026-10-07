@@ -24,6 +24,7 @@
 
 #![deny(missing_docs)]
 
+pub mod temp;
 pub mod walk;
 
 use napi::bindgen_prelude::Buffer;

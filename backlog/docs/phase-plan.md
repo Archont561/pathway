@@ -149,9 +149,16 @@ All items below are implemented in **`crates/core`** (napi-free);
 Temp dirs, content hashing, directory snapshots, additional hashers.
 
 ### Deliverables
-- [ ] `Path.temp(callback)` — RAII temp directories via `tempfile` crate
-      + `O_TMPFILE` / `DELETE_ON_CLOSE` for the hard guarantee (tiered
+- [x] `Path.temp(callback)` / `tempDir()` — scoped temp directories via the
+      `tempfile` crate, with the cleanup guarantee tiered and measured: tier 1
+      is the guard plus an exit-hook flush, and `O_TMPFILE` /
+      `DELETE_ON_CLOSE` cannot apply to a directory at all (TASK-12; tiered
       cleanup documented per [killer-features.md](../../.knowledge/features/killer-features.md))
+- [ ] `TempFile` — unnamed temp files (`O_TMPFILE` on Linux,
+      `FILE_FLAG_DELETE_ON_CLOSE` on Windows) for the tier-2 SIGKILL
+      guarantee, which is a file-level property and the reason the tier table
+      says "temp files" and not "temp directories" (TASK-31, follow-up to
+      TASK-12)
 - [ ] `file.hash(hasher)` — Single-file content hashing
 - [ ] `project.hashTree(options)` — Parallel tree hashing (dedicated
       rayon stage over pruned paths)
@@ -164,8 +171,10 @@ Temp dirs, content hashing, directory snapshots, additional hashers.
 
 ### Success Criteria
 - [ ] Snapshot + diff on 100k files completes in <500ms
-- [ ] Temp dir cleanup verified: throw/exit (tier 1) and SIGKILL on
-      Linux local FS + Windows (tier 2) — tier-3 platforms documented
+- [x] Temp dir cleanup verified for a return, a throw, `process.exit()` and
+      garbage collection (tier 1), with `SIGKILL` and default-disposition
+      signals pinned as tier 3 in tests — the tier-2 SIGKILL promise was
+      corrected to unnamed temp *files* and moved to TASK-31 (TASK-12)
 - [ ] Tree hash is deterministic across runs
 - [ ] Two files written in the same millisecond are distinguished in
       mtime-mode diffs (ns-precision check)
