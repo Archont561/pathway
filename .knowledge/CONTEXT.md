@@ -220,3 +220,50 @@ depends_on:
 producer-defined extension keys; OKF consumers preserve unknown keys.
 
 Navigate via [index.md](/index.md).
+
+---
+
+## Session scratchpad
+
+Dated working notes between sessions, newest last. Proposals and measurements
+live here until they become backlog tasks or merged code — never as checked
+acceptance criteria or speculative source files.
+
+### 2026-10-07 — task-30 (walk errors) merged as PR #14
+
+Landed: `feat(walk): surface native traversal errors as WalkError`
+(task-30), main at `403baba`. `drive()` reads `walker.errors()` once after
+the last batch and throws the exported `WalkError` (verbatim messages,
+engine-capped at 1,000) instead of completing; per-entry `PathEntry.error`
+still streams mid-walk, abort wins, early break stays silent. Side effect: TS
+`hashTree` fails loudly on partial trees, matching core `hash_tree`. Suite on
+merged main: 144 passing / 0 skipped (was 142/0 at open). Post-merge runs all
+success: ci 37623753784, runtime matrix 37623753669, publish sandbox
+37623753550, docs 37624136027. Transport repacked at source.commit `403baba`
+(pixi 0.81.0, pixi-sandbox 0.5.2, pixi-unpack 0.7.11).
+
+Open, in recommended order: task-12 (High, m-1, temp dirs) or task-14 (High,
+m-1, snapshots/diff) next; task-28 Phase A (fixture kits, no new deps) is the
+alternative first slice — its plan argues the kit should land before
+task-12's suite copies tree-building code again. task-16 (Medium, locking)
+unblocks task-21 + task-26. task-19's crates.io publish needs maintainer
+credentials (not provable in the sandbox). Unverified observation: core's
+`an_unreadable_file_is_reported_without_aborting_the_walk` imports
+`std::os::unix` with no `#[cfg(unix)]` — worth a look from a Windows runner;
+the task-30 TS tests are premise-guarded so safe everywhere.
+
+Next session should start with:
+
+> Restore Pathway's sandbox and baseline the suite (expect 144 passing / 0
+> skipped — transport repacked at 403baba, pixi 0.81.0 / pixi-sandbox 0.5.2),
+> then read `.knowledge/CONTEXT.md` § Session scratchpad — the 2026-10-07
+> heading lists the open items.
+>
+> Task-12 (temp dirs, tiered guarantee settled in
+> `.knowledge/features/killer-features.md` §1) is the recommended scope;
+> confirm it or pick task-14 / task-28-Phase-A instead. Work in slices:
+> core + engine + TS surface with premise-guarded tests first (fully local),
+> then nothing external — no push/release proof needed beyond the PR checks.
+>
+> Propose the slice and stop. Repository rules are in `AGENTS.md`; the
+> session procedure and handoff templates are in `.agents/skills/session/`.
