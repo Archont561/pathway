@@ -25,8 +25,8 @@
 > orchestration, CI, the offline sandbox and the docs site are real. The native
 > fused walker, hashing, and the TypeScript serializer/registry surface are
 > implemented; the TypeScript walk generators use the N-API `Walker` when the
-> addon is built. The Rust atomic-write primitive is implemented and tested;
-> sandboxing, locking, and temporary-directory modules remain planned scaffolds,
+> addon is built. The Rust atomic-write primitive and scoped temp directories
+> are implemented and tested; sandboxing and locking remain planned scaffolds,
 > and the ergonomic `pathway-fs` Rust API is still a preview. The
 > `pathway-fs-core` and `pathway-fs` names are reserved and their manifests are
 > publishable, but neither has had a first crates.io release. `pathway-fs-engine`
@@ -154,7 +154,7 @@ string work in ~50 ns.
 |------|----------------------|-----|
 | **A** | `walk()`, `hashTree()`, `copyTo()`, `snapshot()` | One call replaces 100k+ JS↔libuv round trips |
 | **B** | `read()`/`write()` with a native codec, `hash()` | Once per file, where I/O dominates the hop |
-| **C** | `withLock()`, `temp()`, `watch()` | `flock()`, `O_TMPFILE`, `inotify` — unreachable from JS |
+| **C** | `withLock()`, `temp()`, `watch()` | `flock()`, RAII cleanup that survives `process.exit()`, `inotify` — unreachable from JS |
 | **—** | `join`, `resolve`, `dirname`, `basename`, `normalize` | **Never.** `pathe`, in TypeScript |
 
 Rejected on the record: WASM/WASI (a filesystem library needs real OS access) and `bun:ffi`
