@@ -192,8 +192,10 @@ export interface PathEntry {
    * Why this entry could not be completed, if it could not.
    *
    * The entry is still yielded: its path and stat are known, and dropping it
-   * would hide a file that exists. A caller that needs a clean run checks this
-   * field; a caller that can tolerate a bad file does not have to.
+   * would hide a file that exists. A failure here also ends the walk with
+   * `WalkError` after the last batch, so a caller that needs a clean run has
+   * one check; a caller that can tolerate a bad file processes entries as
+   * they come and catches that error at the end.
    */
   readonly error?: {
     readonly kind: EntryErrorKind;

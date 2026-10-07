@@ -1,9 +1,17 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  closeSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  rmSync,
+  writeFileSync
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { PathEntry } from "../src/index.js";
-import { walk, walkDirs, walkFiles } from "../src/index.js";
+import { WalkError, walk, walkDirs, walkFiles } from "../src/index.js";
 
 /** Builds a throwaway tree; every test's setup is one call. */
 const roots: string[] = [];
@@ -103,6 +111,68 @@ describe("walk", () => {
     controller.abort();
 
     expect(drain(walk(root, { signal: controller.signal }))).rejects.toThrow();
+  });
+
+  test("a walk that collected failures throws WalkError instead of completing", async () => {
+    const root = tree(["readable.ts", "locked.ts"]);
+    const locked = join(root, "locked.ts");
+    chmodSync(locked, 0o000);
+    let premise: boolean;
+    try {
+      closeSync(openSync(locked, "r"));
+      premise = false;
+    } catch {
+      premise = true;
+    }
+    const failure = await drain(walkFiles(root, { hash: "blake3" })).then(
+      () => null,
+      (error: unknown) => error
+    );
+    chmodSync(locked, 0o644);
+    if (!premise) {
+      // Still readable — running as root, or a platform where the mode
+      // bit does not apply. The premise does not hold; nothing to prove.
+      return;
+    }
+
+    expect(failure).toBeInstanceOf(WalkError);
+    expect((failure as WalkError).errors.join("\n")).toContain("locked.ts");
+  });
+
+  test("entries are still yielded before WalkError ends the walk", async () => {
+    const root = tree(["readable.ts", "locked.ts"]);
+    const locked = join(root, "locked.ts");
+    chmodSync(locked, 0o000);
+    let premise: boolean;
+    try {
+      closeSync(openSync(locked, "r"));
+      premise = false;
+    } catch {
+      premise = true;
+    }
+    const seen: PathEntry[] = [];
+    let thrown: unknown = null;
+    try {
+      for await (const batch of walkFiles(root, { hash: "blake3" })) {
+        seen.push(...batch);
+      }
+    } catch (error) {
+      thrown = error;
+    }
+    chmodSync(locked, 0o644);
+    if (!premise) {
+      // Still readable — running as root, or a platform where the mode
+      // bit does not apply. The premise does not hold; nothing to prove.
+      return;
+    }
+
+    expect(thrown).toBeInstanceOf(WalkError);
+    expect(seen.map((e) => e.value).sort()).toEqual(["locked.ts", "readable.ts"]);
+    const failed = seen.find((e) => e.value === "locked.ts");
+    expect(failed?.error?.kind).toBe("read");
+    expect(failed?.hash).toBeUndefined();
+    const ok = seen.find((e) => e.value === "readable.ts");
+    expect(ok?.hash).toMatch(/^[0-9a-f]{64}$/);
   });
 
   test("aborting between batches stops the walk", async () => {
