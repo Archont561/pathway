@@ -123,6 +123,35 @@ export interface NativeWalker {
   errors(): string[];
 }
 
+/**
+ * The options object the native `TempDir` constructor decodes.
+ *
+ * Field-for-field what `crates/engine/src/temp.rs` declares as
+ * `NativeTempOptions`; `dir` on the public surface is spelled `parent` here
+ * because that is the word the Rust side and `tempfile` use.
+ */
+export interface NativeTempOptions {
+  readonly prefix?: string;
+  readonly suffix?: string;
+  readonly parent?: string;
+}
+
+/**
+ * A native temp-directory guard.
+ *
+ * `remove()` and `keep()` consume it: the Rust side holds the `TempDir` in an
+ * `Option` and takes it, so a second call fails instead of deleting a
+ * directory the handle no longer owns.
+ */
+export interface NativeTempDir {
+  /** The directory's absolute path. */
+  path(): string;
+  /** Remove the tree now. */
+  remove(): void;
+  /** Disarm cleanup and return the path. */
+  keep(): string;
+}
+
 /** The symbols the generated loader is expected to export. */
 export interface NativeEngine {
   /** The engine crate's version, used to refuse a stale `.node` file. */
@@ -136,6 +165,12 @@ export interface NativeEngine {
   ) => NativeWalker;
   hashFileNative(path: string, algorithm: string): string;
   hashBytesNative(bytes: Buffer, algorithm: string): string;
+  /** The temp-directory guard; one instance per temp directory. */
+  TempDir: new (
+    options?: NativeTempOptions
+  ) => NativeTempDir;
+  /** Removes every live temp directory; called from the `exit` flush. */
+  flushTempDirs(): number;
 }
 
 let cached: NativeEngine | null = null;
@@ -203,6 +238,17 @@ export function loadEngine(): NativeEngine {
   if (typeof loaded.Walker !== "function") {
     throw new Error(
       `The native engine at ${file} is missing the Walker class. ` +
+        "It was probably built from a different revision — rebuild it."
+    );
+  }
+
+  // Temp directories are the other half of the loader's contract: the exit
+  // flush that `temp.ts` installs calls `flushTempDirs()` from a bare
+  // `process.on("exit")` callback, where a missing symbol would surface as an
+  // unexplained TypeError at exit rather than as a message here.
+  if (typeof loaded.TempDir !== "function" || typeof loaded.flushTempDirs !== "function") {
+    throw new Error(
+      `The native engine at ${file} is missing the TempDir class or flushTempDirs(). ` +
         "It was probably built from a different revision — rebuild it."
     );
   }

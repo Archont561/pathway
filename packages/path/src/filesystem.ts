@@ -2,6 +2,7 @@ import { Path } from "./path.js";
 import { Sandbox } from "./sandbox.js";
 import { json } from "./serializers/json.js";
 import { SerializerRegistry } from "./serializers/registry.js";
+import { type TempOptions, withTempDirectory } from "./temp.js";
 import type { FileSystemOptions, Serializer } from "./types.js";
 
 /**
@@ -33,6 +34,31 @@ export class FileSystem {
   /** The current working directory in this filesystem view. */
   cwd(): Path {
     return this.path(process.cwd());
+  }
+
+  /**
+   * Run `callback` with a temporary directory bound to this view.
+   *
+   * The `Path` the callback receives resolves serializers through this view's
+   * registry, exactly like every other path it hands out; the cleanup
+   * guarantee is the one {@link Path.temp} documents.
+   */
+  async temp<T>(callback: (dir: Path) => Promise<T>): Promise<T>;
+  /** Run `callback` with a temporary directory created from `options`. */
+  async temp<T>(options: TempOptions, callback: (dir: Path) => Promise<T>): Promise<T>;
+  async temp<T>(
+    optionsOrCallback: TempOptions | ((dir: Path) => Promise<T>),
+    maybeCallback?: (dir: Path) => Promise<T>
+  ): Promise<T> {
+    const callback = typeof optionsOrCallback === "function" ? optionsOrCallback : maybeCallback;
+    if (callback === undefined) {
+      throw new TypeError(
+        "FileSystem#temp needs a callback; pass (options, callback) or (callback)"
+      );
+    }
+    const options = typeof optionsOrCallback === "function" ? undefined : optionsOrCallback;
+
+    return withTempDirectory(options, (path) => callback(this.path(path)));
   }
 
   /** Add or replace extension mappings in this filesystem view only. */
