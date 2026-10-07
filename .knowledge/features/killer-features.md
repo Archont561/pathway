@@ -16,6 +16,8 @@ verified:
     at: 2026-10-03T00:00:00Z
   - by: process:task-12-session
     at: 2026-10-07T00:00:00Z
+  - by: process:task-14-session
+    at: 2026-10-07T00:00:00Z
 domain: features
 decision: proposed  # legacy KB status (decided|proposed|deprecated)
 created: 2025-07-11
@@ -226,7 +228,16 @@ console.log(diff.added);     // Path[]  — new files
 console.log(diff.removed);   // Path[]  — deleted files
 console.log(diff.modified);  // Path[]  — content changed
 console.log(diff.unchanged); // Path[]  — identical content
+console.log(diff.hasChanges); // boolean — added/removed/modified is non-empty
 ```
+
+> **Landed 2026-10-07 (TASK-14).** `Path#snapshot(options?)`,
+> `FileSystem#snapshot(root, options?)`, `Snapshot#diff/save/toJSON`,
+> `Snapshot.load/parse`, and `SnapshotFormatError`. `exclude` is the spelling
+> for pruned directory *names* (a walk option), not a glob list, so the
+> example above reads `exclude: ["node_modules"]` exactly as a walk does. What
+> is **not** proven is the performance claim set below — see the verification
+> note.
 
 ### Why Rust Matters
 
@@ -243,12 +254,23 @@ Rust does it with:
 - Memory-mapped I/O for large files
 - Zero JS allocations until the final batch yield
 
-**Measured speedup (2026-10-03 locally, 100k files: 1.85x; 2026-10-04 CI
-sweep, 10k–1M, both Bun lines: 1.06–1.15x)** on the full pipeline against the
-strongest baseline (`fdir` + a 32-wide stat/hash pool), with peak heap
-**14.3 MiB vs 39.3 MiB** and GC **2.8 ms vs 20.6 ms** per sample. The
-originally projected 10–20x was off by ~6x locally and ~10x in CI. See
-[verified-data.md](/competitive/verified-data.md).
+**Verification status: NOT VERIFIED for `snapshot()` (2026-10-07).** Every
+number in this subsection was measured on the *fused walk* (task-4's harness:
+walk + stat + hash), not on `snapshot()`, and the phase plan's "snapshot +
+diff on 100k files in <500ms" has no measurement behind it at all. The
+mechanism is shared — a capture is one `NativeScanner` pass — so the walk
+figures are the honest prior, not evidence:
+
+- 2026-10-03 locally, 100k files: **1.85x** the strongest baseline (`fdir`
+  plus a 32-wide stat/hash pool); 2026-10-04 CI sweep, 10k–1M, both Bun
+  lines: **1.06–1.15x**. Peak heap **14.3 MiB vs 39.3 MiB**, GC **2.8 ms vs
+  20.6 ms** per sample. The originally projected 10–20x was off by ~6x
+  locally and ~10x in CI. See [verified-data.md](/competitive/verified-data.md).
+- The snapshot-specific costs that prior does *not* cover: the sorted
+  `BTreeMap` fold, JSON serialization of the document, and the diff itself.
+
+Closing this needs a snapshot case in `benches/walk` plus a CI sweep, which is
+why TASK-14 keeps its performance acceptance criterion unchecked.
 
 ### Persistence
 
@@ -296,6 +318,29 @@ interface SnapshotDiff {
 }
 ```
 
+> **Shipped shape (2026-10-07).** `entries` is a `ReadonlyMap<string,
+> SnapshotEntry>` keyed by the root-relative path; `SnapshotEntry.modifiedNanos`
+> is a `bigint`, not a `Date`, because the whole point is the digits a `Date`
+> cannot hold. `save()`/`load()` take a `Path` (or a string) and the document
+> is JSON:
+>
+> ```json
+> {"format":"pathway-snapshot-v1","root":"/abs/root","takenAtNanos":"1700000000123456789",
+>  "entries":[{"path":"a.ts","size":1,"modifiedNanos":"1700000000123456789","hash":"…"}]}
+> ```
+>
+> Nanoseconds are decimal **strings**: a JSON number is an IEEE-754 double in
+> every mainstream parser and a 2026 nanosecond timestamp needs 61 bits. A
+> document whose `format` is anything else is refused with
+> `SnapshotFormatError` rather than decoded into a diff that would claim the
+> whole tree changed. The fold, the comparison rule and the format live in
+> `crates/core/src/snapshot`; the TypeScript class is a view over the document,
+> so the two surfaces cannot disagree about what "the same tree" means.
+>
+> **Comparison rule.** Hashes decide when *both* sides carry one, so a file
+> rewritten with identical bytes is `unchanged`; otherwise the comparison is
+> `size` plus `modifiedNanos`.
+>
 > **Precision & determinism (Sept 2026):**
 > - `SnapshotEntry.mtime` is stored at **full nanosecond precision** in the
 >   persisted format (Rust `Duration` carries sub-ms precision; the JS API

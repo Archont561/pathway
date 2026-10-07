@@ -163,21 +163,32 @@ Temp dirs, content hashing, directory snapshots, additional hashers.
 - [ ] `project.hashTree(options)` — Parallel tree hashing (dedicated
       rayon stage over pruned paths)
 - [ ] `Hasher` interface with `blake3`, `xxhash`, `sha256` implementations
-- [ ] `project.snapshot(options)` — Directory snapshot with stat + hash
-- [ ] `Snapshot.diff(other)` — Added/removed/modified/unchanged
-- [ ] `Snapshot.save()` / `Snapshot.load()` — Persistence for incremental
+- [x] `project.snapshot(options)` — Directory snapshot with stat + hash
+      (TASK-14; `Path#snapshot` and `FileSystem#snapshot`, one fused walk)
+- [x] `Snapshot.diff(other)` — Added/removed/modified/unchanged, computed in
+      core so both surfaces read one comparison rule (TASK-14)
+- [x] `Snapshot.save()` / `Snapshot.load()` — Persistence for incremental
       builds; **full nanosecond mtime precision** in the persisted format
-      and **sorted-path fold** (deterministic across runs/machines)
+      (decimal strings, never JSON numbers) and **sorted-path fold**
+      (deterministic across runs/machines) — `pathway-snapshot-v1` (TASK-14)
 
 ### Success Criteria
-- [ ] Snapshot + diff on 100k files completes in <500ms
+- [ ] Snapshot + diff on 100k files completes in <500ms — **not measured.**
+      The implementation landed (TASK-14) but no 100k benchmark exists for
+      `snapshot()`; task-4's harness measures the walk only. Needs a snapshot
+      case in `benches/walk` plus a CI sweep before this can be checked
 - [x] Temp dir cleanup verified for a return, a throw, `process.exit()` and
       garbage collection (tier 1), with `SIGKILL` and default-disposition
       signals pinned as tier 3 in tests — the tier-2 SIGKILL promise was
       corrected to unnamed temp *files* and moved to TASK-31 (TASK-12)
 - [ ] Tree hash is deterministic across runs
-- [ ] Two files written in the same millisecond are distinguished in
-      mtime-mode diffs (ns-precision check)
+- [x] Two files written in the same millisecond are distinguished in
+      mtime-mode diffs (ns-precision check) — pinned by
+      `mtimes_differing_only_below_the_millisecond_diff_as_modified` in core
+      and its Bun counterpart, built from documents rather than from two
+      writes: the local filesystem was measured handing back-to-back writes
+      the *identical* nanosecond stamp, so a write-write test would prove the
+      filesystem's clock tick, not the format's precision (TASK-14)
 
 ---
 

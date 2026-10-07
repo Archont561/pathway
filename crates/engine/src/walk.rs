@@ -114,33 +114,7 @@ impl Walker {
     /// compile.
     #[napi(constructor)]
     pub fn new(root: String, options: Option<WalkerOptions>) -> napi::Result<Self> {
-        let options = options.unwrap_or_default();
-
-        let hash = options
-            .hash
-            .as_deref()
-            .map(Algorithm::from_name)
-            .transpose()
-            .map_err(bridge_error)?;
-
-        let scan_options = ScanOptions {
-            glob: options.glob.unwrap_or_default(),
-            regex: options.regex,
-            exclude: options.exclude.unwrap_or_default(),
-            dot: options.dot.unwrap_or(false),
-            gitignore: options.gitignore.unwrap_or(false),
-            absolute: options.absolute.unwrap_or(false),
-            max_depth: options.max_depth.map(|depth| depth as usize),
-            files_only: options.files_only.unwrap_or(false),
-            with_metadata: options.with_metadata.unwrap_or(true),
-            hash,
-            batch_size: options
-                .batch_size
-                .map(|size| size as usize)
-                .filter(|size| *size > 0)
-                .unwrap_or(DEFAULT_BATCH_SIZE),
-            concurrency: options.concurrency.map(|threads| threads as usize),
-        };
+        let scan_options = scan_options(options.unwrap_or_default())?;
 
         let inner = NativeScanner::new(&root, scan_options).map_err(bridge_error)?;
         Ok(Self {
@@ -186,6 +160,44 @@ impl Walker {
     pub fn errors(&self) -> Vec<String> {
         self.inner.errors()
     }
+}
+
+/// Decodes a JavaScript options object into the core's [`ScanOptions`].
+///
+/// Shared with the snapshot bridge, because a snapshot *is* a walk: one
+/// default table, so `withMetadata` cannot mean one thing to `walk()` and
+/// another to `snapshot()`.
+///
+/// # Errors
+///
+/// Returns the core's message if the hash algorithm name is not one it knows.
+pub fn scan_options(options: WalkerOptions) -> napi::Result<ScanOptions> {
+    let hash = options
+        .hash
+        .as_deref()
+        .map(Algorithm::from_name)
+        .transpose()
+        .map_err(bridge_error)?;
+
+    let scan_options = ScanOptions {
+        glob: options.glob.unwrap_or_default(),
+        regex: options.regex,
+        exclude: options.exclude.unwrap_or_default(),
+        dot: options.dot.unwrap_or(false),
+        gitignore: options.gitignore.unwrap_or(false),
+        absolute: options.absolute.unwrap_or(false),
+        max_depth: options.max_depth.map(|depth| depth as usize),
+        files_only: options.files_only.unwrap_or(false),
+        with_metadata: options.with_metadata.unwrap_or(true),
+        hash,
+        batch_size: options
+            .batch_size
+            .map(|size| size as usize)
+            .filter(|size| *size > 0)
+            .unwrap_or(DEFAULT_BATCH_SIZE),
+        concurrency: options.concurrency.map(|threads| threads as usize),
+    };
+    Ok(scan_options)
 }
 
 /// `scan()` as a libuv-pool task.

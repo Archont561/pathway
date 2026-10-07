@@ -2,6 +2,7 @@ import { Path } from "./path.js";
 import { Sandbox } from "./sandbox.js";
 import { json } from "./serializers/json.js";
 import { SerializerRegistry } from "./serializers/registry.js";
+import { Snapshot, type SnapshotOptions } from "./snapshot.js";
 import { type TempOptions, withTempDirectory } from "./temp.js";
 import type { FileSystemOptions, Serializer } from "./types.js";
 
@@ -59,6 +60,16 @@ export class FileSystem {
     const options = typeof optionsOrCallback === "function" ? undefined : optionsOrCallback;
 
     return withTempDirectory(options, (path) => callback(this.path(path)));
+  }
+
+  /**
+   * Snapshot a directory through this view.
+   *
+   * The `Path` values a diff hands back resolve serializers through this
+   * view's registry, like every other path it produces.
+   */
+  async snapshot(root: string, options?: SnapshotOptions): Promise<Snapshot> {
+    return Snapshot.capture(root, options ?? {}, this.serializers);
   }
 
   /** Add or replace extension mappings in this filesystem view only. */
