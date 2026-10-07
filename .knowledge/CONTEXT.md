@@ -267,3 +267,86 @@ Next session should start with:
 >
 > Propose the slice and stop. Repository rules are in `AGENTS.md`; the
 > session procedure and handoff templates are in `.agents/skills/session/`.
+
+### 2026-10-07 — task-12 (temp dirs) merged as PR #16
+
+Landed: `feat(temp): deliver scoped temp directories with tiered cleanup`
+(task-12), main at `4dc34e8`. `Path.temp(options?, callback)` and
+`FileSystem#temp` scope a directory to a callback — removed on return and on
+throw — and `tempDir()` returns the handle (`path`, `remove`, `keep`) for a
+directory that must outlive one callback. Core owns the mechanism (`TempDir`
+guard, a path-only registry of live directories, `cleanup_live_temp_dirs()`),
+the engine bridges it, and the TS surface installs a lazy `process.on("exit")`
+flush — never `SIGINT`/`SIGTERM` handlers, because reinterpreting the host's
+signals is a takeover, not a guarantee. Suite on merged main: 168 passing / 0
+skipped (was 144/0; core 75 nextest + 34 doctests, engine 4, path 3, Bun 52
+across 7 files). Post-merge runs all success: ci 37634502734, runtime matrix
+37634502788, publish sandbox 37634502761, docs 37634730851. Transport repacked
+at source.commit `4dc34e8` (pixi 0.81.0, pixi-sandbox 0.5.2, pixi-unpack
+0.7.11), lock_sha256 unchanged at `9e15a944` — no dependency moved.
+
+Two KB claims were false and are corrected in
+`.knowledge/features/killer-features.md` §1 and `backlog/docs/phase-plan.md`
+Phase 2, each pinned by a test rather than by prose:
+
+- **A temp directory is never tier 2.** Probed: `open(dir, O_TMPFILE |
+  O_DIRECTORY | O_RDWR)` returns an unnamed *regular* file (`kind=reg`,
+  `nlink=0`) — the kernel ignores `O_DIRECTORY` — and `openat` inside it fails
+  `ENOTDIR`. `O_TMPFILE` / `DELETE_ON_CLOSE` are a property of unnamed temp
+  *files*, so the hard SIGKILL row now says exactly that and the file
+  primitive is TASK-31. `linux_cannot_make_a_temp_directory_anonymous` is the
+  regression test that keeps the claim honest.
+- **`tempfile` has no atexit hook**, and `process.exit()` runs no destructors.
+  Measured on Node 22.22.3 and Bun 1.3.11: an `exit` hook runs for
+  `process.exit(0)` and for a signal whose handler exits cleanly, and for
+  neither a default-disposition `SIGINT`/`SIGTERM` nor `SIGKILL`. Tier 1 is
+  therefore the registry plus the flush this task added; `SIGINT`, `SIGTERM`
+  and `SIGKILL` are tier 3, tested as observed (child-process probes in core
+  and in the Bun suite).
+
+TASK-30 was finished in PR #14 but left at `status: To Do`; closed here.
+TASK-31 (unnamed temp files, tier 2) filed with a description.
+
+Environment facts for next time. The sandbox rolled state back between turns
+mid-session: the working branch's ref returned to the clone base (`2739744`)
+and `.pixi` plus `.pixi-sandbox` disappeared, so the rebaseline needed a fresh
+`bash scripts/restore.sh`. The landed commits survived only because they had
+been pushed — commit and push before ending a turn, and treat a local `git log`
+as untrusted at the start of the next one. Also, `git fetch origin` does not
+bring `sandbox/*`; read the manifest with
+`git fetch origin 'refs/heads/sandbox/*:refs/remotes/origin/sandbox/*' --depth 1`.
+
+Open, in recommended order: task-14 (High, m-1, snapshots / persistence /
+diff) or task-28 Phase A (fixture kits) next — task-28's note that the
+transport lacks the new dev-dependencies is **stale**: the restored vendor tree
+carries rstest 0.27.0, proptest 1.11.0 and fast-check 4.10.2, and they compile
+offline, so Phase B is reachable from an airlocked sandbox too. task-16
+(Medium, locking) unblocks task-21 + task-26. TASK-31 (High) is the tier-2 file
+half of this task. task-19's crates.io publish still needs maintainer
+credentials.
+
+Verified by inspection, not yet by a runner: three tests in
+`crates/core/src/walk/scanner.rs` (~806 symlinks, ~872 and ~1086 permissions)
+`use std::os::unix::…` with no `#[cfg(unix)]`, so `cargo nextest` would fail to
+*compile* on Windows — invisible today because `ci` runs the Rust suite on
+ubuntu only and the runtime matrix builds the addon but runs just the JS
+suites. Gate those three tests, or add a Windows Rust job (task-11/task-27
+territory). The temp-dir signal probes are `#[cfg(unix)]`-gated and skip on
+Windows, so the Windows rows of the temp tier table remain design, not proof.
+
+Next session should start with:
+
+> Restore Pathway's sandbox and baseline the suite (expect 168 passing / 0
+> skipped — transport repacked at 4dc34e8, pixi 0.81.0 / pixi-sandbox 0.5.2),
+> then read `.knowledge/CONTEXT.md` § Session scratchpad — the newest
+> 2026-10-07 heading (task-12 / PR #16) lists the open items.
+>
+> Task-14 (snapshots, persistence and diffing) is the recommended scope;
+> task-28 Phase A (fixture kits — its "transport not repacked" prerequisite is
+> stale, the dev-dependencies are vendored and compile offline) and task-16
+> (locking, unblocks task-21 + task-26) are the alternatives. Work in slices:
+> core + engine + TS surface with premise-guarded tests first (fully local),
+> then nothing external — no push/release proof needed beyond the PR checks.
+>
+> Propose the slice and stop. Repository rules are in `AGENTS.md`; the session
+> procedure and handoff templates are in `.agents/skills/session/`.
