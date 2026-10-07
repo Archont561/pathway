@@ -32,6 +32,32 @@ function tree(files: Record<string, string>): string {
   return root;
 }
 
+/**
+ * The POSIX spelling of a path under `root`, which is what a `Path` carries.
+ *
+ * `Path.value` is `pathe`-normalised, so on Windows `node:path.join` would
+ * build `C:\\x\\a.ts` and compare unequal to the `C:/x/a.ts` the surface
+ * returns — a Linux-only assertion wearing a cross-platform disguise.
+ */
+function at(root: string, relative: string): string {
+  return `${root.replaceAll("\\", "/")}/${relative}`;
+}
+
+/**
+ * Whether this host lets an unprivileged process create a symlink.
+ *
+ * Windows needs Developer Mode or `SeCreateSymbolicLinkPrivilege`, so the
+ * symlink test states its premise instead of failing on a machine policy.
+ */
+function symlinksAreAvailable(root: string): boolean {
+  try {
+    symlinkSync(root, join(root, ".symlink-probe"));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 afterEach(() => {
   for (const root of roots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
@@ -47,7 +73,12 @@ describe("snapshot", () => {
     expect([...snapshot.entries.keys()]).toEqual(["a.ts", "src/b.ts"]);
     expect(snapshot.entries.get("a.ts")?.size).toBe(1);
     expect(snapshot.entries.get("src/b.ts")?.size).toBe(3);
-    expect(snapshot.root).toBe(root);
+    // Not compared against the fixture path: the engine canonicalises, and on
+    // Windows that expands 8.3 short names (`RUNNER~1`) that `node:fs.realpath`
+    // leaves alone. What is checked is what the root has to mean — it is
+    // POSIX-spelled, and it is the directory holding the files just captured.
+    expect(snapshot.root).not.toContain("\\");
+    expect(readFileSync(at(snapshot.root, "a.ts"), "utf8")).toBe("a");
     expect(snapshot.takenAtNanos).toBeGreaterThan(0n);
   });
 
@@ -73,10 +104,10 @@ describe("snapshot", () => {
 
     const diff = before.diff(after);
 
-    expect(diff.added.map((path) => path.value)).toEqual([join(root, "fresh.ts")]);
-    expect(diff.removed.map((path) => path.value)).toEqual([join(root, "gone.ts")]);
-    expect(diff.modified.map((path) => path.value)).toEqual([join(root, "changed.ts")]);
-    expect(diff.unchanged.map((path) => path.value)).toEqual([join(root, "kept.ts")]);
+    expect(diff.added.map((path) => path.value)).toEqual([at(before.root, "fresh.ts")]);
+    expect(diff.removed.map((path) => path.value)).toEqual([at(before.root, "gone.ts")]);
+    expect(diff.modified.map((path) => path.value)).toEqual([at(before.root, "changed.ts")]);
+    expect(diff.unchanged.map((path) => path.value)).toEqual([at(before.root, "kept.ts")]);
     expect(diff.added[0]).toBeInstanceOf(Path);
     expect(diff.hasChanges).toBe(true);
   });
@@ -89,7 +120,7 @@ describe("snapshot", () => {
     const after = await new Path(root).snapshot({ hash: "blake3" });
 
     const diff = before.diff(after);
-    expect(diff.unchanged.map((path) => path.value)).toEqual([join(root, "a.ts")]);
+    expect(diff.unchanged.map((path) => path.value)).toEqual([at(before.root, "a.ts")]);
     expect(diff.hasChanges).toBe(false);
   });
 
@@ -139,9 +170,7 @@ describe("snapshot", () => {
     const before = Snapshot.parse(document("1700000000123000001"));
     const after = Snapshot.parse(document("1700000000123999999"));
 
-    expect(before.diff(after).modified.map((path) => path.value)).toEqual([
-      join("/tmp/pathway-ns", "a.ts")
-    ]);
+    expect(before.diff(after).modified.map((path) => path.value)).toEqual(["/tmp/pathway-ns/a.ts"]);
   });
 
   test("a document of another format is refused by name", () => {
@@ -158,13 +187,16 @@ describe("snapshot", () => {
 
   test("the root is canonical, so a symlinked root resolves to its target", async () => {
     const root = tree({ "inner/a.ts": "a" });
+    if (!symlinksAreAvailable(root)) return; // unprivileged Windows: premise absent
     const link = join(root, "link");
     symlinkSync(join(root, "inner"), link);
 
-    const snapshot = await new Path(link).snapshot();
+    const throughLink = await new Path(link).snapshot();
+    const direct = await new Path(join(root, "inner")).snapshot();
 
-    expect(snapshot.root).toBe(join(root, "inner"));
-    expect([...snapshot.entries.keys()]).toEqual(["a.ts"]);
+    expect(throughLink.root).toBe(direct.root);
+    expect(throughLink.root).not.toContain("link");
+    expect([...throughLink.entries.keys()]).toEqual(["a.ts"]);
   });
 
   test("FileSystem#snapshot hands back Paths bound to that view", async () => {
@@ -175,6 +207,6 @@ describe("snapshot", () => {
     rmSync(join(root, "a.ts"));
     const diff = snapshot.diff(await view.snapshot(root));
 
-    expect(diff.removed.map((path) => path.value)).toEqual([join(root, "a.ts")]);
+    expect(diff.removed.map((path) => path.value)).toEqual([at(snapshot.root, "a.ts")]);
   });
 });

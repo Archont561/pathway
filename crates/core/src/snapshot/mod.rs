@@ -568,7 +568,7 @@ impl From<&Snapshot> for Document {
     fn from(snapshot: &Snapshot) -> Self {
         Self {
             format: FORMAT.to_owned(),
-            root: normalise(&snapshot.root),
+            root: normalise_root(&snapshot.root),
             taken_at_nanos: snapshot.taken_at_nanos.to_string(),
             entries: snapshot
                 .entries
@@ -621,6 +621,29 @@ fn normalise(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
+/// Slash-normalises a *root* and drops a Windows extended-length prefix.
+///
+/// The root is canonicalised by the walk, and on Windows `canonicalize`
+/// returns a verbatim path (`\\?\C:\project`). That prefix is correct and
+/// almost unusable: it is not what the caller passed, it does not compare
+/// equal to anything they hold, and it would appear in every `Path` a diff
+/// hands back. Dropping it is the same courtesy `dunce` exists to provide,
+/// done here in four lines rather than as a dependency.
+fn normalise_root(path: &Path) -> String {
+    strip_verbatim(&normalise(path))
+}
+
+fn strip_verbatim(path: &str) -> String {
+    if let Some(rest) = path.strip_prefix("//?/") {
+        // `//?/UNC/server/share` is a network path, whose usable spelling is
+        // `//server/share`; anything else is a drive path.
+        return rest
+            .strip_prefix("UNC/")
+            .map_or_else(|| rest.to_owned(), |unc| format!("//{unc}"));
+    }
+    path.to_owned()
+}
+
 fn now_nanos() -> i128 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -631,6 +654,25 @@ fn now_nanos() -> i128 {
 mod tests {
     use crate::snapshot::{Snapshot, FORMAT};
     use crate::walk::ScanOptions;
+
+    #[test]
+    fn a_windows_verbatim_root_is_recorded_without_its_prefix() {
+        // `std::fs::canonicalize` returns an extended-length path on Windows
+        // (`\\?\C:\project`). It is correct and almost unusable: it leaks into
+        // every path a diff hands back, and `C:/project` is what the caller
+        // passed. Pure string logic, so the rule is pinned on every platform
+        // and not only where the prefix occurs.
+        assert_eq!(super::strip_verbatim("//?/C:/project"), "C:/project");
+        assert_eq!(
+            super::strip_verbatim("//?/UNC/server/share"),
+            "//server/share"
+        );
+        assert_eq!(
+            super::strip_verbatim("/home/user/project"),
+            "/home/user/project"
+        );
+        assert_eq!(super::strip_verbatim("C:/project"), "C:/project");
+    }
 
     #[test]
     fn a_capture_folds_the_tree_in_sorted_path_order() {
