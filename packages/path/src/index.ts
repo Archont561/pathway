@@ -44,4 +44,4 @@ export type {
 } from "./types.js";
 
 export type { WalkBatch, WalkOptions } from "./walk.js";
-export { walk, walkDirs, walkFiles } from "./walk.js";
+export { WalkError, walk, walkDirs, walkFiles } from "./walk.js";

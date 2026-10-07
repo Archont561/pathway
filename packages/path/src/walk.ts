@@ -76,6 +76,36 @@ export interface WalkOptions {
 export type WalkBatch = readonly PathEntry[];
 
 /**
+ * A walk that finished with traversal failures.
+ *
+ * Thrown at the end of iteration — after every reachable entry has been
+ * yielded — when the native walk collected failures. An unreadable directory
+ * contributes no entry at all, so without this throw its failure would vanish;
+ * a `stat` or hash failure on a yielded entry appears twice by design, on the
+ * entry's `error` field mid-stream and here at the end, so a caller that needs
+ * a clean run has one check instead of scanning every entry.
+ */
+export class WalkError extends Error {
+  /**
+   * The native failures, verbatim. Order across worker threads is
+   * unspecified; the engine caps the list at 1,000
+   * (`MAX_REPORTED_ERRORS` in `crates/core/src/walk/scanner.rs`).
+   */
+  readonly errors: readonly string[];
+
+  constructor(errors: readonly string[]) {
+    const [first, ...rest] = errors;
+    super(
+      `The walk reported ${errors.length} traversal error${errors.length === 1 ? "" : "s"}` +
+        (first === undefined ? "" : `, starting with: ${first}`) +
+        (rest.length === 0 ? "" : ` (${rest.length} more on .errors)`)
+    );
+    this.name = "WalkError";
+    this.errors = errors;
+  }
+}
+
+/**
  * Walk a tree, yielding populated batches.
  *
  * The transport is the one the Step 0 spike froze (task-1, recorded in
@@ -88,6 +118,14 @@ export type WalkBatch = readonly PathEntry[];
  * the worker threads at their next check, and the generator surfaces
  * `signal.reason` rather than yielding a partial batch as if it were a
  * result.
+ *
+ * A walk that collected failures throws {@link WalkError} after the last
+ * batch instead of completing: entries that failed `stat` or hashing are
+ * still yielded with {@link PathEntry.error} set, and failures that produced
+ * no entry at all — an unreadable directory — are reported only here, so a
+ * caller that needs a clean run catches one error instead of scanning every
+ * entry. `signal.reason` still wins over a collected failure, and breaking
+ * out of the loop early stays silent: a cancelled walk is not an error.
  *
  * The engine loads lazily on first consumption, so importing this module —
  * and calling `walk()` without iterating — stays safe without a built
@@ -164,6 +202,15 @@ async function* drive(
       if (narrowed.length > 0) {
         yield narrowed;
       }
+    }
+    // The walk drained: surface what it collected. One synchronous bulk
+    // read, not a crossing per failure. Abort still wins — a caller that
+    // asked to stop gets the stop reason, not the error list — and this
+    // only runs on natural exhaustion, never on an early `break`.
+    signal?.throwIfAborted();
+    const errors = walker.errors();
+    if (errors.length > 0) {
+      throw new WalkError(errors);
     }
   } finally {
     // Early `break` by the consumer lands here: stop the traversal rather

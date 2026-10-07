@@ -176,7 +176,12 @@ impl Walker {
         self.inner.cancel();
     }
 
-    /// The traversal failures collected so far, capped in core.
+    /// The traversal failures collected so far, capped in core at
+    /// `MAX_REPORTED_ERRORS` (1,000).
+    ///
+    /// The TypeScript `walk()` generator reads this once, after the last
+    /// batch, and throws `WalkError` when it is non-empty — one synchronous
+    /// bulk crossing per walk, never a crossing per failure.
     #[napi]
     pub fn errors(&self) -> Vec<String> {
         self.inner.errors()
