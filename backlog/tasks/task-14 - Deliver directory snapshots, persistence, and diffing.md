@@ -67,6 +67,21 @@ Decisions worth keeping:
 - `crates/engine/src/walk.rs` grew one extracted, behaviour-preserving
   `scan_options()` so a snapshot and a walk share one default table.
 
+Two Windows facts the Linux sandbox could not show, both found by the CI
+matrix after the first push and both now pinned:
+
+- `std::fs::canonicalize` returns an extended-length path (`\\?\C:\project`).
+  The root is the one field a snapshot always exposes — document,
+  `Snapshot#root`, and every `Path` a diff returns — so the core strips the
+  prefix (`UNC/` included) when recording it, pinned by a pure-string test
+  that runs everywhere.
+- The first suite asserted Linux in three ways: expectations built with
+  `node:path.join` compare backslashes against the POSIX spelling
+  `Path.value` carries; a fixture root cannot be compared against a canonical
+  root that expands 8.3 short names (`RUNNER~1`); and creating a symlink is
+  privileged. Assertions now use the snapshot's own root plus the file
+  contents behind it, and the symlink test states its premise.
+
 A test the filesystem refused to let us write honestly: "two writes inside one
 millisecond are distinguished" was measured handing *identical* nanosecond
 stamps to two back-to-back writes on this host (linux-64, overlayfs,
@@ -78,9 +93,11 @@ mtimes share a millisecond diff as `modified`.
 ## Final Summary
 
 Landed: directory snapshots, the `pathway-snapshot-v1` persisted format, and
-diffing, across core, engine and the TypeScript surface. Suite 207 passing / 0
-skipped (was 168): core 85 nextest + 50 doctests, engine 8, path 1 + 2, Bun 61
-across 8 files. `pixi run --frozen gates` green.
+diffing, across core, engine and the TypeScript surface. Suite 209 passing / 0
+skipped (was 168): core 86 nextest + 50 doctests, engine 8, path 1 + 2, Bun 62
+across 8 files. `pixi run --frozen gates` green locally, and PR #18 green on
+all 19 checks — including the Bun and Node suites on ubuntu, macOS and
+Windows, which is where the two cross-platform defects above were caught.
 
 AC#1 (100k-file performance target) is left **unchecked and unverified**: no
 benchmark for `snapshot()` exists — task-4's harness measures the walk — so
