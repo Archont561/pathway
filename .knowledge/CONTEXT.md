@@ -350,3 +350,104 @@ Next session should start with:
 >
 > Propose the slice and stop. Repository rules are in `AGENTS.md`; the session
 > procedure and handoff templates are in `.agents/skills/session/`.
+
+### 2026-10-07 — task-14 (snapshots) merged as PR #18
+
+Landed: `feat(snapshot): capture, persist and diff directory trees`
+(task-14), main at `8fd5e5a`. `Path#snapshot(options?)` and
+`FileSystem#snapshot(root, options?)` fold one fused walk into a sorted
+value; `Snapshot#diff` buckets every path into added/removed/modified/
+unchanged as `Path[]`; `save`/`load`/`parse` round-trip the
+`pathway-snapshot-v1` JSON document, written atomically. Suite on merged
+main: 209 passing / 0 skipped (was 168/0; core 86 nextest + 50 doctests,
+engine 8, path 1 + 2, Bun 62 across 8 files). Post-merge runs all success:
+ci 37649020307, runtime matrix 37649020315, publish sandbox 37649020297,
+docs 37649240917. Transport repacked at source.commit `8fd5e5a` (pixi
+0.81.0, pixi-sandbox 0.5.2, pixi-unpack 0.7.11), lock_sha256 unchanged at
+`9e15a944` — no dependency moved, and none was added: `serde`/`serde_json`
+were already core dependencies.
+
+The shape decision, approved at proposal time: **core owns the mechanism and
+the JSON document is the transport.** A snapshot crosses the boundary as the
+same document `save()` writes, and a diff crosses as the four arrays the core
+computed; the TypeScript class parses the document for reads and never sorts,
+compares or re-times anything. One crossing per snapshot and one per diff
+(D2), and the real reason — a format whose two implementations can disagree
+is worse than no format. Nanoseconds are decimal **strings** on the wire and
+`bigint` on the surface (a JSON number is an IEEE-754 double; 2026 in
+nanoseconds needs 61 bits). Hashes decide a comparison only when both sides
+carry one, otherwise `size` + `modifiedNanos`. A foreign `format` tag is
+refused with `SnapshotFormatError`.
+
+**AC#1 is deliberately unverified and task-14 stays `In Progress`.** There is
+no benchmark for `snapshot()` at all — task-4's harness measures the walk —
+so "<500 ms on 100k files" has no evidence. `.knowledge/features/killer-features.md`
+§2 now opens its performance subsection with "Verification status: NOT
+VERIFIED for `snapshot()` (2026-10-07)", keeps the walk figures as the
+explicitly-labelled prior, and lists the snapshot-specific costs the prior
+does not cover (the `BTreeMap` fold, JSON serialization, the diff itself).
+`backlog/docs/phase-plan.md` carries the same note against the success
+criterion. Closing it needs a snapshot case in `benches/walk` plus a CI sweep.
+
+Three measurements worth carrying forward:
+
+- **This filesystem cannot distinguish two back-to-back writes.** The planned
+  "two writes inside one millisecond" test failed because overlayfs handed
+  both writes the *identical* nanosecond stamp (linux-64, 2026-10-07) — it
+  would have proven the clock tick, not the format. Precision is pinned twice
+  instead: the captured mtime equals the kernel's own `stat` to the
+  nanosecond, and two documents sharing a millisecond diff as `modified`.
+- **Windows `canonicalize` returns an extended-length path** (`\\?\C:\…`).
+  The root is the one field a snapshot always exposes, so the prefix would
+  have reached the document, `Snapshot#root` and every diffed `Path`. The
+  core strips it (`UNC/` included), pinned by a pure-string test that runs
+  everywhere. The walk has the same canonicalisation and exposes it under
+  `absolute: true` — **unverified**: nothing tests a Windows absolute walk,
+  and it is probably carrying the prefix today.
+- **A Linux-only suite passes Linux CI and fails elsewhere.** Three
+  assertions did: `node:path.join` expectations compare backslashes against
+  the POSIX spelling `Path.value` carries; a fixture root cannot be compared
+  against a canonical root that expands 8.3 short names (`RUNNER~1`); and
+  creating a symlink is privileged on Windows. The matrix caught all three
+  after the first push, which is the argument for pushing early rather than
+  for trusting a green local run.
+
+Environment facts for next time. The sandbox rolled state back mid-session
+again: `.pixi`, `.pixi-sandbox` and `~/.local/bin` disappeared between two
+turns and needed a fresh `bash scripts/restore.sh` (~50 s). Commit and push
+before ending a turn. CI job logs live on
+`productionresultssa*.blob.core.windows.net`, which an airlocked sandbox
+cannot reach — `gh run view --log-failed` returns nothing, so a cross-platform
+failure has to be diagnosed by reproducing the platform's rule locally (the
+symlink probe that found the canonicalisation issue) rather than by reading
+the log. Also note `pixi run --frozen bun x turbo run test --filter=<name>`
+fails to parse a filter containing `/` (it prints the task list); use the
+repo-wide verb instead, turbo's cache makes it cheap.
+
+Open, in recommended order: task-28 Phase A (High, fixture kits — the new
+snapshot suite is the third one to build trees by hand) or TASK-31 (High,
+unnamed temp files, the tier-2 half of task-12). task-16 (Medium, locking)
+unblocks task-21 + task-26. task-14's AC#1 is a small, well-defined follow-up
+whenever a benchmark session is wanted. task-19's crates.io publish still
+needs maintainer credentials.
+
+Next session should start with:
+
+> Restore Pathway's sandbox and baseline the suite (expect 209 passing / 0
+> skipped — transport repacked at 8fd5e5a, pixi 0.81.0 / pixi-sandbox 0.5.2),
+> then read `.knowledge/CONTEXT.md` § Session scratchpad — the newest
+> 2026-10-07 heading (task-14 / PR #18) lists the open items.
+>
+> Task-28 Phase A (fixture kits; rstest 0.27, proptest 1.11 and fast-check
+> 4.10.2 are vendored and compile offline) is the recommended scope; TASK-31
+> (unnamed temp files, tier 2) and task-16 (locking, unblocks task-21 +
+> task-26) are the alternatives. If you would rather close task-14's open
+> AC#1 instead, that is a benchmark slice: a snapshot case in `benches/walk`
+> plus a CI sweep, and nothing in it is provable from the sandbox alone.
+>
+> Work in slices: core + engine + TS surface with premise-guarded tests first
+> (fully local), then nothing external. Note that CI logs are unreachable from
+> the sandbox, so cross-platform failures must be reproduced locally.
+>
+> Propose the slice and stop. Repository rules are in `AGENTS.md`; the session
+> procedure and handoff templates are in `.agents/skills/session/`.
