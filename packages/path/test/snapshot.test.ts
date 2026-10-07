@@ -1,13 +1,28 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { FileSystem, Path, Snapshot, SnapshotFormatError } from "../src/index.js";
 
-/** Builds a throwaway tree; every test's setup is one call. */
+/**
+ * Builds a throwaway tree; every test's setup is one call.
+ *
+ * The returned root is `realpath`-resolved, because a snapshot's root is the
+ * canonical one — on macOS the system temp directory is `/var/folders/...`,
+ * a symlink to `/private/var/folders/...`, so an un-resolved fixture path
+ * would make every path assertion here a Linux-only assertion.
+ */
 const roots: string[] = [];
 function tree(files: Record<string, string>): string {
-  const root = mkdtempSync(join(tmpdir(), "pathway-snapshot-"));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "pathway-snapshot-")));
   roots.push(root);
   for (const [file, contents] of Object.entries(files)) {
     const path = join(root, file);
@@ -139,6 +154,17 @@ describe("snapshot", () => {
 
     expect(() => Snapshot.parse(foreign)).toThrow(SnapshotFormatError);
     expect(() => Snapshot.parse(foreign)).toThrow(/pathway-snapshot-v0/);
+  });
+
+  test("the root is canonical, so a symlinked root resolves to its target", async () => {
+    const root = tree({ "inner/a.ts": "a" });
+    const link = join(root, "link");
+    symlinkSync(join(root, "inner"), link);
+
+    const snapshot = await new Path(link).snapshot();
+
+    expect(snapshot.root).toBe(join(root, "inner"));
+    expect([...snapshot.entries.keys()]).toEqual(["a.ts"]);
   });
 
   test("FileSystem#snapshot hands back Paths bound to that view", async () => {

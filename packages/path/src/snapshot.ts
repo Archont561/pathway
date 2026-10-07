@@ -167,7 +167,15 @@ function asSnapshotError(error: unknown): unknown {
  * JavaScript object the core would have to re-validate.
  */
 export class Snapshot {
-  /** The absolute root the snapshot was taken of. */
+  /**
+   * The absolute root the snapshot was taken of, **canonicalised**.
+   *
+   * Symlinks in the root are resolved, exactly as a walk resolves them — the
+   * engine canonicalises so that "the full absolute path" means one thing. A
+   * caller that passes a symlinked directory (macOS's `/var/folders/...`, for
+   * instance, which is a link to `/private/var/folders/...`) gets the target
+   * back here and in every `Path` a diff produces.
+   */
   readonly root: string;
 
   /** When the capture finished, in nanoseconds since the Unix epoch. */
